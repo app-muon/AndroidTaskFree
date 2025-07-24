@@ -24,6 +24,7 @@ local.properties
 # Keystore files
 *.jks
 *.keystore
+gradle.properties
 
 # Log files
 *.log
