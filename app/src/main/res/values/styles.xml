@@ -1,0 +1,64 @@
+<resources>
+    <style name="MyMaterialDatePickerTheme" parent="ThemeOverlay.MaterialComponents.MaterialCalendar">
+        <item name="materialCalendarStyle">@style/Custom_MaterialCalendar.Fullscreen</item>
+        <item name="materialCalendarHeaderTitle">@style/customHeaderTitle</item>
+        <item name="materialCalendarHeaderSelection">@style/CustomHeaderSelection</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Buttons</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Buttons</item>
+        <item name="android:textColorPrimary">@color/dialog_button_text_colour</item>
+        <item name="colorPrimary">@color/dialog_background_colour</item>
+        <item name="colorSurface">@color/dialog_background_colour</item>
+        <item name="colorOnSurface">@color/dialog_button_text_colour</item>
+        <item name="colorOnPrimary">@color/dialog_button_text_colour</item>
+    </style>
+
+    <style name="Custom_MaterialCalendar.Fullscreen" parent="@style/Widget.MaterialComponents.MaterialCalendar">
+        <item name="android:windowFullscreen">false</item>
+        <item name="rangeFillColor">@android:color/holo_green_light</item>
+        <item name="dayStyle">@style/CustomWidget_Day</item>
+        <item name="daySelectedStyle">@style/CustomSelected</item>
+    </style>
+    <style name="customHeaderTitle" parent="@style/Widget.MaterialComponents.MaterialCalendar.HeaderTitle">
+        <item name="android:textSize">0sp</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:visibility">gone</item>
+    </style>
+    <style name="CustomHeaderSelection" parent="Widget.MaterialComponents.MaterialCalendar.HeaderSelection">
+        <item name="android:textSize">24sp</item>
+        <item name="android:textColor">@color/dialog_button_text_colour</item>
+    </style>
+    <style name="CustomWidget_Day" parent="Widget.MaterialComponents.MaterialCalendar.Day">
+        <item name="android:textSize">18sp</item>
+        <item name="itemTextColor">@color/dialog_button_text_colour</item>
+    </style>
+    <style name= "CustomSelected" parent="Widget.MaterialComponents.MaterialCalendar.Day.Selected">
+        <item name="itemFillColor">@color/dialog_button_text_colour</item>
+        <item name="itemTextColor">@android:color/white</item>
+    </style>
+    <style name="Buttons" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/dialog_button_text_colour</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="MyMaterialTimePickerTheme" parent="ThemeOverlay.MaterialComponents.TimePicker">
+        <item name="materialTimePickerStyle">@style/Custom_MaterialTimePicker</item>
+        <item name="borderlessButtonStyle">@style/TimePickerActionButton</item>
+        <item name="android:textColorPrimary">@color/dialog_button_text_colour</item>
+        <item name="colorPrimary">@color/dialog_button_text_colour</item>
+        <item name="colorSurface">@color/dialog_background_colour</item>
+        <item name="colorOnSurface">@color/dialog_button_text_colour</item>
+        <item name="colorOnPrimary">@color/dialog_button_text_colour</item>
+        <item name="colorSecondary">@color/dialog_button_text_colour</item>
+        <item name="colorOnSecondary">@android:color/white</item>
+    </style>
+
+    <style name="TimePickerActionButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/dialog_button_text_colour</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Custom_MaterialTimePicker" parent="Widget.MaterialComponents.TimePicker">
+        <item name="android:background">@color/dialog_background_colour</item>
+        <item name="clockNumberTextColor">@color/dialog_button_text_colour</item>
+    </style>
+</resources>

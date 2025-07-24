@@ -1,0 +1,38 @@
+[versions]
+agp = "8.6.1"
+kotlin = "2.1.0"
+composeBom = "2025.05.00"
+reorderable      = "2.4.3"
+coroutines = "1.8.0"
+material = "1.12.0"
+kotlinx-serialization = "1.6.3"
+
+[libraries]
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-ui         = { group = "androidx.compose.ui",          name = "ui" }          # no version → use BOM
+compose-foundation = { group = "androidx.compose.foundation",  name = "foundation" }  # idem
+compose-material3  = { group = "androidx.compose.material3",   name = "material3" }   # idem
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" } # version comes from BOM
+reorderable        = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version = "1.1.1" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.10.1" }
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.0" }
+lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version = "2.9.0" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version = "1.8.1" }
+
+room-runtime = { group = "androidx.room", name = "room-runtime", version = "2.7.1" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version = "2.7.1" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version = "2.7.1" }
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version = "4.5.4" }
+androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version = "2.4.0" }
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version = "1.9.23" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
