@@ -1,0 +1,4 @@
+<!-- res/xml/filepaths.xml -->
+<paths>
+    <cache-path name="exports" path="."/>
+</paths>

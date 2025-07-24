@@ -1,0 +1,207 @@
+<resources>
+    <string name="app_name">TaskFree</string>
+    <!-- Shown on the navigation bar for date-based task grouping -->
+    <string name="tasks_due">Tasks due</string>
+    <!-- Used as title for the recurrence section -->
+    <string name="repeat">Repeat</string>
+    <string name="no_recurrence_label">No</string>
+    <string name="daily_recurrence">Daily</string>
+    <string name="weekly_recurrence">Weekly</string>
+    <string name="recurrence_on_weekdays">Weekdays</string>
+    <string name="recurrence_on_weekends">Weekends</string>
+    <string name="monthly_recurrence">Monthly</string>
+    <!-- Shown when a selected date is invalid for weekday recurrence -->
+    <string name="incompatibility_not_weekday">The selected date (%1$s) is not a weekday</string>
+    <!-- Shown when a selected date is invalid for weekend recurrence -->
+    <string name="incompatibility_not_weekend">The selected date (%1$s) is not a weekend</string>
+    <string name="a_due_date_is_required_for_recurring_tasks">A due date is required for recurring tasks.</string>
+    <string name="no_string" />
+    <!--Task statuses-->
+    <string name="to_do_status">To do</string>
+    <string name="doing_status">Doing</string>
+    <string name="pending_status">Pending</string>
+    <string name="done_status">Done</string>
+    <!-- Title with %1$s replaced by task status (e.g. "Done") -->
+    <string name="set_as_for_task_status">Set as %1$s</string>
+    <!--Categories-->
+    <string name="category">Category</string>
+    <string name="categories">Categories</string>
+    <string name="all_categories">All categories</string>
+    <string name="no_categories_yet">There are no categories yet</string>
+    <!-- Button label to add a new category -->
+    <string name="add_category_button_label">Add category</string>
+    <string name="category_name">Category name</string>
+    <string name="name_of_unknown_category">Unknown</string>
+    <!--Category actions-->
+    <string name="go_to_category_action">View tasks in category</string>
+    <string name="delete_this_category_action">Delete this category</string>
+    <string name="archive_completed_in_category_action">Archive completed tasks in category</string>
+    <string name="are_you_sure_you_delete_category">Are you sure you want to permanently delete “%1$s” and all its tasks?</string>
+    <!--Dialog confirmations-->
+    <string name="add_category_yes_dialog_button">Add</string>
+    <string name="delete_yes_dialog_button">Delete</string>
+    <string name="archive_task_yes_dialog_button">Archive</string>
+    <string name="this_action_cannot_be_undone">This action cannot be undone</string>
+    <string name="save_yes_dialog_button">Save</string>
+    <string name="cancel_no_dialog_button">Cancel</string>
+    <string name="dismiss_yes_dialog_button">Dismiss</string>
+
+    <!--Archiving action-->
+    <string name="archive_task_action">Archive task</string>
+    <string name="archive_series_action">Archive series</string>
+    <string name="unarchive_task">Unarchive task</string>
+    <string name="menu_archive_task_action_confirmation">Archive task?</string>
+    <string name="menu_archive_series_action_confirmation">Archive series?</string>
+    <string name="are_you_sure_you_want_to_archive_task">Are you sure you want to archive this task?</string>
+    <string name="are_you_sure_you_want_to_archive_series">Are you sure you want to archive this series of tasks?</string>
+    <string name="this_will_archive_the_task_and_prevent_future_recurring_tasks_from_being_created">This will archive the task and prevent future recurring tasks from being created.</string>
+
+    <!--   Archive Menu-->
+    <!-- Title for tools menu -->
+    <string name="tools_menu_name">Tools</string>
+    <string name="archive_old_completed">Archive old completed tasks</string>
+    <string name="permanently_delete_tasks">Permanently delete archived tasks</string>
+    <string name="toggle_view_archived">Toggle to view archived tasks</string>
+    <string name="toggle_view_unarchived">Toggle to view unarchived tasks</string>
+    <string name="confirm_archived_completed_title">Archive completed tasks?</string>
+    <string name="confirm_archive_old_completed_msg">This will archive all tasks completed before today</string>
+    <string name="confirm_archive_category_completed_msg">This will archive all completed tasks in this category</string>
+    <string name="confirm_permanently_delete_title">Permanently delete archived tasks?</string>
+
+    <!--Task display default_messages-->
+    <string name="no_tasks_match_your_filters">No tasks match your filters</string>
+    <string name="no_tasks_to_display_default_message">No tasks to display</string>
+    <string name="no_archived_tasks_to_display_default_message">No archived tasks to display</string>
+
+    <!--Add Task button label-->
+    <string name="add_task_button_label">Add task</string>
+
+    <!--Dates-->
+    <string name="all_dates">All dates</string>
+    <string name="due">Due</string>
+    <string name="due_with_date">Due: %1$s</string>
+    <string name="task_text_label">Task text</string>
+    <string name="no_due_date_due_value">None</string>
+    <string name="today">Today</string>
+    <string name="tomorrow">Tomorrow</string>
+    <string name="yesterday">Yesterday</string>
+    <!-- Placeholder for offset day label like "Today+1", "Today+2", etc. -->
+    <string name="today_offset">Today%+d</string>
+    <string name="date_picker">Date…</string>
+    <string name="completed_date_label">Completed</string>
+    <string name="completed_no_label">No</string>
+    <!-- Used when cloning a task; %1$s is original task name -->
+    <string name="task_name_when_copy">%1$s (copy)</string>
+    <string name="search_tasks_placeholder">Search tasks</string>
+    <string name="archived_task_label">Archived</string>
+
+    <!--Task actions-->
+    <string name="postpone_to_tomorrow_action">Postpone to tomorrow</string>
+    <string name="clone_task_action">Clone</string>
+    <!--   Notifications-->
+    <string name="no_notification">No</string>
+    <!-- Time option shown in notification picker -->
+    <string name="nine_am">9am</string>
+    <!-- Time option shown in notification picker -->
+    <string name="noon">Noon</string>
+    <!-- Time option shown in notification picker -->
+    <string name="three_pm">3pm</string>
+    <string name="time_picker">Pick time…</string>
+    <string name="notification_heading">Notification</string>
+    <string name="notification_time_with_time">Notification time: %1$s</string>
+    <string name="missing_due_for_notification">Cannot add notification without a due date</string>
+    <string name="reminder_channel_name">Task notifications</string>
+    <string name="reminder_channel_desc">Notification channel for tasks</string>
+    <string name="notification_scheduled">Notification scheduled</string>
+    <string name="notification_cancelled">Notification cancelled</string>
+
+    <!--  The tips to help the users-->
+    <string name="tip_show_tips_again">Show tips again</string>
+
+    <string name="tip_instructions_title">TaskFree</string>
+    <string name="tip_instructions_body">
+        A free, ad-free, and open-source task manager. No data is shared with us,
+        advertisers, or any third parties — only the usual information with Google.
+
+        \n\nCreate tasks by category, add due dates, and set notifications.
+        You can even make tasks repeat—for example every Friday. It’s easy to see what’s due,
+        filter your list, and mark tasks as \"pending\" \"doing\", or \"done\".
+
+        \n\nLike most apps, TaskFree syncs with your Google account. This means your tasks follow you
+        when you switch phones. You can encrypt this synced data, if you want to keep it private.
+
+        \n\nSource code: https://github.com/app-muon/AndroidTaskFreeApp
+        \n\nmuonappdevelopment@gmail.com or open an issue/PR on GitHub.
+
+    </string>
+    <string name="tip_create_your_first_category_title">Add a category by tapping the + button</string>
+    <string name="tip_create_your_first_category_body">All tasks belong to a category</string>
+    <string name="got_it_confirmation">Got it</string>
+
+    <string name="tip_title_reorder_rows">Reorder rows</string>
+    <string name="tip_drag_the_handle_to_reorder_rows">Drag the ≡ handle to reorder rows</string>
+
+    <string name="tip_more_actions_title">More actions</string>
+    <string name="tip_click_to_edit_and_view_tasks_and_more">Tap a row to edit and view tasks and more</string>
+
+    <string name="tip_navigate_to_categories_title">Navigate to categories screen</string>
+    <string name="tip_navigate_to_tasks_title">Navigate to tasks screen</string>
+
+    <!--    This is linked to the text in task_view resource-->
+    <!--    These text snippets make up a sentence-->
+    <string name="tip_view_prefix">Tap</string>
+    <string name="tip_view_tasks_label">Tasks due</string>
+    <string name="tip_view_category_label">Categories</string>
+    <string name="tip_view_suffix">at the bottom</string>
+
+    <string name="tip_add_your_first_task_title">Add a task by tapping the + button</string>
+    <!--    This refers to this button label add_task_button_label-->
+    <!--    <string name="tap_add_task_to_start">Tap "+ Add task".</string>-->
+
+    <string name="tip_filter_tasks_title">Filter tasks</string>
+    <string name="tip_filter_tasks">Use the top filters to control what’s shown, such as only today’s incomplete tasks</string>
+
+    <!--    When the database is encrypted-->
+    <string name="encrypting_header">Encrypting…</string>
+    <string name="encrypt_my_data_command">Encrypt my Google-backup data</string>
+    <string name="you_ll_need_to_enter">
+Your app data will be encrypted in your Google backup, so only you can read it.
+When you set up a new phone, enter your 8-word recovery phrase to unlock the data.
+</string>
+    <string name="view_recovery_phrase">View recovery phrase</string>
+    <string name="no_phrase_found">No recovery phrase found.</string>
+    <string name="close">Close</string>
+    <string name="restore_found_title">Encrypted backup found</string>
+    <string name="restore_found_body">We detected encrypted data from your previous device. Restore it now?</string>
+    <string name="enter_phrase_title">Enter 8-word phrase</string>
+    <string name="phrase_incorrect">Phrase incorrect. Please try again.</string>
+    <string name="restore">Restore</string>
+    <string name="skip">Ignore saved data</string>
+    <string name="encrypt_yes_dialog_button">Encrypt</string>
+    <string name="your_recovery_phrase">Your recovery phrase</string>
+    <string name="i_ve_written_the_8_words">I’ve written the 8 words</string>
+    <string name="i_understand_i_can_t_recover_without_them">I understand I can’t recover without them</string>
+    <string name="encrypt_my_data_temp">Encrypt my data</string>
+    <string name="encryption_progress_percentage">Encrypting… %d%%</string>
+    <string name="keep_your_8_word_phrase_safe">Keep your 8-word phrase safe.</string>
+    <string name="data_encrypted">Data encrypted</string>
+
+    <!--Options to back up the data-->
+    <string name="backup_to_file">Back up to file</string>
+    <string name="restore_from_file">Restore from file</string>
+    <string name="restore_ok">Restore successful</string>
+    <string name="restore_yes_dialog_button">Select file</string>
+    <string name="confirm_restore_title">Confirm Restore</string>
+    <string name="confirm_restore_msg">
+Choose a backup file to restore your tasks. This will replace all existing data in this app.
+</string>    <string name="err_generic_restore">Restore failed</string>
+    <string name="backup_ok">Backup saved</string>
+    <string name="err_backup_version">Unsupported backup version</string>
+    <string name="err_cat_empty_title">A category title is blank</string>
+    <string name="err_cat_duplicate_id">Duplicate category IDs</string>
+    <string name="err_cat_bad_id">A category ID is not positive</string>
+    <string name="err_task_duplicate_id">Duplicate task IDs</string>
+    <string name="err_task_empty_text">Task %1$d has an empty title</string>
+    <string name="err_task_bad_category">Task %1$d points to missing category %2$d</string>
+    <string name="backup_save_failed">Save failed</string>
+</resources>

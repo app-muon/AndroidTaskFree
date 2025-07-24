@@ -1,0 +1,23 @@
+Source-Available Non-Commercial Licence v1.0
+
+Copyright (c) 2025 	muonappdevelopment@gmail.com,user app-muon on Github
+
+This software is provided for personal, educational, and non-commercial use only.
+
+You are free to:
+- View, use, and modify the source code for non-commercial purposes.
+- Share modified or unmodified versions, provided this licence and attribution are included.
+
+You may not:
+- Use the software, or any part of it, for commercial purposes.
+- Distribute it on app stores or marketplaces without written permission from the author.
+- Sell, sublicense, or monetise any version of this software.
+
+Commercial use includes, but is not limited to:
+- Charging users for the app
+- Bundling with paid services or ads
+- Distributing as part of a commercial offering
+
+No warranty is provided. Use at your own risk.
+
+To request a commercial licence, contact: muonappdevelopment@gmail.com

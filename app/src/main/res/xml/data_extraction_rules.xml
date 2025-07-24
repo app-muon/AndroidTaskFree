@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules allowBackup="true">
+    <cloud-backup>
+        <exclude domain="sharedpref" path="encryption_secret.xml"/>
+    </cloud-backup>
+</data-extraction-rules>

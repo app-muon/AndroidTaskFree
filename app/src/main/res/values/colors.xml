@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dark_red">#FFB60000</color>
+    <color name="bright_red">#FFFF0202</color>
+    <color name="transparent_colour">#00000000</color>
+
+    <color name="surface_colour">#FF000000</color>
+    <color name="pill_colour">#FF1F2226</color>
+    <color name="pill_text">#FFE9EEF3</color>
+    <color name="todo_colour">#FF3386CA</color>
+    <color name="in_progress_colour">#FF83388F</color>
+    <color name="pending_colour">#FFB97A1E</color>
+    <color name="done_colour">#FF539456</color>
+
+    <color name="all_category_pill_colour">#FF676767</color>
+    <color name="all_dates_pill_colour">#FF380375</color>
+    <color name="selected_date_pill_colour">#FF660375</color>
+    <color name="category_row_colour">#FFD4E2D4</color>
+    <color name="dialog_button_background_colour">#FFE9EEF3</color>
+    <color name="dialog_button_text_colour">#FF3386CA</color>
+    <color name="dialog_primary_colour">#FF3386CA</color>
+    <color name="dialog_background_colour">#FFE9EEF3</color>
+    <color name="dialog_pill_selected_colour">#FF3386CA</color>
+
+    <color name="top_bar_colour">#FFFFFFFF</color>
+    <color name="bottom_bar_colour">#FFFFFFFF</color>
+    <color name="list_background_colour">#FFE9EEF3</color>
+    <color name="add_task_button_background_colour">#FFFFFFFF</color>
+
+</resources>
