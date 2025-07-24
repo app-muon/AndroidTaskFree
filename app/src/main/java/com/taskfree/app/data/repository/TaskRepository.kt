@@ -12,6 +12,7 @@ import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.domain.model.calculateNextValidDueDate
 import kotlinx.coroutines.flow.Flow
+import net.sqlcipher.BuildConfig
 import java.time.Instant
 import java.time.LocalDate
 
@@ -19,13 +20,17 @@ class TaskRepository(private val database: AppDatabase) {
     suspend fun snapshot(): List<Task> = database.taskDao().getAllNow()
 
     suspend fun replaceAll(cats: List<Category>, tasks: List<Task>) {
-        Log.d("Backup", "replaceAll cats=${cats.size} tasks=${tasks.size}")
+        if (BuildConfig.DEBUG) {
+            Log.d("Backup", "replaceAll cats=${cats.size} tasks=${tasks.size}")
+        }
         database.withTransaction {
             val d1 = database.categoryDao().deleteAll()
             val d2 = database.taskDao().deleteAll()
             val i1 = database.categoryDao().insertAll(cats).size
             val i2 = database.taskDao().insertAll(tasks).size
-            Log.d("Backup", "delC=$d1 delT=$d2  insC=$i1 insT=$i2")
+            if (BuildConfig.DEBUG) {
+                Log.d("Backup", "delC=$d1 delT=$d2  insC=$i1 insT=$i2")
+            }
         }
     }
 
@@ -71,7 +76,9 @@ class TaskRepository(private val database: AppDatabase) {
             isArchived = false,
             reminderTime = input.reminderTime
         )
-        Log.d("TaskRepository", "Creating task: $task")
+        if (BuildConfig.DEBUG) {
+            Log.d("TaskRepository", "Creating task: $task")
+        }
         return database.taskDao().insert(task).toInt()
     }
 
@@ -80,17 +87,21 @@ class TaskRepository(private val database: AppDatabase) {
         database.withTransaction {
             tasks.forEach { task ->
                 val rows = database.taskDao().update(task)
-                Log.d(
-                    "Repo-reorder",
-                    "id=${task.id} rows=$rows newAll=${task.allCategoryPageOrder}"
-                )
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "Repo-reorder",
+                        "id=${task.id} rows=$rows newAll=${task.allCategoryPageOrder}"
+                    )
+                }
                 require(rows > 0) { "Task update failed for id=${task.id}" }
             }
         }
     }
 
     suspend fun archiveTask(task: Task) {
-        Log.d("TaskRepository", "Archiving task: $task")
+        if (BuildConfig.DEBUG) {
+            Log.d("TaskRepository", "Archiving task: $task")
+        }
         val archived = task.copy(isArchived = true)
         val updatedRows = database.taskDao().update(archived)
         require(updatedRows > 0) { "Archive failed: no row updated for id=${task.id}" }
@@ -114,7 +125,9 @@ class TaskRepository(private val database: AppDatabase) {
                     createTask(
                         TaskInput(task.text, nextDueDate, task.recurrence, task.categoryId)
                     )
-                    Log.d("TaskRepository", "Spawned next recurring task due: $nextDueDate")
+                    if (BuildConfig.DEBUG) {
+                        Log.d("TaskRepository", "Spawned next recurring task due: $nextDueDate")
+                    }
                 }
 
                 // Then mark current task as archived/deleted (soft delete)
@@ -202,14 +215,18 @@ class TaskRepository(private val database: AppDatabase) {
             recurrence = newRecurrence,
             reminderTime = newReminderTime
         )
-        Log.d("TaskRepository", "Updating task: original $task")
-        Log.d("TaskRepository", "Updating task: update $updated")
+        if (BuildConfig.DEBUG) {
+            Log.d("TaskRepository", "Updating task: original $task")
+            Log.d("TaskRepository", "Updating task: update $updated")
+        }
         database.taskDao().update(updated)
     }
 
     suspend fun archiveTasksCompletedBeforeToday() {
         val today = LocalDate.now()
-        Log.d("TaskRepository", "deleting tasks completed before: $today")
+        if (BuildConfig.DEBUG) {
+            Log.d("TaskRepository", "deleting tasks completed before: $today")
+        }
         database.taskDao().archiveOldCompletedTasks(today)
     }
 
@@ -218,7 +235,9 @@ class TaskRepository(private val database: AppDatabase) {
     }
 
     suspend fun deleteAllArchivedTasks() {
-        Log.d("TaskRepository", "Permanently deleting deleted tasks")
+        if (BuildConfig.DEBUG) {
+            Log.d("TaskRepository", "Permanently deleting deleted tasks")
+        }
         database.taskDao().permanentlyDeleteArchivedTasks()
     }
 
