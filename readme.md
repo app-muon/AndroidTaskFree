@@ -1,6 +1,6 @@
 # TaskFree for Android
 
-TaskFree is a free, ad-free, and open-source task manager. No data is shared with us,
+A is a free, ad-free, and open-source task manager. No data is shared with us,
 advertisers, or any third parties — only with Google.
 
 Create tasks by category, add due dates, and set notifications.
