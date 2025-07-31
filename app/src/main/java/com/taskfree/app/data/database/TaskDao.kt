@@ -55,7 +55,7 @@ interface TaskDao {
         """
     SELECT categoryId, COUNT(*) AS count
     FROM Task
-    WHERE status != 'DONE'
+    WHERE status != 'DONE' AND isArchived = 0
     GROUP BY categoryId
 """
     )
