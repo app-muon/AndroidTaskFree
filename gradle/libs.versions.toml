@@ -28,7 +28,7 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version = "2.7.1" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version = "2.7.1" }
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version = "4.5.4" }
+sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version = "4.9.0" }
 androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version = "2.4.0" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

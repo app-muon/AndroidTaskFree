@@ -6,14 +6,13 @@ import androidx.room.Room
 import com.taskfree.app.Prefs
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.enc.DatabaseKeyManager
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 object AppDatabaseFactory {
     @Volatile
     private var INSTANCE: AppDatabase? = null
 
     fun getDatabase(context: Context): AppDatabase {
-        net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
         return INSTANCE ?: synchronized(this) {
             try {
                 INSTANCE?.close()
@@ -35,7 +34,7 @@ object AppDatabaseFactory {
     fun createTempEncryptedDatabase(context: Context, key: ByteArray): AppDatabase {
         return Room.databaseBuilder(
             context.applicationContext, AppDatabase::class.java, "checklists_temp.db"
-        ).openHelperFactory(SupportFactory(key, null, false)).build()
+        ).openHelperFactory(SupportOpenHelperFactory(key)).build()
     }
 
     private fun buildDatabase(context: Context): AppDatabase {
@@ -79,48 +78,25 @@ object AppDatabaseFactory {
                 }
             }
 
-            builder.openHelperFactory(SupportFactory(key.copyOf(), null, false))
+            builder.openHelperFactory(SupportOpenHelperFactory(key.copyOf()))
         }
 
         return builder.build()
     }
 
-    private fun createFreshSupportFactory(key: ByteArray): SupportFactory {
-        // Create a wrapper that ensures fresh factory instances
-        return object : SupportFactory(key.copyOf(), null, false) {
-            // This ensures each connection gets a fresh factory state
-        }
-    }
-
     private fun verifyDatabaseKey(context: Context, key: ByteArray): Boolean {
-        val dbFile = context.getDatabasePath("checklists.db")
-        if (!dbFile.exists()) {
-            return true // New database, key is fine
-        }
-
+        val dbName = "checklists.db"
+        if (!context.getDatabasePath(dbName).exists()) return true
         return try {
-            // Use SQLCipher's database opening method
-            val keyString = String(key, Charsets.ISO_8859_1)
-            val testDb = net.sqlcipher.database.SQLiteDatabase.openDatabase(
-                dbFile.absolutePath,
-                keyString,
-                null,
-                net.sqlcipher.database.SQLiteDatabase.OPEN_READONLY
-            )
-
-            // Try to execute a simple query to verify the key works
-            val cursor = testDb.rawQuery("SELECT count(*) FROM sqlite_master", null)
-            cursor.moveToFirst()
-            cursor.close()
-            testDb.close()
-
-            Log.d("DatabaseFactory", "Key verification successful")
+            val tmp = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+                .openHelperFactory(SupportOpenHelperFactory(key))
+                .build()
+            tmp.openHelper.readableDatabase.query("SELECT 1").use { /* ok */ }
+            tmp.close()
             true
-        } catch (e: Exception) {
-            Log.e("DatabaseFactory", "Key verification failed", e)
-            false
-        }
+        } catch (t: Throwable) { false }
     }
+
     fun clearInstance() {
         synchronized(this) {
             INSTANCE?.close()
