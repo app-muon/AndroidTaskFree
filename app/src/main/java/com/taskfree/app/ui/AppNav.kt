@@ -37,7 +37,7 @@ import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.enc.MnemonicManager
 import com.taskfree.app.ui.task.TaskSearchScreen
-import java.time.LocalDate
+import com.taskfree.app.util.AppDateProvider
 
 @Composable
 fun AppNav() {
@@ -101,7 +101,8 @@ fun AppNav() {
     }
 
     navigationError?.let { error ->
-        AlertDialog(onDismissRequest = { navigationError = null },
+        AlertDialog(
+            onDismissRequest = { navigationError = null },
             title = { Text("Navigation Error") },
             text = { Text(error) },
             confirmButton = {
@@ -136,7 +137,7 @@ fun AppNav() {
 
             val initialDueChoice =
                 if (dateOffset == Int.MIN_VALUE) DueChoice.fromSpecial(DueChoice.Special.ALL)
-                else DueChoice.from(LocalDate.now().plusDays(dateOffset.toLong()))
+                else DueChoice.from(AppDateProvider.current.todayPlusDays(dateOffset.toLong()))
             TaskSearchScreen(
                 navController = nav, initialCategoryId = catId, initialDueChoice = initialDueChoice
             )

@@ -6,9 +6,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.util.AppDateProvider
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
-enum class DueKind { NONE, ALL, TODAY, TOMORROW, PLUS2, OTHER }/*─────────────────────────────── 1 ▌MODEL ────────────────────────────────*/
+enum class DueKind { NONE, ALL, TODAY, TOMORROW, PLUS2, OTHER }
+
+/*─────────────────────────────── 1 ▌MODEL ────────────────────────────────*/
 
 sealed class DueChoice {
     /** Small enum to tag the two "no-date" options */
@@ -28,15 +32,15 @@ sealed class DueChoice {
     }
 
     data object Today : DueChoice() {
-        override val date: LocalDate? = LocalDate.now()
+        override val date: LocalDate get() = AppDateProvider.current.today()
     }
 
     data object Tomorrow : DueChoice() {
-        override val date: LocalDate? = LocalDate.now().plusDays(1)
+        override val date: LocalDate? get() = AppDateProvider.current.today().plusDays(1)
     }
 
     data object Plus2 : DueChoice() {
-        override val date: LocalDate? = LocalDate.now().plusDays(2)
+        override val date: LocalDate? get() = AppDateProvider.current.today().plusDays(2)
     }
 
     data class Other(override val date: LocalDate?) :
@@ -44,36 +48,22 @@ sealed class DueChoice {
 
     /*────────────────────────── factory ────────────────────────────────*/
     companion object {
-
-        /**
-         * Convert a nullable LocalDate **or** special token:
-         *   - `null`   → None
-         *   - *today*  → Today
-         *   - *+1 day* → Tomorrow
-         *   - *+2 day* → Plus2
-         *   - anything else → Other(date)
-         */
         fun from(date: LocalDate): DueChoice {
-            val today = LocalDate.now()
-            return when (date) {
-                today -> Today
-                today.plusDays(1) -> Tomorrow
-                today.plusDays(2) -> Plus2
+            val today = AppDateProvider.current.today()
+            return when (ChronoUnit.DAYS.between(today, date)) {
+                0L -> Today
+                1L -> Tomorrow
+                2L -> Plus2
                 else -> Other(date)
             }
         }
 
         fun fromSpecial(token: Special): DueChoice = when (token) {
-            Special.NONE -> None
-            Special.ALL -> All
+            Special.NONE -> None; Special.ALL -> All
         }
 
-        /** Preset list for choice UI (order matters) */
         fun allChoices(): List<DueChoice> = listOf(None, Today, Tomorrow, Plus2, Other(null))
-
-        /** Preset list for filter UI (adds the "All" entry) */
         fun allFilters(): List<DueChoice> = listOf(All, Today, Tomorrow, Plus2, Other(null))
-
     }
 }/*──────────────────────────── 2 ▌BEHAVIOUR ──────────────────────────────*/
 

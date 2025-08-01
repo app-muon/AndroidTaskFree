@@ -26,14 +26,13 @@ import androidx.compose.ui.zIndex
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.ui.components.CategoryPill
-import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.InfoPill
+import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.showDatePicker
-import java.time.LocalDate
 
 /**
  * Compact row that hosts the **Category** and **Date** dropdown filters
@@ -127,10 +126,9 @@ fun CategoryDropDown(
 
 @Composable
 fun DateDropDown(
-    selectedDueChoice: DueChoice, onDueSelected: (DueChoice) -> Unit
+    selectedDueChoice: DueChoice, onDueSelected: (DueChoice) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val today = LocalDate.now()
     val context = LocalContext.current
 
     TextButton(
@@ -163,10 +161,12 @@ fun DateDropDown(
                     expanded = false
                     if (entry.launchDatePicker()) {
                         showDatePicker(
-                            context = context, initialDate = entry.date ?: today
-                        ) { picked ->
-                            onDueSelected(DueChoice.from(picked))
-                        }
+                            context = context,
+                            initialDate = entry.date,
+                            onDateSelected = { picked ->
+                                onDueSelected(DueChoice.from(picked))
+                            },
+                        )
                     } else {
                         onDueSelected(entry)
                     }

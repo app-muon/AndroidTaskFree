@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.taskfree.app.R
+import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.DateProvider
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -30,10 +32,13 @@ private fun recurrenceNextDate(recurrence: Recurrence, baseDate: LocalDate): Loc
     }
 }
 
-fun Recurrence.calculateNextValidDueDate(baseDate: LocalDate): LocalDate? {
+fun Recurrence.calculateNextValidDueDate(
+    baseDate: LocalDate,
+    dateProvider: DateProvider = AppDateProvider.current
+): LocalDate? {
 
     // Keep jumping forward until we get a date that's at least tomorrow
-    val tomorrow = LocalDate.now().plusDays(1)
+    val tomorrow = dateProvider.today().plusDays(1)
     var next = baseDate
     Log.d(
         "Recurrence",

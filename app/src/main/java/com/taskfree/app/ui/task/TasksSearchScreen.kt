@@ -45,14 +45,14 @@ import com.taskfree.app.ui.task.components.TaskDialogHost
 import com.taskfree.app.ui.task.components.TaskDialogs
 import com.taskfree.app.ui.task.components.TaskListContent
 import com.taskfree.app.ui.task.components.TaskScreenConfig
+import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.db
-import java.time.LocalDate
 
 @Composable
 fun TaskSearchScreen(
     navController: NavHostController,
     initialCategoryId: Int? = null,
-    initialDueChoice: DueChoice = DueChoice.from(LocalDate.now())
+    initialDueChoice: DueChoice = DueChoice.from(AppDateProvider.current.today())
 ) {
     val context = LocalContext.current.applicationContext as android.app.Application
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
@@ -125,7 +125,7 @@ fun TaskSearchScreen(
             if (numTasks > 1) {
                 tipManager.request(
                     OnboardingTip(
-                        TipId.T2_REORDER_TASK,
+                        TipId.ALL2_REORDER_ROW,
                         context.getString(R.string.tip_title_reorder_rows),
                         AnnotatedString(context.getString(R.string.tip_drag_the_handle_to_reorder_rows)),
                         Anchor.ScreenHeightPercent(0.2f)
@@ -178,7 +178,9 @@ fun TaskSearchScreen(
             taskVm.forceReload()
         }
     }
-
+    LaunchedEffect(Unit) {
+        taskVm.refreshToday()
+    }
     // Main UI
     Column(modifier = Modifier.fillMaxSize()) {
         TaskListContent(
@@ -195,8 +197,9 @@ fun TaskSearchScreen(
         )
 
         // Bottom bar
-        AppBottomBar(navController = navController,
-            isTodayView = (config.dueChoice.date == LocalDate.now() && config.categoryId == null),
+        AppBottomBar(
+            navController = navController,
+            isTodayView = (config.dueChoice.date == AppDateProvider.current.today() && config.categoryId == null),
             addButtonLabel = stringResource(R.string.add_task_button_label),
             hasCategories = categoryUi.categories.isNotEmpty(),
             onAddTask = {
@@ -217,7 +220,8 @@ fun TaskSearchScreen(
     }
 
     // Dialogs
-    TaskDialogHost(dialogs = dialogs,
+    TaskDialogHost(
+        dialogs = dialogs,
         setDialogs = { dialogs = it },
         allCategories = categoryUi.categories,
         taskVm = taskVm,
