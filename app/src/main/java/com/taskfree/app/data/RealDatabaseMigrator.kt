@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
-import net.sqlcipher.database.SQLiteDatabase
 import java.io.File
 
 object RealDatabaseMigrator {
@@ -23,7 +22,6 @@ object RealDatabaseMigrator {
 
     suspend fun migrateToEncrypted(context: Context, phrase: List<String>) {
         withContext(Dispatchers.IO) {
-            SQLiteDatabase.loadLibs(context)
             try {
                 _error.value = null
                 _progress.value = 0
@@ -98,22 +96,31 @@ object RealDatabaseMigrator {
             tmpDb.close()
         }
 
-        // 4. swap files
+        // 4. swap files (db + sidecars)
         val tmpFile = File(srcFile.parent, "checklists_temp.db")
         val bakFile = File(srcFile.parent, "checklists_backup.db")
+        val srcWal = File(srcFile.path + "-wal")
+        val srcShm = File(srcFile.path + "-shm")
+        val tmpWal = File(tmpFile.path + "-wal")
+        val tmpShm = File(tmpFile.path + "-shm")
 
-        if (srcFile.exists()) srcFile.renameTo(bakFile)
+        if (srcFile.exists()) {
+               srcWal.delete(); srcShm.delete()
+               srcFile.renameTo(bakFile)
+             }
         check(tmpFile.renameTo(srcFile)) { "rename failed" }
-        bakFile.delete()                              // success – clean up
+        if (tmpWal.exists()) tmpWal.renameTo(File(srcFile.path + "-wal"))
+        if (tmpShm.exists()) tmpShm.renameTo(File(srcFile.path + "-shm"))
+        bakFile.delete()
     }
 
     private fun cleanupFailedMigration(context: Context) {
         try {
             val dbFile = context.getDatabasePath(DB_NAME)
-            val encryptedPath = "${dbFile.absolutePath}.encrypted"
-
-            // Remove any partial encrypted file
-            File(encryptedPath).delete()
+            File(File(dbFile.parent, "checklists_temp.db").path + "-wal").delete()
+            File(File(dbFile.parent, "checklists_temp.db").path + "-shm").delete()
+            File(File(dbFile.parent, "checklists_backup.db").path + "-wal").delete()
+            File(File(dbFile.parent, "checklists_backup.db").path + "-shm").delete()
 
             // Clear encryption state
             DatabaseKeyManager.clearCachedKey()
