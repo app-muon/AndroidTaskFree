@@ -1,5 +1,5 @@
 [versions]
-agp = "8.6.1"
+agp = "8.11.1"
 kotlin = "2.1.0"
 composeBom = "2025.05.00"
 reorderable      = "2.4.3"
@@ -21,7 +21,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.10.1" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.0" }
 lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version = "2.9.0" }
-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version = "1.8.1" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version = "2.7.1" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version = "2.7.1" }
@@ -33,6 +33,6 @@ androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version = "2.4.0
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version = "1.9.23" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version = "2.1.0-1.0.29" }
