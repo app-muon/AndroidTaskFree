@@ -88,7 +88,7 @@ fun CategoryListScreen(navController: NavHostController) {
             tipManager.request(
                 OnboardingTip(
                     TipId.C1_ADD_CATEGORY,
-                    context.getString(R.string.tip_create_your_first_category_title),
+                    context.getString(R.string.tip_create),
                     AnnotatedString(context.getString(R.string.tip_create_your_first_category_body)),
                     Anchor.AboveBottomBarOnRight
                 ), overrideSeen = noCategories            // force-show only when list empty
@@ -103,7 +103,7 @@ fun CategoryListScreen(navController: NavHostController) {
             if (numCats > 1) {
                 tipManager.request(
                     OnboardingTip(
-                        TipId.C2_REORDER_CATEGORY,
+                        TipId.ALL2_REORDER_ROW,
                         context.getString(R.string.tip_title_reorder_rows),
                         AnnotatedString(context.getString(R.string.tip_drag_the_handle_to_reorder_rows)),
                         Anchor.ScreenHeightPercent(0.2f)
@@ -112,20 +112,24 @@ fun CategoryListScreen(navController: NavHostController) {
             }
             tipManager.request(
                 OnboardingTip(
-                    TipId.C3_CLICK_CATEGORY,
+                    TipId.ALL3_CLICK_ROW,
                     context.getString(R.string.tip_more_actions_title),
-                    AnnotatedString(context.getString(R.string.tip_click_to_edit_and_view_tasks_and_more)),
-                    Anchor.ScreenHeightPercent(0.2f)
+                    AnnotatedString(context.getString(R.string.tip_click_to_edit_and_more)),
+                    Anchor.ScreenHeightPercent(0.3f)
                 )
             )
             tipManager.request(
                 OnboardingTip(
-                    TipId.C4_VIEW_TASKS,
-                    context.getString(R.string.tip_navigate_to_tasks_title),
+                    TipId.ALL4_NAVIGATE,
+                    context.getString(R.string.tip_navigate_title),
                     buildAnnotatedString {
                         append(context.getString(R.string.tip_view_prefix) + " ")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                             append(context.getString(R.string.tip_view_tasks_label))
+                        }
+                        append(" " + context.getString(R.string.tip_view_navigate_or) + " ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(context.getString(R.string.tip_view_category_label))
                         }
                         append(" " + context.getString(R.string.tip_view_suffix))
                     },

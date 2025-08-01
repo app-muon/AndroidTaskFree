@@ -121,10 +121,10 @@
     <string name="tip_instructions_title">TaskFree</string>
     <string name="tip_instructions_body">
         A free, ad-free, and open-source task manager. No data is shared with us,
-        advertisers, or any third parties — only the usual information with Google.
+        advertisers, or any third parties - only the usual information with Google.
 
         \n\nCreate tasks by category, add due dates, and set notifications.
-        You can even make tasks repeat—for example every Friday. It’s easy to see what’s due,
+        You can even make tasks repeat, for example every Friday. It’s easy to see what’s due,
         filter your list, and mark tasks as \"pending\" \"doing\", or \"done\".
 
         \n\nLike most apps, TaskFree syncs with your Google account. This means your tasks follow you
@@ -134,27 +134,32 @@
         \n\nmuonappdevelopment@gmail.com or open an issue/PR on GitHub.
 
     </string>
-    <string name="tip_create_your_first_category_title">Add a category by tapping the + button</string>
-    <string name="tip_create_your_first_category_body">All tasks belong to a category</string>
+    <string name="tip_create">Create</string>
+    <string name="tip_create_your_first_category_body">
+        All tasks belong to a category.\n
+        Create a category by tapping the + button on the bottom bar
+    </string>
     <string name="got_it_confirmation">Got it</string>
 
     <string name="tip_title_reorder_rows">Reorder rows</string>
     <string name="tip_drag_the_handle_to_reorder_rows">Drag the ≡ handle to reorder rows</string>
 
     <string name="tip_more_actions_title">More actions</string>
-    <string name="tip_click_to_edit_and_view_tasks_and_more">Tap a row to edit and view tasks and more</string>
+    <string name="tip_click_to_edit_and_more">Tap a row to edit it, and more</string>
 
-    <string name="tip_navigate_to_categories_title">Navigate to categories screen</string>
-    <string name="tip_navigate_to_tasks_title">Navigate to tasks screen</string>
+    <string name="tip_navigate_title">Navigation</string>
 
     <!--    This is linked to the text in task_view resource-->
     <!--    These text snippets make up a sentence-->
-    <string name="tip_view_prefix">Tap</string>
+    <string name="tip_view_prefix">Navigate by tapping</string>
     <string name="tip_view_tasks_label">Tasks due</string>
+    <string name="tip_view_navigate_or">or</string>
     <string name="tip_view_category_label">Categories</string>
-    <string name="tip_view_suffix">at the bottom</string>
+    <string name="tip_view_suffix">on the bottom bar</string>
 
-    <string name="tip_add_your_first_task_title">Add a task by tapping the + button</string>
+    <string name="tip_create_your_first_task_body">
+        Create a task by tapping the + button on the bottom bar
+    </string>
     <!--    This refers to this button label add_task_button_label-->
     <!--    <string name="tap_add_task_to_start">Tap "+ Add task".</string>-->
 

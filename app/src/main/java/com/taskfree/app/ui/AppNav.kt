@@ -91,13 +91,14 @@ fun AppNav() {
     val catUi by categoryVm.uiState.collectAsState()
     val isLoading = catUi.isInitialLoadPending
     val categories = catUi.categories
-
+    var initialLoadCompleted by remember { mutableStateOf(false) }
     /* ── once we know the list size, navigate away from Splash ── */
-    LaunchedEffect(categories, isLoading) {
-        if (isLoading) return@LaunchedEffect
-
-        val target = if (categories.isEmpty()) "categories" else "search?dateOffset=0"
-        safeNavigate(target)
+    LaunchedEffect(isLoading) {
+        if (!isLoading && !initialLoadCompleted) {
+            initialLoadCompleted = true
+            val target = if (categories.isEmpty()) "categories" else "search?dateOffset=0"
+            safeNavigate(target)
+        }
     }
 
     navigationError?.let { error ->
