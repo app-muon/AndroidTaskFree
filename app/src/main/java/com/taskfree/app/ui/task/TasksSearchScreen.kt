@@ -109,8 +109,8 @@ fun TaskSearchScreen(
             tipManager.request(
                 OnboardingTip(
                     TipId.T1_ADD_TASK,
-                    context.getString(R.string.tip_add_your_first_task_title),
-                    null,
+                    context.getString(R.string.tip_create),
+                    AnnotatedString(context.getString(R.string.tip_create_your_first_task_body)),
                     Anchor.AboveBottomBarOnRight
                 ),
                 overrideSeen = noTasks     // force-show only when list is empty
@@ -135,15 +135,15 @@ fun TaskSearchScreen(
 
             tipManager.request(
                 OnboardingTip(
-                    TipId.T3_CLICK_TASK,
+                    TipId.ALL3_CLICK_ROW,
                     context.getString(R.string.tip_more_actions_title),
-                    AnnotatedString(context.getString(R.string.tip_click_to_edit_and_view_tasks_and_more)),
-                    Anchor.ScreenHeightPercent(0.2f)
+                    AnnotatedString(context.getString(R.string.tip_click_to_edit_and_more)),
+                    Anchor.ScreenHeightPercent(0.3f)
                 )
             )
             tipManager.request(
                 OnboardingTip(
-                    TipId.T4_FILTER_TASK,
+                    TipId.T2_FILTER_TASK,
                     context.getString(R.string.tip_filter_tasks_title),
                     AnnotatedString(context.getString(R.string.tip_filter_tasks)),
                     Anchor.HandleOfFirstRow
@@ -151,10 +151,14 @@ fun TaskSearchScreen(
             )
             tipManager.request(
                 OnboardingTip(
-                    TipId.T5_VIEW_CATEGORIES,
-                    context.getString(R.string.tip_navigate_to_categories_title),
+                    TipId.ALL4_NAVIGATE,
+                    context.getString(R.string.tip_navigate_title),
                     buildAnnotatedString {
                         append(context.getString(R.string.tip_view_prefix) + " ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(context.getString(R.string.tip_view_tasks_label))
+                        }
+                        append(" " + context.getString(R.string.tip_view_navigate_or) + " ")
                         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                             append(context.getString(R.string.tip_view_category_label))
                         }
