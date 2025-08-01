@@ -11,12 +11,16 @@ import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.domain.model.calculateNextValidDueDate
+import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.flow.Flow
-import net.sqlcipher.BuildConfig
+import com.taskfree.app.BuildConfig
 import java.time.Instant
 import java.time.LocalDate
 
-class TaskRepository(private val database: AppDatabase) {
+class TaskRepository(
+    private val database: AppDatabase, private val dates: DateProvider = AppDateProvider.current
+) {
     suspend fun snapshot(): List<Task> = database.taskDao().getAllNow()
 
     suspend fun replaceAll(cats: List<Category>, tasks: List<Task>) {
@@ -133,7 +137,7 @@ class TaskRepository(private val database: AppDatabase) {
                 // Then mark current task as archived/deleted (soft delete)
                 val updatedTask = task.copy(
                     isArchived = true, status = TaskStatus.DONE, // Or create a DELETED status
-                    completedDate = LocalDate.now()
+                    completedDate = dates.today()
                 )
 
                 val updatedRows = database.taskDao().update(updatedTask)
@@ -161,7 +165,7 @@ class TaskRepository(private val database: AppDatabase) {
 
             // Update core fields
             val updated = task.copy(
-                status = newStatus, completedDate = if (nowDone) LocalDate.now() else null
+                status = newStatus, completedDate = if (nowDone) dates.today() else null
             )
             val rowsUpdated = database.taskDao().update(updated)
             if (rowsUpdated == 0) {
@@ -223,7 +227,7 @@ class TaskRepository(private val database: AppDatabase) {
     }
 
     suspend fun archiveTasksCompletedBeforeToday() {
-        val today = LocalDate.now()
+        val today = dates.today()
         if (BuildConfig.DEBUG) {
             Log.d("TaskRepository", "deleting tasks completed before: $today")
         }

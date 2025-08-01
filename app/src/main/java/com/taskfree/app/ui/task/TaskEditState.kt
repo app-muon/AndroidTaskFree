@@ -11,14 +11,14 @@ import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.DueChoiceSaver
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.NotificationOptionSaver
-import java.time.LocalDate
+import com.taskfree.app.util.AppDateProvider
 
 enum class EditingField { NONE, TITLE, DUE, NOTIFY, RECURRENCE, CATEGORY }
 
 
 class TaskEditState(
     title: String = "",
-    currentDueChoice: DueChoice = DueChoice.from(LocalDate.now()),
+    currentDueChoice: DueChoice = DueChoice.from(AppDateProvider.current.today()),
     currentNotifyOption: NotificationOption = NotificationOption.None,
     recurrence: Recurrence = Recurrence.NONE,
     selectedCategory: Category,

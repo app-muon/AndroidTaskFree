@@ -6,9 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.fragment.app.FragmentActivity
 import com.taskfree.app.R
 import com.google.android.material.datepicker.MaterialDatePicker
+import com.taskfree.app.util.AppDateProvider
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 /**
  * Shows a Material Date Picker with the custom theme
@@ -21,17 +23,18 @@ fun showDatePicker(
     initialDate: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit
 ) {
-    val init = initialDate ?: LocalDate.now()
+    val dp = AppDateProvider.current
+    val utc = ZoneOffset.UTC
+    val init = initialDate ?: dp.today()
+    val selectionMillis = init.atStartOfDay(utc).toInstant().toEpochMilli()
+
     val datePicker = MaterialDatePicker.Builder.datePicker()
         .setTheme(R.style.MyMaterialDatePickerTheme)
-        .setSelection(init.toEpochDay() * 24 * 60 * 60 * 1000)
+        .setSelection(selectionMillis)
         .build()
 
     datePicker.addOnPositiveButtonClickListener { timestamp ->
-        val pickedDate = Instant.ofEpochMilli(timestamp)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-        onDateSelected(pickedDate)
+        onDateSelected(Instant.ofEpochMilli(timestamp).atZone(utc).toLocalDate())
     }
 
     val activity = context.findActivity()

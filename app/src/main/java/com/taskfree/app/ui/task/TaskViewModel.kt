@@ -18,9 +18,12 @@ import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.toInstant
 import com.taskfree.app.ui.task.components.ArchiveMode
 import com.taskfree.app.ui.task.components.TaskFilter
+import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +42,7 @@ import java.time.LocalDate
 class TaskViewModel(
     private val appContext: Context,
     private val repo: TaskRepository,
+    private val dateProvider: DateProvider = AppDateProvider.current,
     private val io: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -48,6 +52,44 @@ class TaskViewModel(
 
     private val _filter =
         MutableStateFlow(TaskFilter())/* ------------  main task stream ---------- */
+
+    // Check for day changes when app resumes
+    init {
+        viewModelScope.launch {
+            checkForDayChange()
+        }
+    }
+
+    private suspend fun checkForDayChange() {
+        var lastKnownDate = dateProvider.today()
+
+        while (true) {
+            delay(60_000) // Check every minute
+            val currentDate = dateProvider.today()
+
+            if (currentDate != lastKnownDate) {
+                Log.d("TaskViewModel", "Day changed from $lastKnownDate to $currentDate")
+
+                _filter.value.date?.let { filterDate ->
+                    if (filterDate == lastKnownDate) {
+                        setDate(currentDate)
+                    }
+                }
+
+                lastKnownDate = currentDate
+            }
+        }
+    }
+
+    fun refreshToday() {
+        val today = dateProvider.today()
+        val currentFilterDate = _filter.value.date
+
+        if (currentFilterDate != null && currentFilterDate != today) {
+            Log.d("TaskViewModel", "Refreshing today from $currentFilterDate to $today")
+            setDate(today)
+        }
+    }
 
     private val orderMutex = Mutex()
 

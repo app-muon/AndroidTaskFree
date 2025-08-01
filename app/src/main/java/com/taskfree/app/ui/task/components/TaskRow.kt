@@ -39,9 +39,9 @@ import com.taskfree.app.ui.components.fromTask
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.recurrenceLabel
 import com.taskfree.app.ui.theme.RowTransparency
+import com.taskfree.app.util.AppDateProvider
 import isNotificationPassed
 import sh.calvin.reorderable.ReorderableCollectionItemScope
-import java.time.LocalDate
 
 @Composable
 fun ReorderableCollectionItemScope.TaskRow(
@@ -52,11 +52,11 @@ fun ReorderableCollectionItemScope.TaskRow(
     category: Category,
     onClick: () -> Unit = {}
 ) {
-    val isOverdue = task.due?.let { it < LocalDate.now() && task.completedDate == null } == true
+    val dp = AppDateProvider.current
+    val isOverdue = task.due?.let { it < dp.today() && task.completedDate == null } == true
     val overdueColor = Color.Red.copy(alpha = 0.3f)
     val elevation = if (isDragging) 4.dp else 0.dp
     val backgroundColor = task.status.backgroundColor().copy(alpha = RowTransparency)
-
     val textColor =
         if (task.status == TaskStatus.DONE) Color.Gray else colorResource(R.color.surface_colour)
     val textDecoration = if (task.status == TaskStatus.DONE) TextDecoration.LineThrough else null

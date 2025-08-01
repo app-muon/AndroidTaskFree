@@ -11,6 +11,7 @@ import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.fromTask
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
+import com.taskfree.app.util.AppDateProvider
 
 @Composable
 internal fun TaskDialogHost(
@@ -63,7 +64,8 @@ internal fun TaskDialogHost(
                 },
 
                 onPostpone = { task ->
-                    taskVm.updateDue(task, DueChoice.from(java.time.LocalDate.now().plusDays(1)))
+                    val tomorrow = AppDateProvider.current.today().plusDays(1)
+                    taskVm.updateDue(task, DueChoice.from(tomorrow))
                     setDialogs(TaskDialogs.None)
                 },
 
