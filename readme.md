@@ -10,7 +10,7 @@ filter your list, and mark tasks as \"pending\" \"doing\", or \"done\".
 Like most apps, TaskFree syncs with your Google account. This means your tasks follow you
 when you switch phones. You can encrypt this synced data, if you want to keep it private.
 
-Source code: https://github.com/app-muon/AndroidTaskFreeApp
+Source code: https://github.com/app-muon/AndroidTaskFree
 Email us at muonappdevelopment@gmail.com or open an issue/PR on GitHub.
 
 
