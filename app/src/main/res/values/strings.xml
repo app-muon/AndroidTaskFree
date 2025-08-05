@@ -44,7 +44,7 @@
     <string name="this_action_cannot_be_undone">This action cannot be undone</string>
     <string name="save_yes_dialog_button">Save</string>
     <string name="cancel_no_dialog_button">Cancel</string>
-    <string name="dismiss_yes_dialog_button">Dismiss</string>
+    <string name="done_yes_dialog_button">Done</string>
 
     <!--Archiving action-->
     <string name="archive_task_action">Archive task</string>
