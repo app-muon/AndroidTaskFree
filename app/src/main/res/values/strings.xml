@@ -59,6 +59,7 @@
     <!--   Archive Menu-->
     <!-- Title for tools menu -->
     <string name="tools_menu_name">Tools</string>
+    <string name="contact_title">Contact developer</string>
     <string name="archive_old_completed">Archive old completed tasks</string>
     <string name="permanently_delete_tasks">Permanently delete archived tasks</string>
     <string name="toggle_view_archived">Toggle to view archived tasks</string>
@@ -116,7 +117,7 @@
     <string name="notification_cancelled">Notification cancelled</string>
 
     <!--  The tips to help the users-->
-    <string name="tip_show_tips_again">Show tips again</string>
+    <string name="tip_show_tips_again">Show all tips again</string>
 
     <string name="tip_instructions_title">TaskFree</string>
     <string name="tip_instructions_body">
@@ -129,12 +130,13 @@
 
         \n\nLike most apps, TaskFree syncs with your Google account. This means your tasks follow you
         when you switch phones. You can encrypt this synced data, if you want to keep it private.
-
-        \n\nSource code: https://github.com/app-muon/AndroidTaskFree
-        \n\nmuonappdevelopment@gmail.com or open an issue/PR on GitHub.
-
+        \n\n
     </string>
     <string name="tip_create">Create</string>
+    <string name="tip_contact_body">
+        Email: muonappdevelopment@gmail.com\n\n
+        Source code: https://github.com/app-muon/AndroidTaskFree
+    </string>
     <string name="tip_create_your_first_category_body">
         All tasks belong to a category.\n
         Create a category by tapping the + button on the bottom bar

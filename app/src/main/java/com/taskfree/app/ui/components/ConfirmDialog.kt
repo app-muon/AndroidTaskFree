@@ -58,12 +58,12 @@ fun ConfirmDialog(
                 )
 
                 // Message
-                Text(
-                    text = message,
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorResource(R.color.surface_colour)
-                )
+                AutoLinkedText(
+                         raw = message,
+                         modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = colorResource(R.color.surface_colour)
+                            )
 
                 // Buttons
                 Row(
