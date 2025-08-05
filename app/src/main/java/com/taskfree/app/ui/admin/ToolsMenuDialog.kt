@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -27,10 +28,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import com.taskfree.app.BuildConfig
 import com.taskfree.app.Prefs
@@ -51,7 +54,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-
 @Composable
 fun ToolsMenuDialog(
     vm: ToolsViewModel,
@@ -63,6 +65,7 @@ fun ToolsMenuDialog(
 ) {
     val isOn = vm.uiState.collectAsState().value.showArchived
     var pending by remember { mutableStateOf<PendingAction?>(null) }
+    var showContact by rememberSaveable { mutableStateOf(false) }
     val colors = providePanelColors()
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
@@ -103,90 +106,120 @@ fun ToolsMenuDialog(
         }
     }
     if (show) {
-        PanelActionList(headerContent = {
-            Column(
-                modifier = Modifier.padding(
-                    horizontal = PanelConstants.HORIZONTAL_PADDING,
-                    vertical = PanelConstants.SECTION_VERTICAL_PADDING
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.tools_menu_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.surfaceText
-                )
-                Text(
-                    text = BuildConfig.VERSION_NAME,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.surfaceText
-                )
-            }
-        }, actions = listOfNotNull(ActionItem(label = stringResource(R.string.backup_to_file),
-            icon = Icons.Outlined.Backup,
-            onClick = {
-                val name = "taskapp_backup_" + LocalDateTime.now()
-                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm")) + ".json"
-                saveLauncher.launch(name)
-                onDismiss()
-            }), ActionItem(label = stringResource(R.string.restore_from_file),
-            icon = Icons.Outlined.Restore,
-            onClick = {
-                pending = PendingAction.RESTORE
-                onDismiss()
-            }), if (BuildConfig.DEBUG) {
-            ActionItem(label = "Reset encryption (debug)",
-                icon = Icons.Default.Refresh,
-                onClick = {
-                    Prefs.clearEncryption(ctx)
-                    Prefs.clearEncryptionSecrets(ctx)
-                    DatabaseKeyManager.clearCachedKey()
-                    AppDatabaseFactory.clearInstance()
-                    listOf("checklists.db", "checklists_temp.db", "checklists_backup.db")
-                        .forEach { name ->
-                            ctx.getDatabasePath(name)?.takeIf { it.exists() }?.delete()
-                        }
-                    debugToast(ctx, "Encryption reset completely and data deleted")
-                    onDismiss()
-                })
-        } else null, ActionItem(label = if (encrypted) stringResource(R.string.view_recovery_phrase)
-        else stringResource(R.string.encrypt_my_data_command),
-            icon = Icons.Default.Lock,
-            onClick = {
-                onDismiss()
-                if (encrypted) showPhraseFlow() else startEncryptFlow()
-            }), ActionItem(label = stringResource(R.string.tip_show_tips_again),
-            icon = Icons.Default.Refresh,
-            onClick = {
-                onResetTips()
-                onDismiss()
-            }), ActionItem(label = stringResource(R.string.archive_old_completed),
-            icon = Icons.Default.Archive,
-            iconTint = colors.darkRed,
-            onClick = {
-                pending = PendingAction.ARCHIVE
-                onDismiss()
-            }), ActionItem(label = stringResource(R.string.permanently_delete_tasks),
-            icon = Icons.Default.Delete,
-            iconTint = colors.brightRed,
-            onClick = {
-                pending = PendingAction.PERMANENTLY_DELETE
-                onDismiss()
-            }), ActionItem(labelContent = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val label = if (isOn) {
-                    stringResource(R.string.toggle_view_unarchived)
-                } else {
-                    stringResource(R.string.toggle_view_archived)
+        PanelActionList(
+            headerContent = {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = PanelConstants.HORIZONTAL_PADDING,
+                        vertical = PanelConstants.SECTION_VERTICAL_PADDING
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.tools_menu_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colors.surfaceText
+                    )
+                    Text(
+                        text = BuildConfig.VERSION_NAME,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.surfaceText
+                    )
                 }
-                Text(label, color = colors.surfaceText)
-                Switch(checked = isOn, onCheckedChange = { vm.toggleShowArchived() })
-            }
-        }, icon = Icons.Default.Visibility, onClick = { vm.toggleShowArchived() })
-        ), onDismiss = onDismiss
+            }, actions = listOfNotNull(
+                ActionItem(
+                    label = stringResource(R.string.tip_show_tips_again),
+                    icon = Icons.Default.Refresh,
+                    onClick = {
+                        onResetTips()
+                        onDismiss()
+                    }),
+                ActionItem(
+                    label = stringResource(R.string.contact_title),
+                    icon = Icons.Filled.Email,
+                    onClick = {
+                        showContact = true
+                        onDismiss()
+                    }
+                ),
+                ActionItem(
+                    label = stringResource(R.string.backup_to_file),
+                    icon = Icons.Outlined.Backup,
+                    onClick = {
+                        val name = "taskapp_backup_" + LocalDateTime.now()
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm")) + ".json"
+                        saveLauncher.launch(name)
+                        onDismiss()
+                    }), ActionItem(
+                    label = stringResource(R.string.restore_from_file),
+                    icon = Icons.Outlined.Restore,
+                    onClick = {
+                        pending = PendingAction.RESTORE
+                        onDismiss()
+                    }), if (BuildConfig.DEBUG) {
+                    ActionItem(
+                        label = "Reset encryption (debug)",
+                        icon = Icons.Default.Refresh,
+                        onClick = {
+                            Prefs.clearEncryption(ctx)
+                            Prefs.clearEncryptionSecrets(ctx)
+                            DatabaseKeyManager.clearCachedKey()
+                            AppDatabaseFactory.clearInstance()
+                            listOf("checklists.db", "checklists_temp.db", "checklists_backup.db")
+                                .forEach { name ->
+                                    ctx.getDatabasePath(name)?.takeIf { it.exists() }?.delete()
+                                }
+                            debugToast(ctx, "Encryption reset completely and data deleted")
+                            onDismiss()
+                        })
+                } else null, ActionItem(
+                    label = if (encrypted) stringResource(R.string.view_recovery_phrase)
+                    else stringResource(R.string.encrypt_my_data_command),
+                    icon = Icons.Default.Lock,
+                    onClick = {
+                        onDismiss()
+                        if (encrypted) showPhraseFlow() else startEncryptFlow()
+                    }), ActionItem(
+                    label = stringResource(R.string.archive_old_completed),
+                    icon = Icons.Default.Archive,
+                    iconTint = colors.darkRed,
+                    onClick = {
+                        pending = PendingAction.ARCHIVE
+                        onDismiss()
+                    }), ActionItem(
+                    label = stringResource(R.string.permanently_delete_tasks),
+                    icon = Icons.Default.Delete,
+                    iconTint = colors.brightRed,
+                    onClick = {
+                        pending = PendingAction.PERMANENTLY_DELETE
+                        onDismiss()
+                    }), ActionItem(labelContent = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val label = if (isOn) {
+                            stringResource(R.string.toggle_view_unarchived)
+                        } else {
+                            stringResource(R.string.toggle_view_archived)
+                        }
+                        Text(label, color = colors.surfaceText)
+                        Switch(checked = isOn, onCheckedChange = { vm.toggleShowArchived() })
+                    }
+                }, icon = Icons.Default.Visibility, onClick = { vm.toggleShowArchived() })
+            ), onDismiss = onDismiss
+        )
+    }
+
+    if (showContact) {
+        ConfirmDialog(
+            title = stringResource(R.string.contact_title),
+            message = stringResource(R.string.tip_contact_body),
+            yesMessage = stringResource(R.string.close),
+            yesColour = colorResource(R.color.dialog_button_text_colour),
+            noMessage = "",                 // hide second button
+            onYes = { showContact = false },
+            onNo = { showContact = false }
         )
     }
 
@@ -194,7 +227,8 @@ fun ToolsMenuDialog(
         val action = pending!!
 
         if (action == PendingAction.ARCHIVE) {
-            ConfirmArchive(title = stringResource(R.string.confirm_archived_completed_title),
+            ConfirmArchive(
+                title = stringResource(R.string.confirm_archived_completed_title),
                 message = stringResource(R.string.confirm_archive_old_completed_msg),
                 onYes = {
                     vm.archiveOldCompleted()
@@ -204,7 +238,8 @@ fun ToolsMenuDialog(
         }
 
         if (action == PendingAction.PERMANENTLY_DELETE) {
-            ConfirmDeletion(title = stringResource(R.string.confirm_permanently_delete_title),
+            ConfirmDeletion(
+                title = stringResource(R.string.confirm_permanently_delete_title),
                 message = stringResource(R.string.this_action_cannot_be_undone),
                 onYes = {
                     vm.deleteArchived()

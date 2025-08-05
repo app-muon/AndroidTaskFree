@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -17,26 +18,27 @@ import androidx.compose.ui.text.withLink
 
 // recognise   https://x, http://x,  www.x, email@domain.x
 private val linkRegex =
-    "(https?://\\S+)|(www\\.\\S+)|([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})".toRegex(RegexOption.IGNORE_CASE)
+    "(https?://\\S+)|(www\\.\\S+)|([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})".toRegex(
+        RegexOption.IGNORE_CASE
+    )
 
-fun linkified(raw: String, linkStyle: SpanStyle): AnnotatedString =
-    buildAnnotatedString {
-        var last = 0
-        for (m in linkRegex.findAll(raw)) {
-            append(raw.substring(last, m.range.first))
-            last = m.range.last + 1
-            val shown = m.value
-            val link = when {
-                shown.startsWith("www.", true) -> "https://$shown"
-                shown.contains("@") -> "mailto:$shown"
-                else -> shown
-            }
-            withLink(LinkAnnotation.Url(link, TextLinkStyles(linkStyle))) {
-                append(shown)
-            }
+fun linkified(raw: String, linkStyle: SpanStyle): AnnotatedString = buildAnnotatedString {
+    var last = 0
+    for (m in linkRegex.findAll(raw)) {
+        append(raw.substring(last, m.range.first))
+        last = m.range.last + 1
+        val shown = m.value
+        val link = when {
+            shown.startsWith("www.", true) -> "https://$shown"
+            shown.contains("@") -> "mailto:$shown"
+            else -> shown
         }
-        append(raw.substring(last))
+        withLink(LinkAnnotation.Url(link, TextLinkStyles(linkStyle))) {
+            append(shown)
+        }
     }
+    append(raw.substring(last))
+}
 
 // Extension function for AnnotatedString
 fun linkified(annotated: AnnotatedString, linkStyle: SpanStyle): AnnotatedString =
@@ -115,15 +117,15 @@ fun linkified(annotated: AnnotatedString, linkStyle: SpanStyle): AnnotatedString
 @Composable
 fun AutoLinkedText(
     raw: String,
+    modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = LocalContentColor.current,
     linkStyle: SpanStyle = SpanStyle(
-        color = MaterialTheme.colorScheme.primary,
-        textDecoration = TextDecoration.Underline
+        color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline
     )
 ) {
     val text = remember(raw) { linkified(raw, linkStyle) }
-    Text(text, style = style, color = color)
+    Text(text, modifier = modifier, style = style, color = color)
 }
 
 // New overload for AnnotatedString
@@ -133,8 +135,7 @@ fun AutoLinkedText(
     style: TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = LocalContentColor.current,
     linkStyle: SpanStyle = SpanStyle(
-        color = MaterialTheme.colorScheme.primary,
-        textDecoration = TextDecoration.Underline
+        color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline
     )
 ) {
     val text = remember(annotated, linkStyle) { linkified(annotated, linkStyle) }

@@ -73,7 +73,7 @@ fun CategoryListScreen(navController: NavHostController) {
             OnboardingTip(
                 TipId.ALL_INSTRUCTIONS,
                 context.getString(R.string.tip_instructions_title),
-                AnnotatedString(context.getString(R.string.tip_instructions_body)),
+                AnnotatedString(context.getString(R.string.tip_instructions_body)+context.getString(R.string.tip_contact_body)),
                 Anchor.ScreenHeightPercent(0.2f)
             )
         )
