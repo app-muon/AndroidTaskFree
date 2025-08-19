@@ -123,7 +123,7 @@ fun PanelActionList(
                     ) // Only round the bottom corners
                 ) {
                     Text(
-                        text = stringResource(R.string.done_yes_dialog_button),
+                        text = stringResource(R.string.close_yes_dialog_button),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
