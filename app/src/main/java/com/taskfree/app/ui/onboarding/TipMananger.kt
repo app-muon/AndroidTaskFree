@@ -34,21 +34,28 @@ class TipManager(context: Context) {
      * @param overrideSeen  show even if it was previously marked as seen.
      */
     fun request(tip: OnboardingTip, overrideSeen: Boolean = false) = scope.launch {
-        /* IO: has the user already seen this tip on disk?  */
-        val alreadySeen = if (!overrideSeen) withContext(Dispatchers.IO) {
-            prefs.isSeen(tip.id)
+        // Considered duplicate if already current, queued, or shown this session.
+        fun isDuplicate(): Boolean =
+            (tip.id in inMemory) ||
+                    (_current.value?.id == tip.id) ||
+                    queue.any { it.id == tip.id }
+
+        // 1) Fast duplicate snapshot under lock (always block duplicates).
+        val dupAtStart = mutex.withLock { isDuplicate() }
+        if (dupAtStart) return@launch
+
+        // 2) Disk check off-lock (skip if overrideSeen).
+        val alreadySeen = if (!overrideSeen) {
+            withContext(Dispatchers.IO) { prefs.isSeen(tip.id) }
         } else false
+        if (alreadySeen) return@launch
 
-        /* main-safe mutation inside a mutex */
+        // 3) Commit under lock with a second duplicate check to avoid TOCTOU.
         mutex.withLock {
-            val duplicateNow = (tip.id in inMemory) ||
-                    (_current.value?.id == tip.id)
+            if (isDuplicate()) return@withLock
 
-            if (!overrideSeen && (alreadySeen || duplicateNow)) return@withLock
-
-            /* Remove any stale duplicate already in the queue */
+            // Remove any stale duplicate already in queue, then enqueue.
             queue.removeAll { it.id == tip.id }
-
             inMemory += tip.id
 
             if (_current.value == null) _current.value = tip
