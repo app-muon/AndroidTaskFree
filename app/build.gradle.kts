@@ -9,13 +9,13 @@ plugins {
 
 android {
     namespace = "com.taskfree.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.taskfree.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
+        versionCode = 7
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -55,9 +55,6 @@ android {
         buildConfig = true
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.6.10"
-    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -93,4 +90,9 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.androidx.sqlite)
     ksp(libs.room.compiler)
+}
+
+composeCompiler {
+    reportsDestination.set(layout.buildDirectory.dir("compose_reports"))
+    metricsDestination.set(layout.buildDirectory.dir("compose_metrics"))
 }
