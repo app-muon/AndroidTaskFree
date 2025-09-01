@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Restore
@@ -66,6 +67,7 @@ fun ToolsMenuDialog(
     val isOn = vm.uiState.collectAsState().value.showArchived
     var pending by remember { mutableStateOf<PendingAction?>(null) }
     var showContact by rememberSaveable { mutableStateOf(false) }
+    var showTextSize by rememberSaveable { mutableStateOf(false) }
     val colors = providePanelColors()
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
@@ -126,6 +128,14 @@ fun ToolsMenuDialog(
                     )
                 }
             }, actions = listOfNotNull(
+                ActionItem(
+                    label = stringResource(R.string.text_size_title),
+                    icon = Icons.Filled.TextFields,
+                    onClick = {
+                        showTextSize = true
+                        onDismiss()
+                    }
+                ),
                 ActionItem(
                     label = stringResource(R.string.tip_show_tips_again),
                     icon = Icons.Default.Refresh,
@@ -221,6 +231,10 @@ fun ToolsMenuDialog(
             onYes = { showContact = false },
             onNo = { showContact = false }
         )
+    }
+
+    if (showTextSize) {
+        TextSizeDialog(onClose = { showTextSize = false })
     }
 
     if (pending != null) {

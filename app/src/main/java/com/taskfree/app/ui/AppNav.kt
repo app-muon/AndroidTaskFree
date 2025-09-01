@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +38,9 @@ import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.enc.MnemonicManager
 import com.taskfree.app.ui.task.TaskSearchScreen
+import com.taskfree.app.ui.theme.TextScaleController
+import com.taskfree.app.ui.theme.TextScaleOption
+import com.taskfree.app.ui.theme.scaled
 import com.taskfree.app.util.AppDateProvider
 
 @Composable
@@ -46,6 +50,10 @@ fun AppNav() {
     val app = LocalContext.current.applicationContext as Application
 
     Log.d("AppNav", "Starting AppNav")
+
+    LaunchedEffect(Unit) { TextScaleController.ensureLoaded(app) }
+    val textScale by TextScaleController.option.collectAsState()
+    val scaleFactor = if (textScale == TextScaleOption.SYSTEM_ONLY) 1f else textScale.multiplier
 
     var needsKey by remember {
         mutableStateOf(Prefs.isEncrypted(app) && !MnemonicManager.hasKey(app))
@@ -73,79 +81,86 @@ fun AppNav() {
         }
     }
     Log.d("AppNav", "DB ready – launching main UI")
-
-    fun safeNavigate(route: String) {
-        try {
-            nav.navigate(route) { popUpTo("splash") { inclusive = true } }
-        } catch (e: Exception) {
-            Log.e("Navigation", "Failed to navigate to $route", e)
-            navigationError = "Navigation failed. Please try again."
-        }
-    }
-
-    /* observe categories directly; null until Room replies */
-    Log.d("AppNav", "Creating CategoryViewModel")
-    val categoryVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(app))
-    Log.d("AppNav", "CategoryViewModel created successfully")
-
-    val catUi by categoryVm.uiState.collectAsState()
-    val isLoading = catUi.isInitialLoadPending
-    val categories = catUi.categories
-    var initialLoadCompleted by remember { mutableStateOf(false) }
-    /* ── once we know the list size, navigate away from Splash ── */
-    LaunchedEffect(isLoading) {
-        if (!isLoading && !initialLoadCompleted) {
-            initialLoadCompleted = true
-            val target = if (categories.isEmpty()) "categories" else "search?dateOffset=0"
-            safeNavigate(target)
-        }
-    }
-
-    navigationError?.let { error ->
-        AlertDialog(
-            onDismissRequest = { navigationError = null },
-            title = { Text("Navigation Error") },
-            text = { Text(error) },
-            confirmButton = {
-                TextButton(onClick = {
-                    navigationError = null
-                    safeNavigate("categories")     // safe fallback
-                }) { Text("Retry") }
-            })
-    }
-
-    NavHost(navController = nav, startDestination = "splash") {
-        composable("splash") {
-            SplashScreen(isLoading = isLoading, error = navigationError)
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme,
+        shapes = MaterialTheme.shapes,
+        typography = MaterialTheme.typography.scaled(scaleFactor)
+    ) {
+        fun safeNavigate(route: String) {
+            try {
+                nav.navigate(route) { popUpTo("splash") { inclusive = true } }
+            } catch (e: Exception) {
+                Log.e("Navigation", "Failed to navigate to $route", e)
+                navigationError = "Navigation failed. Please try again."
+            }
         }
 
-        /* 1. today / search screen */
-        composable(
-            "search?categoryId={categoryId}&dateOffset={dateOffset}",
-            arguments = listOf(navArgument("categoryId") {
-                type = NavType.IntType; defaultValue = -1
-            }, navArgument("dateOffset") {
-                type = NavType.IntType; defaultValue = Int.MIN_VALUE
-            })
-        ) { back ->
-            val catId = runCatching {
-                back.arguments?.getInt("categoryId")?.takeIf { it != -1 }
-            }.getOrNull()
+        /* observe categories directly; null until Room replies */
+        Log.d("AppNav", "Creating CategoryViewModel")
+        val categoryVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(app))
+        Log.d("AppNav", "CategoryViewModel created successfully")
 
-            val dateOffset = runCatching {
-                back.arguments?.getInt("dateOffset") ?: Int.MIN_VALUE
-            }.getOrDefault(Int.MIN_VALUE)
-
-            val initialDueChoice =
-                if (dateOffset == Int.MIN_VALUE) DueChoice.fromSpecial(DueChoice.Special.ALL)
-                else DueChoice.from(AppDateProvider.current.todayPlusDays(dateOffset.toLong()))
-            TaskSearchScreen(
-                navController = nav, initialCategoryId = catId, initialDueChoice = initialDueChoice
-            )
+        val catUi by categoryVm.uiState.collectAsState()
+        val isLoading = catUi.isInitialLoadPending
+        val categories = catUi.categories
+        var initialLoadCompleted by remember { mutableStateOf(false) }
+        /* ── once we know the list size, navigate away from Splash ── */
+        LaunchedEffect(isLoading) {
+            if (!isLoading && !initialLoadCompleted) {
+                initialLoadCompleted = true
+                val target = if (categories.isEmpty()) "categories" else "search?dateOffset=0"
+                safeNavigate(target)
+            }
         }
 
-        /* 2. category management screen */
-        composable("categories") { CategoryListScreen(nav) }
+        navigationError?.let { error ->
+            AlertDialog(
+                onDismissRequest = { navigationError = null },
+                title = { Text("Navigation Error") },
+                text = { Text(error) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        navigationError = null
+                        safeNavigate("categories")     // safe fallback
+                    }) { Text("Retry") }
+                })
+        }
+
+        NavHost(navController = nav, startDestination = "splash") {
+            composable("splash") {
+                SplashScreen(isLoading = isLoading, error = navigationError)
+            }
+
+            /* 1. today / search screen */
+            composable(
+                "search?categoryId={categoryId}&dateOffset={dateOffset}",
+                arguments = listOf(navArgument("categoryId") {
+                    type = NavType.IntType; defaultValue = -1
+                }, navArgument("dateOffset") {
+                    type = NavType.IntType; defaultValue = Int.MIN_VALUE
+                })
+            ) { back ->
+                val catId = runCatching {
+                    back.arguments?.getInt("categoryId")?.takeIf { it != -1 }
+                }.getOrNull()
+
+                val dateOffset = runCatching {
+                    back.arguments?.getInt("dateOffset") ?: Int.MIN_VALUE
+                }.getOrDefault(Int.MIN_VALUE)
+
+                val initialDueChoice =
+                    if (dateOffset == Int.MIN_VALUE) DueChoice.fromSpecial(DueChoice.Special.ALL)
+                    else DueChoice.from(AppDateProvider.current.todayPlusDays(dateOffset.toLong()))
+                TaskSearchScreen(
+                    navController = nav,
+                    initialCategoryId = catId,
+                    initialDueChoice = initialDueChoice
+                )
+            }
+
+            /* 2. category management screen */
+            composable("categories") { CategoryListScreen(nav) }
+        }
     }
 }
 
