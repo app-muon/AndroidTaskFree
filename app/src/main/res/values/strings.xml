@@ -211,4 +211,16 @@ Choose a backup file to restore your tasks. This will replace all existing data 
     <string name="err_task_empty_text">Task %1$d has an empty title</string>
     <string name="err_task_bad_category">Task %1$d points to missing category %2$d</string>
     <string name="backup_save_failed">Save failed</string>
+<!--Text size options-->
+    <string name="text_size_title">Text size</string>
+    <string name="text_size_system_only">Use system setting only</string>
+    <string name="text_size_small">Small (%1$s)</string>
+    <string name="text_size_normal">Normal (%1$s)</string>
+    <string name="text_size_large">Large (%1$s)</string>
+    <string name="text_size_xl">Extra large (%1$s)</string>
+    <string name="text_size_xxl">Huge (%1$s)</string>
+    <string name="text_size_preview_title">Title preview</string>
+    <string name="text_size_preview_body">Body preview</string>
+    <string name="text_size_preview_label">Label preview</string>
+    <string name="reset_to_default">Reset to default</string>
 </resources>
