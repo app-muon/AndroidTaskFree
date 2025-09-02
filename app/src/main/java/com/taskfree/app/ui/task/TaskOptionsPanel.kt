@@ -74,7 +74,9 @@ import com.taskfree.app.ui.task.components.commitRecurrence
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import showTimePicker
-
+import com.taskfree.app.ui.task.components.quickDateKind
+import com.taskfree.app.ui.task.components.labelRes
+import com.taskfree.app.ui.task.components.quickDateKind
 
 @Composable
 fun TaskOptionsPanel(
@@ -82,7 +84,7 @@ fun TaskOptionsPanel(
     taskVm: TaskViewModel,
     onNavigateToCategory: (Int) -> Unit,
     onArchive: (Task, ArchiveMode) -> Unit,
-    onPostpone: (Task) -> Unit,
+    onQuickDate: (Task) -> Unit,
     onClone: (Task) -> Unit,
     onDismiss: () -> Unit,
     currentFilterCatId: Int?
@@ -100,7 +102,12 @@ fun TaskOptionsPanel(
         taskSnapshot.due?.let { DueChoice.from(it) }
             ?: DueChoice.fromSpecial(DueChoice.Special.NONE)
     val currentNotifyOption = NotificationOption.fromTask(taskSnapshot)
-
+    val kind = quickDateKind(taskSnapshot)
+    val quickDateAction = ActionItem(
+        label = stringResource(kind.labelRes()),
+        icon = Icons.Default.DateRange,
+        onClick = { onQuickDate(taskSnapshot) } // PanelActionList dismisses after onClick
+    )
     val editState by rememberSaveable(stateSaver = TaskEditStateSaver) {
         mutableStateOf(
             TaskEditState(
@@ -485,19 +492,12 @@ fun TaskOptionsPanel(
             }
 
         }, actions = listOf(
+            quickDateAction,
             ActionItem(
-                label = stringResource(R.string.postpone_to_tomorrow_action),
-                icon = Icons.Default.DateRange,
-                onClick = {
-                    onPostpone(taskSnapshot)
-                    onDismiss()
-                }), ActionItem(
                 label = stringResource(R.string.clone_task_action),
                 icon = Icons.Default.Add,
-                onClick = {
-                    onClone(taskSnapshot)
-                    onDismiss()
-                })
+                onClick = { onClone(taskSnapshot) }
+            )
         ) + archiveActions + gotoCategoryAction + statusActions, onDismiss = onDismiss
     )
 }
