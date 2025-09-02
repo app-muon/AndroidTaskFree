@@ -12,6 +12,7 @@ import com.taskfree.app.ui.components.fromTask
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
 import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.ui.task.components.quickDateTarget
 
 @Composable
 internal fun TaskDialogHost(
@@ -63,9 +64,9 @@ internal fun TaskDialogHost(
                     onNavigateToCategory(catId)
                 },
 
-                onPostpone = { task ->
-                    val tomorrow = AppDateProvider.current.today().plusDays(1)
-                    taskVm.updateDue(task, DueChoice.from(tomorrow))
+                onQuickDate = { task ->
+                    val target = quickDateTarget(task)
+                    taskVm.updateDue(task, DueChoice.from(target))
                     setDialogs(TaskDialogs.None)
                 },
 

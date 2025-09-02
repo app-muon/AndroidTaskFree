@@ -98,6 +98,7 @@
 
     <!--Task actions-->
     <string name="postpone_to_tomorrow_action">Postpone to tomorrow</string>
+    <string name="make_due_today">Make due date today</string>
     <string name="clone_task_action">Clone</string>
     <!--   Notifications-->
     <string name="no_notification">No</string>
