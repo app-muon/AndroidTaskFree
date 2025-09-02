@@ -71,12 +71,11 @@ import com.taskfree.app.ui.task.components.ValidationRecurrenceErrorText
 import com.taskfree.app.ui.task.components.commitDue
 import com.taskfree.app.ui.task.components.commitNotification
 import com.taskfree.app.ui.task.components.commitRecurrence
+import com.taskfree.app.ui.task.components.labelRes
+import com.taskfree.app.ui.task.components.quickDateKind
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import showTimePicker
-import com.taskfree.app.ui.task.components.quickDateKind
-import com.taskfree.app.ui.task.components.labelRes
-import com.taskfree.app.ui.task.components.quickDateKind
 
 @Composable
 fun TaskOptionsPanel(
