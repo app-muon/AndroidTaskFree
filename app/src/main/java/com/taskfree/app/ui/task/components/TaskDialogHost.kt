@@ -11,8 +11,6 @@ import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.fromTask
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
-import com.taskfree.app.util.AppDateProvider
-import com.taskfree.app.ui.task.components.quickDateTarget
 
 @Composable
 internal fun TaskDialogHost(
@@ -90,7 +88,8 @@ internal fun TaskDialogHost(
         }
 
         is TaskDialogs.ConfirmArchive -> {
-            ConfirmArchive(title = "Confirm archive", message = when (dialogs.mode) {
+            ConfirmArchive(
+                title = "Confirm archive", message = when (dialogs.mode) {
                 ArchiveMode.Single -> stringResource(R.string.are_you_sure_you_want_to_archive_task)
                 ArchiveMode.Series -> stringResource(R.string.are_you_sure_you_want_to_archive_series)
             }, onYes = {
