@@ -2,6 +2,7 @@
 package com.taskfree.app.ui.task.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,10 +77,7 @@ fun CategoryDropDown(
     var expanded by remember { mutableStateOf(false) }
     val selectedCat = allCats.firstOrNull { it.id == selectedId }
     val label = selectedCat?.title ?: stringResource(R.string.all_categories)
-    TextButton(
-        onClick = { expanded = true },
-        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-    ) {
+    Box(modifier = Modifier.clickable { expanded = true }) {
         if (selectedCat == null) {
             InfoPill(
                 label, colorResource(R.color.all_category_pill_colour), big = true, border = true
@@ -131,10 +128,7 @@ fun DateDropDown(
     var expanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    TextButton(
-        onClick = { expanded = true },
-        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-    ) {
+    Box(modifier = Modifier.clickable { expanded = true }) {
         LabelledOptionPill(label = selectedDueChoice.choiceLabel(), selected = true, big = true)
     }
 

@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -236,14 +236,15 @@ fun TaskListContent(
                 .fillMaxWidth()
                 .background(colorResource(R.color.top_bar_colour))
                 .statusBarsPadding()
-                .height(30.dp)
+                .heightIn(min = 30.dp)
                 .padding(horizontal = 16.dp, vertical = 0.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             Box(
                 modifier = Modifier.offset(y = (-4).dp)
             ) {
-                TaskSearchFilters(categories = allCategories,
+                TaskSearchFilters(
+                    categories = allCategories,
                     selectedCatId = listState.selectedCategoryId,
                     onSelectCategory = {
                         listState = listState.copy(selectedCategoryId = it)
