@@ -295,6 +295,10 @@ class TaskViewModel(
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
+        // 1) remove any pending alarm for this task
+        NotificationScheduler.cancel(appContext, task.id, showToast = false)
+
+        // 2) then archive in DB
         when (mode) {
             ArchiveMode.Single -> repo.archiveSingleOccurrence(task)
             ArchiveMode.Series -> repo.archiveTask(task)
@@ -302,7 +306,18 @@ class TaskViewModel(
     }
 
     fun unArchive(task: Task) = launchIO {
+        // 1) unarchive in DB
         repo.saveTask(task.copy(isArchived = false))
+
+        // 2) restore the alarm if the task had a reminder saved
+        task.reminderTime?.let { whenUtc ->
+            NotificationScheduler.schedule(
+                appContext,
+                task.id,
+                whenUtc,
+                toastKind = NotificationScheduler.ToastKind.Scheduled
+            )
+        }
     }
 
     /** convenience wrapper that always uses IO dispatcher */
