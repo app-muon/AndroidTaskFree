@@ -87,21 +87,21 @@ fun commitDue(
 ) {
     when (validateRecurrenceDate(state.recurrence, candidate)) {
         is RecurrenceValidationResult.Ok -> {
-            vm.updateDue(task, candidate)
+            vm.applyEdits(task.id, TaskViewModel.TaskEdits(
+                due = candidate.date,
+                notify = state.currentNotifyOption
+            )
+            )
             state.updateDue(candidate)
             state.clearErrors()
             state.exitEditMode()
         }
-
-        else -> {
-            when (errorType) {
-                "date" -> state.setDueError()
-                "recurrence" -> state.setRecurrenceError()
-            }
+        else -> when (errorType) {
+            "date" -> state.setDueError()
+            "recurrence" -> state.setRecurrenceError()
         }
     }
 }
-
 // Handles RECURRENCE changes coming from any RepeatChip
 fun commitRecurrence(
     candidate: Recurrence,
@@ -111,15 +111,12 @@ fun commitRecurrence(
 ) {
     when (validateRecurrenceDate(candidate, state.currentDueChoice)) {
         is RecurrenceValidationResult.Ok -> {
-            vm.updateRecurrence(task, candidate)
+            vm.applyEdits(task.id, TaskViewModel.TaskEdits(recurrence = candidate))
             state.updateRecurrence(candidate)
             state.clearErrors()
             state.exitEditMode()
         }
-
-        else -> {
-            state.setRecurrenceError()
-        }
+        else -> state.setRecurrenceError()
     }
 }
 
@@ -132,9 +129,14 @@ fun commitNotification(
     val validation = validateNotification(editState.currentDueChoice, opt)
     if (validation is NotificationValidationResult.Ok) {
         editState.updateNotification(opt)
-        vm.updateNotification(task, opt)
+        vm.applyEdits(task.id, TaskViewModel.TaskEdits(
+            due = editState.currentDueChoice.date,
+            notify = opt
+        )
+        )
+        editState.clearErrors()
         editState.exitEditMode()
     } else {
-        editState.setNotifyError() // new setter like dueError
+        editState.setNotifyError()
     }
 }

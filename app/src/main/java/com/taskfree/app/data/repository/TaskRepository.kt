@@ -23,6 +23,8 @@ class TaskRepository(
 ) {
     suspend fun snapshot(): List<Task> = database.taskDao().getAllNow()
 
+    suspend fun taskById(id: Int): Task? = database.taskDao().taskById(id)
+
     suspend fun replaceAll(cats: List<Category>, tasks: List<Task>) {
         if (BuildConfig.DEBUG) {
             Log.d("Backup", "replaceAll cats=${cats.size} tasks=${tasks.size}")

@@ -63,8 +63,8 @@ internal fun TaskDialogHost(
                 },
 
                 onQuickDate = { task ->
-                    val target = quickDateTarget(task)
-                    taskVm.updateDue(task, DueChoice.from(target))
+                    val target = quickDateTarget(task)    // LocalDate
+                    taskVm.applyEdits(task.id, TaskViewModel.TaskEdits(due = target))
                     setDialogs(TaskDialogs.None)
                 },
 

@@ -116,6 +116,7 @@
     <string name="reminder_channel_desc">Notification channel for tasks</string>
     <string name="notification_scheduled">Notification scheduled</string>
     <string name="notification_cancelled">Notification cancelled</string>
+    <string name="notification_updated">Notification Updated</string>
 
     <!--  The tips to help the users-->
     <string name="tip_show_tips_again">Show all tips again</string>

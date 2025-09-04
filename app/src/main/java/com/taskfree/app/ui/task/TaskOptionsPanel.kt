@@ -228,11 +228,19 @@ fun TaskOptionsPanel(
                                     colors = colors.outlinedFieldColours()
                                 )
                                 EditCancelRow(
-                                    onCancel = { editState.exitEditMode() }, onSave = {
-                                        taskVm.updateTitle(taskSnapshot, newTitle.trim())
-                                        editState.updateTitle(newTitle.trim())
+                                    onCancel = { editState.exitEditMode() },
+                                    onSave = {
+                                        val t = newTitle.trim()
+                                        if (t.isNotEmpty() && t != editState.title) {
+                                            taskVm.applyEdits(taskSnapshot.id,
+                                                TaskViewModel.TaskEdits(title = t)
+                                            )
+                                            editState.updateTitle(t)
+                                        }
                                         editState.exitEditMode()
-                                    }, saveEnabled = newTitle.isNotBlank(), colors = colors
+                                    },
+                                    saveEnabled = newTitle.isNotBlank(),
+                                    colors = colors
                                 )
                             }
                         } else {
@@ -340,12 +348,19 @@ fun TaskOptionsPanel(
                                         ) { picked ->
                                             commitNotification(
                                                 opt = NotificationOption.Other(picked),
-                                                editState,
-                                                taskSnapshot,
-                                                taskVm
+                                                editState = editState,
+                                                task = taskSnapshot.copy(due = editState.currentDueChoice.date),   // ✅ use live due
+                                                vm = taskVm
                                             )
                                         }
-                                    } else commitNotification(opt, editState, taskSnapshot, taskVm)
+                                    } else {
+                                        commitNotification(
+                                            opt = opt,
+                                            editState = editState,
+                                            task = taskSnapshot.copy(due = editState.currentDueChoice.date),       // ✅ same here
+                                            vm = taskVm
+                                        )
+                                    }
                                 })
                         }
                     }/* preview of custom time */
@@ -464,8 +479,12 @@ fun TaskOptionsPanel(
                         allCategories.forEach { cat ->
                             val selected = cat == editState.selectedCategory
                             CategoryPill(category = cat, selected = selected, onClick = {
-                                editState.updateCategory(cat)
-                                taskVm.updateCategory(taskSnapshot, cat)
+                                if (cat.id != editState.selectedCategory.id) {
+                                    editState.updateCategory(cat)
+                                    taskVm.applyEdits(taskSnapshot.id,
+                                        TaskViewModel.TaskEdits(categoryId = cat.id)
+                                    )
+                                }
                                 editState.exitEditMode()
                             })
                         }
