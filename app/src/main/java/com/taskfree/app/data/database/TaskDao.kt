@@ -149,4 +149,7 @@ WHERE categoryId = :categoryId
     suspend fun insertAll(tasks: List<Task>): List<Long>
 
     @Query("DELETE FROM Task") suspend fun deleteAll(): Int
+
+    @Query("SELECT * FROM task WHERE id = :id LIMIT 1")
+    suspend fun taskById(id: Int): Task?
 }

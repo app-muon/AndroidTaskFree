@@ -5,7 +5,6 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.data.repository.TaskRepository
@@ -189,8 +188,11 @@ class TaskViewModel(
         }
 
         /* 4 ▸ schedule the new one if present */
+        val wasExisting = oldReminder != null
         if (reminderTime != null) {
-            NotificationScheduler.schedule(appContext, task.id, reminderTime, showToast = true)
+            val toast = if (wasExisting) NotificationScheduler.ToastKind.Updated
+            else NotificationScheduler.ToastKind.Scheduled
+            NotificationScheduler.schedule(appContext, task.id, reminderTime, toastKind = toast)
         }
     }
 
@@ -258,7 +260,8 @@ class TaskViewModel(
         full: List<Task>, visible: List<Task>, from: Int, to: Int, onComplete: (() -> Unit)? = null
     ) = launchIO {
         orderMutex.withLock {
-            reorderVisibleItems(allTasks = full,
+            reorderVisibleItems(
+                allTasks = full,
                 visible = visible,
                 from = from,
                 to = to,
@@ -272,7 +275,8 @@ class TaskViewModel(
         full: List<Task>, visible: List<Task>, from: Int, to: Int, onComplete: (() -> Unit)? = null
     ) = launchIO {
         orderMutex.withLock {
-            reorderVisibleItems(allTasks = full,
+            reorderVisibleItems(
+                allTasks = full,
                 visible = visible,
                 from = from,
                 to = to,
@@ -313,28 +317,36 @@ class TaskViewModel(
         _filter.update { it.copy(date = date) }
     }
 
-    fun updateTitle(task: Task, newTitle: String) = viewModelScope.launch {
-        updateValues(task, newTitle, task.due, task.recurrence, task.categoryId, task.reminderTime)
-    }
+    // TaskViewModel.kt
+    data class TaskEdits(
+        val title: String? = null,
+        val due: LocalDate? = null,                 // "no due" is null
+        val notify: NotificationOption? = null,     // pass the UI's current selection
+        val recurrence: Recurrence? = null,
+        val categoryId: Int? = null
+    )
 
-    fun updateDue(task: Task, newDue: DueChoice) = viewModelScope.launch {
+    fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO {
+        val current = repo.taskById(taskId) ?: return@launchIO
+
+        val newTitle = edits.title ?: current.text
+        val newDue = edits.due ?: current.due
+        val newRec = edits.recurrence ?: current.recurrence
+        val newCat = edits.categoryId ?: current.categoryId
+
+        // Prefer explicit UI choice; else derive from current DB
+        val effectiveNotify = edits.notify ?: NotificationOption.fromTask(current)
+        val newReminder = effectiveNotify.toInstant(newDue)   // uses system ZoneId; fine
+
+        // Single source of truth for cancel/schedule and toasts:
         updateValues(
-            task, task.text, newDue.date, task.recurrence, task.categoryId, task.reminderTime
+            task = current,   // old snapshot for diffing
+            newText = newTitle,
+            newDue = newDue,
+            rec = newRec,
+            newCategoryId = newCat,
+            reminderTime = newReminder
         )
-    }
-
-    fun updateNotification(task: Task, opt: NotificationOption) = viewModelScope.launch {
-        val whenUtc = opt.toInstant(task.due)
-        updateValues(task, task.text, task.due, task.recurrence, task.categoryId, whenUtc)
-    }
-
-
-    fun updateCategory(task: Task, newCategory: Category) = viewModelScope.launch {
-        updateValues(task, task.text, task.due, task.recurrence, newCategory.id, task.reminderTime)
-    }
-
-    fun updateRecurrence(task: Task, newRecurrence: Recurrence) = viewModelScope.launch {
-        updateValues(task, task.text, task.due, newRecurrence, task.categoryId, task.reminderTime)
     }
 
     fun forceReload() {
@@ -348,8 +360,14 @@ class TaskViewModel(
     ) {
         NotificationScheduler.cancel(appContext, taskId, true)
         opt.toInstant(due)?.let { at ->
-            NotificationScheduler.schedule(appContext, taskId, at, true)
+            NotificationScheduler.schedule(
+                appContext,
+                taskId,
+                at,
+                toastKind = NotificationScheduler.ToastKind.Scheduled
+            )
         }
     }
+
 
 }
