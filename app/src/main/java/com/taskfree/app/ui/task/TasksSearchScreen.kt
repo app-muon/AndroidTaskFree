@@ -47,6 +47,7 @@ import com.taskfree.app.ui.task.components.TaskListContent
 import com.taskfree.app.ui.task.components.TaskScreenConfig
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.db
+import kotlinx.coroutines.delay
 
 @Composable
 fun TaskSearchScreen(
@@ -105,16 +106,26 @@ fun TaskSearchScreen(
         val noTasks = allTasksUnfiltered.isEmpty()
         val unseen = !tipManager.hasSeen(TipId.T1_ADD_TASK)
 
-        if (noTasks || unseen) {           // OR logic
-            tipManager.request(
-                OnboardingTip(
-                    TipId.T1_ADD_TASK,
-                    context.getString(R.string.tip_create),
-                    AnnotatedString(context.getString(R.string.tip_create_your_first_task_body)),
-                    Anchor.AboveBottomBarOnRight
-                ),
-                overrideSeen = noTasks     // force-show only when list is empty
-            )
+        if (noTasks || unseen) {
+            // Debounce the "empty list" case to avoid flash-trigger
+            val stableEmpty = if (noTasks) {
+                delay(300)
+                allTasksUnfiltered.isEmpty() // Re-check after delay
+            } else false
+
+            val shouldOverride = stableEmpty // clearer naming
+
+            if (unseen || stableEmpty) {
+                tipManager.request(
+                    OnboardingTip(
+                        TipId.T1_ADD_TASK,
+                        context.getString(R.string.tip_create),
+                        AnnotatedString(context.getString(R.string.tip_create_your_first_task_body)),
+                        Anchor.AboveBottomBarOnRight
+                    ),
+                    overrideSeen = shouldOverride
+                )
+            }
         }
     }
 
