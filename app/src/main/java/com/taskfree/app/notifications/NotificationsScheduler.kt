@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.core.content.getSystemService
 import com.taskfree.app.R
 import java.time.Instant
@@ -28,11 +27,6 @@ object NotificationScheduler {
             putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
         }
 
-        // Does an alarm already exist?
-        val existing = PendingIntent.getBroadcast(
-            ctx, REQ + taskId, intent, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
-
         // Always (re)create the PI we hand to AlarmManager
         val pi = PendingIntent.getBroadcast(
             ctx,
@@ -42,8 +36,6 @@ object NotificationScheduler {
         )
 
         val trigger = whenUtc.toEpochMilli()
-        val nowMs = System.currentTimeMillis()
-        Log.d("ReminderDebug", "trigger=$trigger (${Instant.ofEpochMilli(trigger)}), now=$nowMs (${Instant.ofEpochMilli(nowMs)}), diff=${trigger - nowMs}ms")
 
         if (trigger < System.currentTimeMillis()) {
             ctx.sendBroadcast(intent)       // overdue → fire now
