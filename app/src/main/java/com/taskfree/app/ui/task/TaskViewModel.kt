@@ -52,8 +52,9 @@ class TaskViewModel(
     private val _filter =
         MutableStateFlow(TaskFilter())/* ------------  main task stream ---------- */
 
-    // Check for day changes when app resumes
+    // Check for day changes when app resumes. And resume with previously selected statuses
     init {
+        TaskStatusFilter.init(appContext)
         viewModelScope.launch {
             checkForDayChange()
         }
