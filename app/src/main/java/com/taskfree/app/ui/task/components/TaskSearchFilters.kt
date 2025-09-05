@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -93,6 +94,7 @@ fun CategoryDropDown(
         modifier = Modifier
             .zIndex(2f)
             .background(colorResource(R.color.dialog_background_colour))
+            .heightIn(max = 360.dp)
     ) {
         DropdownMenuItem(
             text = {
@@ -105,7 +107,6 @@ fun CategoryDropDown(
                 )
             },
             onClick = { onSelected(null); expanded = false },
-            modifier = Modifier.height(32.dp),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
         )
         allCats.forEach { cat ->
@@ -114,7 +115,6 @@ fun CategoryDropDown(
                     CategoryPill(cat, big = true, selected = selectedCat == cat)
                 },
                 onClick = { onSelected(cat.id); expanded = false },
-                modifier = Modifier.height(32.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
             )
         }
@@ -138,6 +138,7 @@ fun DateDropDown(
         modifier = Modifier
             .zIndex(3f)
             .background(colorResource(R.color.dialog_background_colour))
+            .heightIn(max = 360.dp)
     ) {
 
         /** one reusable dropdown row */
@@ -165,7 +166,6 @@ fun DateDropDown(
                         onDueSelected(entry)
                     }
                 },
-                modifier = Modifier.height(32.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
             )
         }
