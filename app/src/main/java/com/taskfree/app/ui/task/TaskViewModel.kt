@@ -224,7 +224,7 @@ class TaskViewModel(
             // 2) re-schedule THIS task’s reminder if it exists and is in the future
             val current = repo.taskById(task.id)
             current?.reminderTime
-                ?.takeIf { it.isAfter(java.time.Instant.now()) }
+                ?.takeIf { it.isAfter(Instant.now()) }
                 ?.let { at ->
                     NotificationScheduler.schedule(
                         appContext, current.id, at,
