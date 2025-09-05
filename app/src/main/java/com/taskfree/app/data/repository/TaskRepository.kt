@@ -3,6 +3,7 @@ package com.taskfree.app.data.repository
 
 import android.util.Log
 import androidx.room.withTransaction
+import com.taskfree.app.BuildConfig
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
@@ -13,10 +14,12 @@ import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.domain.model.calculateNextValidDueDate
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
+import com.taskfree.app.util.sameLocalTimeOn
 import kotlinx.coroutines.flow.Flow
-import com.taskfree.app.BuildConfig
 import java.time.Instant
 import java.time.LocalDate
+
+data class UpdateResult(val nextCreatedId: Int? = null, val nextDeletedId: Int? = null)
 
 class TaskRepository(
     private val database: AppDatabase, private val dates: DateProvider = AppDateProvider.current
@@ -113,11 +116,12 @@ class TaskRepository(
         require(updatedRows > 0) { "Archive failed: no row updated for id=${task.id}" }
     }
 
-    suspend fun archiveSingleOccurrence(task: Task) {
+    suspend fun archiveSingleOccurrence(task: Task): Int? {
         if (task.recurrence == Recurrence.NONE) {
             archiveTask(task)
-            return
+            return null
         }
+        var nextId: Int? = null
 
         database.withTransaction {
             try {
@@ -128,8 +132,15 @@ class TaskRepository(
                 val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
 
                 if (nextDueDate != null) {
-                    createTask(
-                        TaskInput(task.text, nextDueDate, task.recurrence, task.categoryId)
+                    val nextReminder: Instant? = task.reminderTime?.sameLocalTimeOn(nextDueDate)
+                    nextId = createTask(
+                        TaskInput(
+                            task.text,
+                            nextDueDate,
+                            task.recurrence,
+                            task.categoryId,
+                            nextReminder
+                        )
                     )
                     if (BuildConfig.DEBUG) {
                         Log.d("TaskRepository", "Spawned next recurring task due: $nextDueDate")
@@ -154,54 +165,69 @@ class TaskRepository(
                 throw e
             }
         }
+        return nextId
     }
 
     fun observeTasksDueBy(date: LocalDate?, archived: Boolean): Flow<List<TaskWithCategoryInfo>> {
         return database.taskDao().taskListForDate(date, archived)
     }
 
-    suspend fun updateTaskStatus(task: Task, newStatus: TaskStatus) {
+    suspend fun updateTaskStatus(task: Task, newStatus: TaskStatus): UpdateResult {   // <-- CHANGED return type
+        var createdId: Int? = null   // <-- ADDED
+        var deletedId: Int? = null   // <-- ADDED
+
         database.withTransaction {
             val wasDone = task.status == TaskStatus.DONE
             val nowDone = newStatus == TaskStatus.DONE
 
-            // Update core fields
+            // update the current task row
             val updated = task.copy(
-                status = newStatus, completedDate = if (nowDone) dates.today() else null
+                status = newStatus,
+                completedDate = if (nowDone) dates.today() else null
             )
-            val rowsUpdated = database.taskDao().update(updated)
-            if (rowsUpdated == 0) {
-                Log.w("TaskRepository", "Task update failed — no matching task with id=${task.id}")
-            }
+            database.taskDao().update(updated)
 
             if (task.recurrence != Recurrence.NONE) {
                 val baseDate = task.baseDate
                     ?: throw IllegalArgumentException("null baseDate but recurrence is not NONE")
 
-                if (nowDone && !wasDone) {
-                    // Only create next task if newly marked as DONE
-                    val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
-                    if (nextDueDate != null) {
-                        createTask(
-                            TaskInput(task.text, nextDueDate, task.recurrence, task.categoryId)
+                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
+
+                if (nowDone && !wasDone && nextDueDate != null) {
+                    // create the next instance, keeping the SAME local time-of-day as current reminder
+                    val nextReminder = task.reminderTime?.sameLocalTimeOn(nextDueDate)
+
+                    createdId = createTask(
+                        TaskInput(
+                            title = task.text,
+                            dueDate = nextDueDate,
+                            recurrence = task.recurrence,
+                            categoryId = task.categoryId,
+                            reminderTime = nextReminder
                         )
-                    }
+                    )
                 }
 
-                if (!nowDone && wasDone) {
-                    // Remove next instance only if unmarking DONE
-                    val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
-                    if (nextDueDate != null) {
-                        database.taskDao().deleteNextInstance(
-                            categoryId = task.categoryId,
-                            text = task.text,
-                            rec = task.recurrence,
-                            dueNext = nextDueDate
-                        )
-                    }
+                if (!nowDone && wasDone && nextDueDate != null) {
+                    // we’re reverting DONE → (TODO/PENDING/DOING): delete the "next" instance if it exists
+                    // (requires you added TaskDao.findNextInstanceId as shown earlier)
+                    deletedId = database.taskDao().findNextInstanceId(
+                        categoryId = task.categoryId,
+                        text = task.text,
+                        rec = task.recurrence,
+                        dueNext = nextDueDate
+                    )
+                    database.taskDao().deleteNextInstance(
+                        categoryId = task.categoryId,
+                        text = task.text,
+                        rec = task.recurrence,
+                        dueNext = nextDueDate
+                    )
                 }
             }
         }
+
+        return UpdateResult(createdId, deletedId)   // <-- CHANGED return
     }
 
     suspend fun updateTaskDetails(

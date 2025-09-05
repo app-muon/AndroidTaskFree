@@ -197,8 +197,42 @@ class TaskViewModel(
     }
 
 
-    fun updateStatus(task: Task, newStatus: TaskStatus) =
-        launchIO { repo.updateTaskStatus(task, newStatus) }
+    fun updateStatus(task: Task, newStatus: TaskStatus) = launchIO {
+        val wasDone = task.status == TaskStatus.DONE
+        val nowDone = newStatus == TaskStatus.DONE
+
+        val res = repo.updateTaskStatus(task, newStatus)
+
+        if (nowDone && !wasDone && task.reminderTime != null) {
+            NotificationScheduler.cancel(appContext, task.id, showToast = true)
+        }
+
+        if (nowDone && !wasDone) {
+            res.nextCreatedId?.let { id ->
+                repo.taskById(id)?.reminderTime?.let { at ->
+                    NotificationScheduler.schedule(
+                        appContext, id, at,
+                        toastKind = NotificationScheduler.ToastKind.Scheduled
+                    )
+                }
+            }
+        } else if (!nowDone && wasDone) {                     // NEW: unmarking DONE
+            // 1) cancel alarm for the deleted "next" instance (if any)
+            res.nextDeletedId?.let { id ->
+                NotificationScheduler.cancel(appContext, id, showToast = true)
+            }
+            // 2) re-schedule THIS task’s reminder if it exists and is in the future
+            val current = repo.taskById(task.id)
+            current?.reminderTime
+                ?.takeIf { it.isAfter(java.time.Instant.now()) }
+                ?.let { at ->
+                    NotificationScheduler.schedule(
+                        appContext, current.id, at,
+                        toastKind = NotificationScheduler.ToastKind.Scheduled
+                    )
+                }
+        }
+    }
 
 
     /**
@@ -295,16 +329,22 @@ class TaskViewModel(
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
-        // 1) remove any pending alarm for this task
-        NotificationScheduler.cancel(appContext, task.id, showToast = false)
-
-        // 2) then archive in DB
+        NotificationScheduler.cancel(appContext, task.id, showToast = true)
         when (mode) {
-            ArchiveMode.Single -> repo.archiveSingleOccurrence(task)
+            ArchiveMode.Single -> {
+                val nextId = repo.archiveSingleOccurrence(task)
+                nextId?.let { id ->
+                    repo.taskById(id)?.reminderTime?.let { at ->
+                        NotificationScheduler.schedule(
+                            appContext, id, at,
+                            toastKind = NotificationScheduler.ToastKind.Scheduled
+                        )
+                    }
+                }
+            }
             ArchiveMode.Series -> repo.archiveTask(task)
         }
     }
-
     fun unArchive(task: Task) = launchIO {
         // 1) unarchive in DB
         repo.saveTask(task.copy(isArchived = false))

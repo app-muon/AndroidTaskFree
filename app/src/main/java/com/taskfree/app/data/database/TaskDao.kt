@@ -152,4 +152,16 @@ WHERE categoryId = :categoryId
 
     @Query("SELECT * FROM task WHERE id = :id LIMIT 1")
     suspend fun taskById(id: Int): Task?
+
+    @Query("""
+SELECT id FROM task
+WHERE categoryId = :categoryId AND text = :text AND recurrence = :rec AND due = :dueNext
+LIMIT 1
+""")
+    suspend fun findNextInstanceId(
+        categoryId: Int,
+        text: String,
+        rec: Recurrence,
+        dueNext: LocalDate
+    ): Int?
 }
