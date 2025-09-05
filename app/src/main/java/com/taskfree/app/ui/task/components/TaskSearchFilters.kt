@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
@@ -33,7 +34,19 @@ import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.showDatePicker
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
+@Composable
+private fun MenuCap90(): Dp {
+    val windowInfo = LocalWindowInfo.current
+    val density = LocalDensity.current
+    val hPx = windowInfo.containerSize.height     // px
+    return with(density) { (hPx * 0.9f).toDp() }  // 90% of window height in dp
+}
 /**
  * Compact row that hosts the **Category** and **Date** dropdown filters
  * shown in the Task screen’s top bar.
@@ -75,6 +88,7 @@ fun CategoryDropDown(
     allCats: List<Category>, selectedId: Int?, onSelected: (Int?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val cap = MenuCap90()
     val selectedCat = allCats.firstOrNull { it.id == selectedId }
     val label = selectedCat?.title ?: stringResource(R.string.all_categories)
     Box(modifier = Modifier.clickable { expanded = true }) {
@@ -93,7 +107,7 @@ fun CategoryDropDown(
         modifier = Modifier
             .zIndex(2f)
             .background(colorResource(R.color.dialog_background_colour))
-            .heightIn(max = 360.dp)
+            .heightIn(max = cap)
     ) {
         DropdownMenuItem(
             text = {
@@ -125,6 +139,7 @@ fun DateDropDown(
     selectedDueChoice: DueChoice, onDueSelected: (DueChoice) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val cap = MenuCap90()
     val context = LocalContext.current
 
     Box(modifier = Modifier.clickable { expanded = true }) {
@@ -137,7 +152,7 @@ fun DateDropDown(
         modifier = Modifier
             .zIndex(3f)
             .background(colorResource(R.color.dialog_background_colour))
-            .heightIn(max = 360.dp)
+            .heightIn(max = cap)
     ) {
 
         /** one reusable dropdown row */
