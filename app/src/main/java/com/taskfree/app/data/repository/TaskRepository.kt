@@ -209,7 +209,7 @@ class TaskRepository(
                 }
 
                 if (!nowDone && wasDone && nextDueDate != null) {
-                    // we’re reverting DONE → (TODO/PENDING/DOING): delete the "next" instance if it exists
+                    // we’re reverting DONE → (TO DO/PENDING/DOING): delete the "next" instance if it exists
                     // (requires you added TaskDao.findNextInstanceId as shown earlier)
                     deletedId = database.taskDao().findNextInstanceId(
                         categoryId = task.categoryId,
