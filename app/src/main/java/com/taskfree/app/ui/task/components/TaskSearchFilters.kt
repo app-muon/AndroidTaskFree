@@ -5,12 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +35,25 @@ import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.showDatePicker
+
+@Composable
+private fun CompactDropdownItem(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clickable(
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 5.dp), // tight spacing
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        content()
+    }
+}
 
 @Composable
 private fun menuCap90(): Dp {
@@ -107,27 +125,19 @@ fun CategoryDropDown(
             .background(colorResource(R.color.dialog_background_colour))
             .heightIn(max = cap)
     ) {
-        DropdownMenuItem(
-            text = {
-                InfoPill(
-                    stringResource(R.string.all_categories),
-                    colorResource(R.color.all_category_pill_colour),
-                    big = true,
-                    border = selectedCat != null,
-                    selected = selectedCat == null
-                )
-            },
-            onClick = { onSelected(null); expanded = false },
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
-        )
-        allCats.forEach { cat ->
-            DropdownMenuItem(
-                text = {
-                    CategoryPill(cat, big = true, selected = selectedCat == cat)
-                },
-                onClick = { onSelected(cat.id); expanded = false },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
+        CompactDropdownItem(onClick = { onSelected(null); expanded = false }) {
+            InfoPill(
+                stringResource(R.string.all_categories),
+                colorResource(R.color.all_category_pill_colour),
+                big = true,
+                border = selectedCat != null,
+                selected = selectedCat == null
             )
+        }
+        allCats.forEach { cat ->
+            CompactDropdownItem(onClick = { onSelected(cat.id); expanded = false }) {
+                CategoryPill(cat, big = true, selected = selectedCat == cat)
+            }
         }
     }
 }
@@ -155,34 +165,22 @@ fun DateDropDown(
 
         /** one reusable dropdown row */
         @Composable
-        fun Item(entry: DueChoice) {
-            DropdownMenuItem(
-                text = {
-                    LabelledOptionPill(
-                        label = entry.choiceLabel(),
-                        big = true,
-                        selected = selectedDueChoice isSameKindAs entry
-                    )
-                },
-                onClick = {
-                    expanded = false
-                    if (entry.launchDatePicker()) {
-                        showDatePicker(
-                            context = context,
-                            initialDate = entry.date,
-                            onDateSelected = { picked ->
-                                onDueSelected(DueChoice.from(picked))
-                            },
-                        )
-                    } else {
-                        onDueSelected(entry)
+        fun Item(entry: DueChoice) = CompactDropdownItem(
+            onClick = {
+                expanded = false
+                if (entry.launchDatePicker()) {
+                    showDatePicker(context, entry.date) { picked ->
+                        onDueSelected(DueChoice.from(picked))
                     }
-                },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 1.dp)
+                } else onDueSelected(entry)
+            }
+        ) {
+            LabelledOptionPill(
+                label = entry.choiceLabel(),
+                big = true,
+                selected = selectedDueChoice isSameKindAs entry
             )
         }
-
-        /* populate menu */
         DueChoice.allFilters().forEach { Item(it) }
     }
 }
