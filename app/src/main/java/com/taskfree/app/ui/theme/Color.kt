@@ -50,8 +50,8 @@ val FallBackColourForCategory = Color(0xFFE9EEF3)
 val categoryPalette = listOf(
     Color(0xFFD32F2F), // Red
     Color(0xFFC2185B), // Pink
-    Color(0xFF7B1FA2), // Purple
-    Color(0xFF512DA8), // Deep Purple
+    Color(0xFF9C27B0), // Brighter Purple
+    Color(0xFF673AB7), // Brighter Deep Purple
     Color(0xFF3949AB), // Indigo
     Color(0xFF1976D2), // Blue
     Color(0xFF0288D1), // Light Blue
