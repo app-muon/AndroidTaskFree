@@ -198,8 +198,6 @@ fun TaskOptionsPanel(
                 )
                 CategoryPill(
                     category = category, big = true, selected = true
-
-
                 )
             }
         })

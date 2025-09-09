@@ -118,6 +118,8 @@ class CategoryViewModel(
         taskRepo.archiveCompletedInCategory(category.id)
     }
 
+    fun updateColor(category: Category, newColor: Long) =
+        launch { repo.updateCategoryColor(category, newColor) }
     /* helper */
     private fun launch(block: suspend () -> Unit) = viewModelScope.launch(ioDispatcher) { block() }
 

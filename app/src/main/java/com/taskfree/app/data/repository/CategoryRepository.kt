@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.map
 class CategoryRepository(private val database: AppDatabase) {
     suspend fun snapshot(): List<Category> = database.categoryDao().getAllNow()
 
+    suspend fun updateCategoryColor(category: Category, newColor: Long) {
+        val rows = database.categoryDao().update(category.copy(color = newColor))
+        require(rows > 0) { "Update failed for category id=${category.id}" }
+    }
+
     fun observeAllCategories(): Flow<List<Category>> {
         return database.categoryDao().all()
     }
