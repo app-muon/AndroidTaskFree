@@ -34,6 +34,7 @@
     <string name="name_of_unknown_category">Unknown</string>
     <!--Category actions-->
     <string name="go_to_category_action">View tasks in category</string>
+    <string name="category_colour_label">Change category color</string>
     <string name="delete_this_category_action">Delete this category</string>
     <string name="archive_completed_in_category_action">Archive completed tasks in category</string>
     <string name="are_you_sure_you_delete_category">Are you sure you want to permanently delete “%1$s” and all its tasks?</string>

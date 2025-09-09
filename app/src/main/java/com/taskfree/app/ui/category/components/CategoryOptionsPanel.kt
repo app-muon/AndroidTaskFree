@@ -1,25 +1,37 @@
 // CategoryOptionsPanel.kt
 package com.taskfree.app.ui.category.components
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,9 +41,11 @@ import com.taskfree.app.data.entities.Category
 import com.taskfree.app.ui.category.CategoryViewModel
 import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.ActionItem
+import com.taskfree.app.ui.components.CategoryPill
 import com.taskfree.app.ui.components.EditCancelRow
 import com.taskfree.app.ui.components.EditableMetaRow
 import com.taskfree.app.ui.components.PanelActionList
+import com.taskfree.app.ui.theme.categoryPalette
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 
@@ -56,63 +70,87 @@ internal fun CategoryOptionsPanel(
     // Local state management
     var editingField by remember { mutableStateOf(CategoryEditingField.NONE) }
     var currentName by remember { mutableStateOf(category.title) }
-    PanelActionList(headerContent = {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            /* --- CATEGORY NAME ROW --- */
-            EditableMetaRow(label = "", // No label for category name
-                value = {
-                    if (editingField == CategoryEditingField.NAME) {
-                        var newName by rememberSaveable { mutableStateOf(currentName) }
+    // Track & show current colour
+    var currentColor by remember { mutableLongStateOf(category.color) }
+    PanelActionList(
+        headerContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                /* --- CATEGORY NAME ROW --- */
+                EditableMetaRow(
+                    label = "", // No label for category name
+                    value = {
+                        if (editingField == CategoryEditingField.NAME) {
+                            var newName by rememberSaveable { mutableStateOf(currentName) }
 
-                        Column {
-                            OutlinedTextField(
-                                value = newName,
-                                onValueChange = { newName = it },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = colors.outlinedFieldColours()
-                            )
-                            EditCancelRow(onCancel = {
-                                editingField = CategoryEditingField.NONE
-                            }, onSave = {
-                                val trimmed = newName.trim()
-                                catVm.rename(category, trimmed)
-                                currentName = trimmed
-                                editingField = CategoryEditingField.NONE
-                            }, saveEnabled = newName.isNotBlank(), colors = colors
+                            Column {
+                                OutlinedTextField(
+                                    value = newName,
+                                    onValueChange = { newName = it },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = colors.outlinedFieldColours()
+                                )
+                                EditCancelRow(
+                                    onCancel = {
+                                        editingField = CategoryEditingField.NONE
+                                    }, onSave = {
+                                        val trimmed = newName.trim()
+                                        catVm.rename(category, trimmed)
+                                        currentName = trimmed
+                                        editingField = CategoryEditingField.NONE
+                                    }, saveEnabled = newName.isNotBlank(), colors = colors
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = currentName,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = colors.surfaceText
                             )
                         }
-                    } else {
-                        Text(
-                            text = currentName,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = colors.surfaceText
-                        )
-                    }
-                },
-                currentField = editingField == CategoryEditingField.NAME,
-                onEdit = { editingField = CategoryEditingField.NAME },
-                colors = colors
-            )
-        }
-    },
-        onDismiss = onDismiss,
-        actions = listOf(ActionItem(icon = Icons.AutoMirrored.Filled.List, onClick = {
-            onDismiss()
-            onNavigateToCategory(category.id)
-        }, labelContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.go_to_category_action),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.surfaceText
+                    },
+                    currentField = editingField == CategoryEditingField.NAME,
+                    onEdit = { editingField = CategoryEditingField.NAME },
+                    colors = colors
                 )
             }
-        }),
+        }, onDismiss = onDismiss, actions = listOf(
+            ActionItem(icon = Icons.AutoMirrored.Filled.List, onClick = {
+                onDismiss()
+                onNavigateToCategory(category.id)
+            }, labelContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.go_to_category_action),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.surfaceText,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    CategoryPill(
+                        category = category, big = true, selected = true
+                    )
+
+                }
+            }),
+            // 2) Colour chooser (directly underneath "Go to", styled with MetaRow)
+            ActionItem(
+                icon = Icons.Filled.Palette,
+                onClick = {}, // no-op; interactions happen inside
+                labelContent = {
+                    ColorChooserRow(
+                        colors = colors,
+                        currentColor = currentColor,
+                        onPick = { picked ->
+                            currentColor = picked
+                            catVm.updateColor(category, picked)
+                        }
+                    )
+                }
+            ),
             // ——— Archive completed ———
             ActionItem(icon = Icons.Default.Archive, onClick = {
                 onRequestArchive()
@@ -142,4 +180,51 @@ internal fun CategoryOptionsPanel(
             )
         )
     )
+}
+
+@Composable
+private fun ColorChooserRow(
+    colors: com.taskfree.app.ui.theme.PanelColors,
+    currentColor: Long,
+    onPick: (Long) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(
+            text = stringResource(id = R.string.category_colour_label),
+            style = MaterialTheme.typography.bodyLarge, // matches other menu text
+            color = colors.surfaceText
+        )
+        val swatchSize = 28.dp
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = (swatchSize + 10.dp)),
+            userScrollEnabled = false,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .heightIn(max = 200.dp)
+        ) {
+            items(categoryPalette) { swatch ->
+                val swatchLong = (swatch.toArgb().toLong() and 0xFFFFFFFFL)
+                val selected = swatchLong == (currentColor and 0xFFFFFFFFL)
+                Canvas(
+                    modifier = Modifier
+                        .size(swatchSize)
+                        .clickable { onPick(swatchLong) }
+                ) {
+                    drawCircle(color = swatch)
+                    if (selected) {
+                        drawCircle(
+                            color = colors.surfaceText.copy(alpha = 0.9f),
+                            style = Stroke(width = 3f)
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
