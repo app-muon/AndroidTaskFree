@@ -51,31 +51,31 @@ val categoryPalette = listOf(
     Color(0xFFD32F2F), // Red
     Color(0xFFC2185B), // Pink
     Color(0xFF9C27B0), // Brighter Purple
-    Color(0xFF673AB7), // Brighter Deep Purple
-    Color(0xFF3949AB), // Indigo
+    Color(0xFF7C4DFF), // Brighter Deep Purple
+    Color(0xFF5C6BC0), // Brighter Indigo
     Color(0xFF1976D2), // Blue
     Color(0xFF0288D1), // Light Blue
     Color(0xFF00838F), // Cyan
-    Color(0xFF00796B), // Teal
+    Color(0xFF009688), // Teal
     Color(0xFF388E3C), // Green
     Color(0xFF689F38), // Light Green
-    Color(0xFF9E9D24), // Lime
-    Color(0xFFFBC02D), // Yellow
-    Color(0xFFFF8F00), // Amber
+    Color(0xFF827717), // Lime
+    Color(0xFFF57F17), // Yellow
+    Color(0xFFE65100), // Amber
     Color(0xFFEF6C00), // Orange
     Color(0xFFE64A19), // Deep Orange
-    Color(0xFF5D4037), // Brown
-    Color(0xFF616161), // Grey
-    Color(0xFF455A64), // Blue Grey
-    Color(0xFF4E342E), // Dark Brown
+    Color(0xFF795548), // Brighter Brown
+    Color(0xFF78909C), // Slate Grey
+    Color(0xFF90A4AE), // Lighter Blue Grey
+    Color(0xFF8D6E63), // Brighter Dark Brown
     Color(0xFFC62828), // Dark Red
     Color(0xFFAD1457), // Dark Pink
-    Color(0xFF6A1B9A), // Dark Purple
-    Color(0xFF283593), // Dark Indigo
-    Color(0xFF1565C0), // Dark Blue
-    Color(0xFF00695C), // Dark Cyan
-    Color(0xFF2E7D32), // Dark Green
-    Color(0xFFF57F17), // Dark Yellow
+    Color(0xFF8E24AA), // Brighter Dark Purple
+    Color(0xFF5C6BC0), // Brighter Dark Indigo
+    Color(0xFF1E88E5), // Dark Blue
+    Color(0xFF26A69A), // Dark Cyan
+    Color(0xFF43A047), // Dark Green
+    Color(0xFFEF6C00), // Dark Yellow
     Color(0xFFD84315), // Dark Orange
-    Color(0xFFBF360C)  // Dark Deep Orange
+    Color(0xFFE64A19) // Dark Deep Orange
 )
