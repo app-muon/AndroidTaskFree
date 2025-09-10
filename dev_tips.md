@@ -16,6 +16,8 @@ Or
 This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk` or `app/build/outputs/apk/release/app-release-unsigned.apk`.
 
 ## 1 · Device A (“old phone”)
+You can run these from the terminal in Android Studio.
+
 Step	Command / Action
 - 1.1	Install the app
 `adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk`
