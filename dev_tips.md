@@ -2,8 +2,8 @@
 
 ### 0 · Build APK once on your host
 `./gradlew :app:assembleDebug           # Windows: gradlew.bat …`
-APK path: `app/build/outputs/apk/debug/app-debug.apk`
-account, adapt, absent, across, acoustic, adjust, account, boy
+
+This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk`
 
 ## 1 · Device A (“old phone”)
 Step	Command / Action
