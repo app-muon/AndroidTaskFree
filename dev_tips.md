@@ -45,14 +45,14 @@ Step	Command / Action
 - 2.4	Verify the backup set is visible
 `adb -s emulator-5556 shell bmgr list sets`
 If it still says “No restore sets”, wait a minute for Drive sync and repeat.
-2.5	Install the APK (required before or after restore; either is fine)
+- 2.5	Install the APK (required before or after restore; either is fine)
 `adb -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk`
-2.6	Restore only this app’s data
+- 2.6	Restore only this app’s data
 `adb -s emulator-5556 shell bmgr restore <TOKEN> com.taskfree.app`
 Example:
 `adb -s emulator-5556 shell bmgr restore 4793848356023 com.taskfree.app`
-2.7	Logcat should show
+- 2.7	Logcat should show
 `dispatchRestore(): com.taskfree.app`
 `restoreFinished(): SUCCESS`
-2.8	Launch the app → the Restore-phrase prompt should appear.
+- 2.8	Launch the app → the Restore-phrase prompt should appear.
 
