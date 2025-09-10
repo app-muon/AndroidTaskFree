@@ -1,11 +1,23 @@
 # CLI commands to test backup
 
 ### 0 · Build APK once on your host
-`./gradlew :app:assembleDebug           # Windows: gradlew.bat …`
-APK path: `app/build/outputs/apk/debug/app-debug.apk`
-account, adapt, absent, across, acoustic, adjust, account, boy
+Android Studio, you normally use Build → Generate Signed Bundle / APK which handles the signing step.
+
+Or alternatively build the version you want from the CLI:
+
+`./gradlew :app:assembleDebug     # On macOS/Linux`          
+`gradlew.bat :app:assembleDebug   # On Windows`
+
+Or
+
+`./gradlew :app:assembleRelease     # On macOS/Linux`          
+`gradlew.bat :app:assembleRelease   # On Windows`
+
+This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk` or `app/build/outputs/apk/release/app-release-unsigned.apk`.
 
 ## 1 · Device A (“old phone”)
+You can run these from the terminal in Android Studio.
+
 Step	Command / Action
 - 1.1	Install the app
 `adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk`
@@ -33,14 +45,14 @@ Step	Command / Action
 - 2.4	Verify the backup set is visible
 `adb -s emulator-5556 shell bmgr list sets`
 If it still says “No restore sets”, wait a minute for Drive sync and repeat.
-2.5	Install the APK (required before or after restore; either is fine)
+- 2.5	Install the APK (required before or after restore; either is fine)
 `adb -s emulator-5556 install -r app/build/outputs/apk/debug/app-debug.apk`
-2.6	Restore only this app’s data
+- 2.6	Restore only this app’s data
 `adb -s emulator-5556 shell bmgr restore <TOKEN> com.taskfree.app`
 Example:
 `adb -s emulator-5556 shell bmgr restore 4793848356023 com.taskfree.app`
-2.7	Logcat should show
+- 2.7	Logcat should show
 `dispatchRestore(): com.taskfree.app`
 `restoreFinished(): SUCCESS`
-2.8	Launch the app → the Restore-phrase prompt should appear.
+- 2.8	Launch the app → the Restore-phrase prompt should appear.
 
