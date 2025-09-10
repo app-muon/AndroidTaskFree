@@ -4,6 +4,7 @@
 Android Studio, you normally use Build → Generate Signed Bundle / APK which handles the signing step.
 
 Or alternatively build the version you want from the CLI:
+
 `./gradlew :app:assembleDebug     # On macOS/Linux`          
 `gradlew.bat :app:assembleDebug   # On Windows`
 
