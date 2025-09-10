@@ -1,10 +1,23 @@
 package com.taskfree.app.ui.admin
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,7 +30,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 import com.taskfree.app.ui.theme.TextScaleController
 import com.taskfree.app.ui.theme.TextScaleOption
 
@@ -26,12 +42,18 @@ fun TextSizeDialog(onClose: () -> Unit) {
     val ctx = LocalContext.current
     val current by TextScaleController.option.collectAsState()
 
-    Dialog(onDismissRequest = onClose) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(
                 containerColor = colorResource(R.color.dialog_background_colour)
-            )
+            ),
+            modifier = Modifier
+                .dialogResponsiveWidth()   // 100% phone, ~80% tablet (capped)
+                .dialogMaxHeight()         // ~92% of actual window height
         ) {
             // Header styled like ConfirmDialog
             Text(
@@ -96,7 +118,12 @@ fun TextSizeDialog(onClose: () -> Unit) {
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(
-                        onClick = { TextScaleController.setOption(ctx, TextScaleOption.SYSTEM_ONLY) },
+                        onClick = {
+                            TextScaleController.setOption(
+                                ctx,
+                                TextScaleOption.SYSTEM_ONLY
+                            )
+                        },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = colorResource(R.color.dialog_button_text_colour)
                         )

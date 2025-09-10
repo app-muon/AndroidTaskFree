@@ -35,10 +35,13 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.Prefs
 import com.taskfree.app.R
 import com.taskfree.app.debugToast
 import com.taskfree.app.ui.components.ConfirmDialog
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 
 @Composable
 fun RestorePrompt(
@@ -68,13 +71,18 @@ fun PhraseEntry(
     var isValidating by remember { mutableStateOf(false) }
 
     /* dialog wrapper */
-    Dialog(onDismissRequest = onCancel) {
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(
                 containerColor = colorResource(R.color.dialog_background_colour)
             ),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight()
         ) {
 
             /* header strip */

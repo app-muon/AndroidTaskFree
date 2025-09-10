@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,11 +18,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -37,26 +39,35 @@ fun PanelActionList(
     headerContent: (@Composable () -> Unit)? = null,
     actions: List<ActionItem>,
     onDismiss: () -> Unit,
-    showBottomFade: Boolean = true        // optional hint
+    showBottomFade: Boolean = true,
+    showTopFade: Boolean = true // optional hint
 ) {
-    val shape = MaterialTheme.shapes.large
+    val surfaceShape = MaterialTheme.shapes.large
     val backgroundColour = colorResource(R.color.dialog_background_colour)
     val listState = rememberLazyListState()
 
+// ✅ Wrap frequently changing reads
+    val topFadeVisible by remember(showTopFade, listState) {
+        derivedStateOf {
+            showTopFade && (listState.firstVisibleItemIndex > 0 ||
+                    listState.firstVisibleItemScrollOffset > 0)
+        }
+    }
+    val bottomFadeVisible by remember(showBottomFade, listState) {
+        derivedStateOf { showBottomFade && listState.canScrollForward }
+    }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Box {
             Surface(
-                shape = shape,
+                shape = surfaceShape,
                 color = backgroundColour,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = with(LocalDensity.current) {
-                        LocalWindowInfo.current.containerSize.height.toDp() * 0.92f
-                    }
-                    )) {
+                    .dialogResponsiveWidth()
+                    .dialogMaxHeight()
+            ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -139,46 +150,63 @@ fun PanelActionList(
                 }
             }
 
-            // Optional bottom fade overlay (static)
-            if (showBottomFade && listState.canScrollForward) {
+            if (topFadeVisible || bottomFadeVisible) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 0.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    backgroundColour
+                        .matchParentSize()
+                        .clip(surfaceShape)
+                ) {
+                    val fadeH = 56.dp
+
+                    if (topFadeVisible) {
+                        Box(
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .height(fadeH)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(backgroundColour, backgroundColour.copy(alpha = 0f))
+                                    )
                                 )
-                            )
                         )
-                        .height(if (listState.canScrollForward) 64.dp else 0.dp)
-                        .align(androidx.compose.ui.Alignment.BottomCenter)
-                )
+                    }
+                    if (bottomFadeVisible) {
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(fadeH)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(backgroundColour.copy(alpha = 0f), backgroundColour)
+                                    )
+                                )
+                        )
+                    }
+                }
             }
         }
-    }
-}
+    }}
 
-@Composable
-private fun RowWithLeftBar(
-    barColor: Color,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { onClick() }
+    @Composable
+    private fun RowWithLeftBar(
+        barColor: Color,
+        enabled: Boolean,
+        onClick: () -> Unit,
+        content: @Composable () -> Unit
     ) {
-        Box(
+        androidx.compose.foundation.layout.Row(
             modifier = Modifier
-                .width(6.dp)
-                .fillMaxHeight()
-                .background(barColor)
-        )
-        content()
+                .fillMaxWidth()
+                .clickable(enabled = enabled) { onClick() }
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(6.dp)
+                    .fillMaxHeight()
+                    .background(barColor)
+            )
+            content()
+        }
     }
-}
