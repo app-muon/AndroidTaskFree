@@ -1,7 +1,15 @@
 # CLI commands to test backup
 
 ### 0 · Build APK once on your host
-`./gradlew :app:assembleDebug           # Windows: gradlew.bat …`
+Android Studio, you normally use Build → Generate Signed Bundle / APK which handles the signing step.
+
+Or alternatively build the version you want from the CLI:
+`./gradlew :app:assembleDebug     # On macOS/Linux`          
+`gradlew.bat :app:assembleDebug   # On Windows`
+
+Or
+`./gradlew :app:assembleRelease     # On macOS/Linux`          
+`gradlew.bat :app:assembleRelease   # On Windows`
 
 This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk`
 
