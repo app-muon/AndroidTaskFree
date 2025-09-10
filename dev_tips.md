@@ -9,10 +9,11 @@ Or alternatively build the version you want from the CLI:
 `gradlew.bat :app:assembleDebug   # On Windows`
 
 Or
+
 `./gradlew :app:assembleRelease     # On macOS/Linux`          
 `gradlew.bat :app:assembleRelease   # On Windows`
 
-This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk`
+This will build the APK here: `app/build/outputs/apk/debug/app-debug.apk` or `app/build/outputs/apk/release/app-release-unsigned.apk`.
 
 ## 1 · Device A (“old phone”)
 Step	Command / Action
