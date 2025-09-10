@@ -36,6 +36,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.ui.components.AutoLinkedText
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 import com.taskfree.app.ui.components.thinVerticalScrollbar
 
 @Composable
@@ -107,7 +109,9 @@ private fun TipCard(tip: OnboardingTip, onDismiss: () -> Unit) {
             shape = MaterialTheme.shapes.medium,
             tonalElevation = 4.dp,
             color = colorResource(R.color.dialog_background_colour),
-            modifier = Modifier.clickable { }
+            modifier = Modifier
+                .dialogResponsiveWidth()
+                .clickable { }
         ) {
             val scrollState = rememberLazyListState()
             val backgroundColor = colorResource(R.color.dialog_background_colour)
@@ -116,7 +120,7 @@ private fun TipCard(tip: OnboardingTip, onDismiss: () -> Unit) {
                 LazyColumn(
                     state = scrollState,
                     modifier = Modifier
-                        .heightIn(max = 500.dp)
+                        .dialogMaxHeight(0.60f)
                         .padding(16.dp)
                         .thinVerticalScrollbar(scrollState),
                     contentPadding = PaddingValues(bottom = 48.dp) // Space for button

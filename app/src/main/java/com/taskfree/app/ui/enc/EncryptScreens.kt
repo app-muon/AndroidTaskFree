@@ -7,10 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,10 +37,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
 import com.taskfree.app.debugToast
 import com.taskfree.app.ui.components.AppCheckbox
 import com.taskfree.app.ui.components.ConfirmDialog
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 
 /* 1 ▸ info */
 @Composable
@@ -58,11 +66,16 @@ fun EncryptPhraseScreen(
     var chk1 by remember { mutableStateOf(false) }
     var chk2 by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
-    Dialog(onDismissRequest = onCancel) {
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(
                 containerColor = colorResource(R.color.dialog_background_colour)
-            ), modifier = Modifier.fillMaxWidth()
+            ), modifier = Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight()
         ) {
             Column {
                 /* header strip */
@@ -82,11 +95,26 @@ fun EncryptPhraseScreen(
                 /* phrase block */
                 Spacer(Modifier.height(16.dp))
 
-                Text(
-                    formatMnemonic(words, perRow = 3),
-                    fontFamily = FontFamily.Monospace,
-                    color = colorResource(R.color.surface_colour)
-                )
+                SelectionContainer {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 160.dp),   // ~2–3 columns depending on width
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement   = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .heightIn(max = 260.dp) // keeps inner scroll bounded inside dialog
+                    ) {
+                        itemsIndexed(words) { idx, w ->
+                            Text(
+                                text = "${(idx + 1).toString().padStart(2, ' ')}. $w",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
+                                color = colorResource(R.color.surface_colour)
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AppCheckbox(chk1) { chk1 = it }
@@ -132,11 +160,15 @@ fun EncryptPhraseScreen(
 /* 3 ▸ progress */
 @Composable
 fun EncryptProgress(progress: Int) {
-    Dialog(onDismissRequest = {}) {
+    Dialog(onDismissRequest = {}, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Card(
             shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(
                 containerColor = colorResource(R.color.dialog_background_colour)
-            )
+            ),
+            modifier = Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight()
+
         ) {
             Column(
                 modifier = Modifier

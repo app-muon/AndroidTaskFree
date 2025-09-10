@@ -47,10 +47,12 @@ import com.taskfree.app.ui.components.DueChoiceSaver
 import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.NotificationOptionSaver
+import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.RecurrencePill
 import com.taskfree.app.ui.components.TaskFieldHeading
-import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.choiceLabel
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.launchTimePicker
@@ -107,7 +109,8 @@ fun NewTaskDialog(
 
     LaunchedEffect(pickDate) {
         if (pickDate) {
-            showDatePicker(context = context,
+            showDatePicker(
+                context = context,
                 initialDate = selectedDueChoice.date,
                 onDateSelected = { pickedDate ->
                     selectedDueChoice = DueChoice.from(pickedDate)
@@ -118,7 +121,8 @@ fun NewTaskDialog(
 
     LaunchedEffect(pickTime) {
         if (pickTime) {
-            showTimePicker(context = context,
+            showTimePicker(
+                context = context,
                 initial = selectedNotificationOption.time,
                 onTimeSelected = {
                     selectedNotificationOption = NotificationOption.Other(it)
@@ -136,7 +140,9 @@ fun NewTaskDialog(
     ) {
         Surface(
             color = colors.dialogBackground,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight(),
             shape = MaterialTheme.shapes.large
         ) {
             Column {
@@ -183,7 +189,8 @@ fun NewTaskDialog(
                         )
                         allCategories.forEach { cat ->
                             val selected = cat == selectedCategory
-                            CategoryPill(category = cat,
+                            CategoryPill(
+                                category = cat,
                                 big = false,
                                 selected = selected,
                                 onClick = { selectedCategory = cat })
@@ -203,7 +210,8 @@ fun NewTaskDialog(
                         )
                         DueChoice.allChoices().forEach { due ->
                             val selected = selectedDueChoice.isSameKindAs(due)
-                            LabelledOptionPill(due.choiceLabel(),
+                            LabelledOptionPill(
+                                due.choiceLabel(),
                                 big = false,
                                 selected = selected,
                                 onClick = {
@@ -240,7 +248,8 @@ fun NewTaskDialog(
                         )
 
                         Recurrence.entries.forEach { recurrenceValue ->
-                            RecurrencePill(recurrence = recurrenceValue,
+                            RecurrencePill(
+                                recurrence = recurrenceValue,
                                 selected = recurrenceValue == recurrence,
                                 onClick = {
                                     recurrence = recurrenceValue
@@ -263,7 +272,8 @@ fun NewTaskDialog(
                         )
                         NotificationOption.allChoices().forEach { opt ->
                             val selected = selectedNotificationOption::class == opt::class
-                            LabelledOptionPill(label = opt.choiceLabel(),
+                            LabelledOptionPill(
+                                label = opt.choiceLabel(),
                                 big = false,
                                 selected = selected,
                                 onClick = {

@@ -23,6 +23,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
 
 @Composable
@@ -36,9 +37,13 @@ fun ConfirmDialog(
     onYes: () -> Unit,
     onNo: () -> Unit
 ) {
-    Dialog(onDismissRequest = onNo) {
+    Dialog(
+        onDismissRequest = onNo, properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight(),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = colorResource(R.color.dialog_background_colour))
         ) {
@@ -59,11 +64,11 @@ fun ConfirmDialog(
 
                 // Message
                 AutoLinkedText(
-                         raw = message,
-                         modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-                         style = MaterialTheme.typography.bodyMedium,
-                         color = colorResource(R.color.surface_colour)
-                            )
+                    raw = message,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorResource(R.color.surface_colour)
+                )
 
                 // Buttons
                 Row(

@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
+import com.taskfree.app.ui.components.dialogMaxHeight
+import com.taskfree.app.ui.components.dialogResponsiveWidth
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 
@@ -64,7 +66,9 @@ internal fun CategoryAddDialog(
     ) {
         Surface(
             color = backgroundColor,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .dialogResponsiveWidth()
+                .dialogMaxHeight(),
             shape = MaterialTheme.shapes.large
         ) {
             Column {
