@@ -1,6 +1,6 @@
 # TaskFree
 
-[![GitHub release](https://img.shields.io/github/v/release/app-muon/AndroidTaskFree?style=flat-square)](https://github.com/<your-username>/<your-repo>/releases)
+[![GitHub release](https://img.shields.io/github/v/release/app-muon/AndroidTaskFree?style=flat-square)](https://github.com/app-muon/AndroidTaskFree/releases)
 [![GitHub license](https://img.shields.io/github/license/app-muon/AndroidTaskFree?style=flat-square)](LICENSE)
 
 A simple, open-source task manager built for privacy.  
@@ -55,5 +55,5 @@ Contributions, bug reports, and feature requests are welcome!
 
 ## 📄 License
 
-[License (https://github.com/app-muon/AndroidTaskFree/LICENCE.txt).
+[License (https://github.com/app-muon/AndroidTaskFree/LICENCE.txt)].
 
