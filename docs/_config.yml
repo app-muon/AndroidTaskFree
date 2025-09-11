@@ -1,0 +1,13 @@
+title: TaskFree
+description: Privacy-first, open-source task manager
+theme: minima
+show_downloads: true
+
+# Optional: navigation links (appear in header/footer depending on theme)
+header_pages:
+  - index.md
+
+# Social/metadata (optional, replace with your details)
+github:
+  is_project_page: true
+  repository_url: https://github.com/<your-username>/<your-repo>
