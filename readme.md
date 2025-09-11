@@ -1,21 +1,62 @@
-# TaskFree for Android
+# TaskFree
 
-TaskFree is a free, ad-free, and open-source task manager. No data is shared with us,
-advertisers, or any third parties — only with Google.
+[![License: Custom](https://img.shields.io/badge/license-Custom-blue.svg)](./CUSTOM-LICENSE.txt)
+![Made with Kotlin](https://img.shields.io/badge/Made%20with-Kotlin-purple.svg)
+[![Open Source](https://img.shields.io/badge/Open%20Source-❤-brightgreen.svg)](https://github.com/app-muon/AndroidTaskFree)
+[![Get it on Google Play](https://img.shields.io/badge/Google%20Play-TaskFree-black.svg?logo=googleplay)](https://play.google.com/store/apps/details?id=com.taskfree.app)
 
-Create tasks by category, add due dates, and set notifications.
-You can even make tasks repeat, for example every Friday. It’s easy to see what’s due,
-filter your list, and mark tasks as \"pending\" \"doing\", or \"done\".
+A simple, open-source task manager built for privacy.  
+No ads. No tracking. No data sharing. Your tasks stay on your device.
 
-Like most apps, TaskFree syncs with your Google account. This means your tasks follow you
-when you switch phones. You can encrypt this synced data, if you want to keep it private.
+---
 
-Source code: https://github.com/app-muon/AndroidTaskFree
-Email us at muonappdevelopment@gmail.com or open an issue/PR on GitHub.
+## ✨ Features
 
+### Privacy and control
+- 100% free and open source, with no hidden catches.  
+- No ads and no data sharing, everything stays local.  
+- Requires no permissions (only if you want notifications).  
+- Option to encrypt Google backups, so your data stays private if you change or restore your phone.  
+- Manual backup and restore for full control.  
 
-### Version history (in `build.gradle`)
-- 1.0.0: initial commit
+### Task management
+- Add due dates, make tasks recurrent, and trigger notifications.  
+- Organise tasks into categories.  
+- Filter and search by category, due date, status, or text.  
+- Archive completed tasks to reduce clutter.  
 
+### Clean design
+- Simple, distraction-free interface.  
+- Built-in dark mode.  
+- Adjustable text size for comfort.  
+- Works on phones and tablets.  
+
+---
+
+## 📱 Screenshots
+
+| Task list | Categories | Dark mode |
+|-----------|------------|-----------|
+| ![Task list](docs/images/screen1.png) | ![Categories](docs/images/screen2.png) | ![Dark mode](docs/images/screen3.png) |
+
+---
+
+## 🚀 Get TaskFree
+
+- [Download from Google Play](https://play.google.com/store/apps/details?id=com.taskfree.app)  
+- [Latest GitHub release](https://github.com/app-muon/AndroidTaskFree/releases)  
+
+---
+
+## 🔧 Development
+
+This app is built with [Jetpack Compose](https://developer.android.com/jetpack/compose).  
+Contributions, bug reports, and feature requests are welcome!  
+
+---
+
+## 📄 License
+
+This project is licensed under the [License](https://github.com/app-muon/AndroidTaskFree/blob/main/CUSTOM_LICENCE.txt).
 
 
