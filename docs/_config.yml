@@ -8,7 +8,7 @@ show_downloads: true
 header_pages:
   - index.md
 
-# Social/metadata (optional, replace with your details)
+# Social/metadata
 github:
   is_project_page: true
   repository_url: https://github.com/app-muon/AndroidTaskFree
