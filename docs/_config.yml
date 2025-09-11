@@ -11,4 +11,4 @@ header_pages:
 # Social/metadata (optional, replace with your details)
 github:
   is_project_page: true
-  repository_url: https://github.com/<your-username>/<your-repo>
+  repository_url: https://github.com/app-muon/AndroidTaskFree
