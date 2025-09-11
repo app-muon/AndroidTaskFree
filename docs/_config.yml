@@ -4,11 +4,10 @@ theme: minima
 logo: /assets/logo_small.png
 show_downloads: true
 
-# Optional: navigation links (appear in header/footer depending on theme)
+# Optional nav (index is fine to list, or remove this section entirely)
 header_pages:
   - index.md
 
-# Social/metadata
-github:
-  is_project_page: true
-  repository_url: https://github.com/app-muon/AndroidTaskFree
+# Recommended for project pages
+url: https://app-muon.github.io
+baseurl: /AndroidTaskFree
