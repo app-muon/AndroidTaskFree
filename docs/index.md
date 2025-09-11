@@ -37,9 +37,9 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 
 ## Screenshots
 
-| Task list | Categories | Dark mode |
-|-----------|------------|-----------|
-| ![Task list](images/screen1.png) | ![Categories](images/screen2.png) | ![Dark mode](images/screen3.png) |
+| Task list | Categories | Add task | Dark mode |
+|-----------|------------|----------|-----------|
+| ![Task list](images/tasks.png) | ![Categories](images/categories.png) | ![Dark mode](images/add_task.png) || ![Dark mode](images/dark_mode_filtered.png) |
 
 ---
 
