@@ -1,7 +1,7 @@
 # TaskFree
 
-[![GitHub release](https://img.shields.io/github/v/releaseapp-muon/<your-repo>?style=flat-square)](https://github.com/<your-username>/<your-repo>/releases)
-[![GitHub license](https://img.shields.io/github/license/app-muon/<your-repo>?style=flat-square)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/app-muon/AndroidTaskFree?style=flat-square)](https://github.com/<your-username>/<your-repo>/releases)
+[![GitHub license](https://img.shields.io/github/license/app-muon/AndroidTaskFree?style=flat-square)](LICENSE)
 
 A simple, open-source task manager built for privacy.  
 No ads. No tracking. No data sharing. Your tasks stay on your device.
