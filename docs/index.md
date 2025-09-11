@@ -45,7 +45,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 
 ## Get the app
 
-- [Latest release](../releases)  
+- [Latest GitHub release](https://github.com/app-muon/AndroidTaskFree/releases)  
 - Available on [Google Play](https://play.google.com/store/apps/details?id=com.taskfree.app)  
 
 ---
