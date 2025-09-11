@@ -57,4 +57,4 @@ It is free, open source, and designed to keep your data private.
 
 No ads. No tracking. Just a simple way to manage tasks on your phone or tablet.  
 
-[Source code on GitHub](../)
+[Source code on GitHub](https://github.com/app-muon/AndroidTaskFree)
