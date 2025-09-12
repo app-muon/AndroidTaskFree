@@ -3,25 +3,25 @@
 
 @import "minima";
 
-.site-title {
+/* Header layout */
+.site-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.site-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: .5rem;
+  text-decoration: none;
 }
 
-.site-logo {
-  height: 28px;
-  width: auto;
-  border-radius: 50%;
-}
+.site-logo { height: 28px; width: auto; border-radius: 50%; }
+.site-title-text { font-weight: 600; font-size: 1.1rem; }
 
-.site-title-text {
-  font-size: 1.2rem;
-  font-weight: 600;
-}
+.site-actions a { white-space: nowrap; }
 
-.site-nav-github {
-  float: right;
-  font-size: 0.9rem;
-  margin-top: 6px;
-}
+/* Tighten top spacing under header */
+.page-content .wrapper h1:first-child { margin-top: .6rem; }
