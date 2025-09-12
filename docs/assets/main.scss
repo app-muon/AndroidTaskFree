@@ -3,5 +3,25 @@
 
 @import "minima";
 
-.site-title { display:inline-flex; align-items:center; gap:.5rem; }
-.site-logo { height:28px; width:auto; display:block; }
+.site-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-logo {
+  height: 28px;
+  width: auto;
+  border-radius: 50%;
+}
+
+.site-title-text {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.site-nav-github {
+  float: right;
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
