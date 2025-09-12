@@ -7,6 +7,7 @@
 .site-header-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: .6rem 0; /* header height */
 }
 
@@ -21,6 +22,15 @@
 .site-logo { height: 26px; width: auto; }
 .site-title-text { font-weight: 600; font-size: 1.05rem; }
 
+/* GitHub link block */
+.site-actions {
+  margin-left: 2rem;
+}
+.site-actions a {
+  white-space: nowrap;
+  font-size: .9rem;
+  text-decoration: none;
+}
 /* push page content down a bit from the divider */
 .page-content { padding-top: 2.2rem; }
 .page-content .wrapper h1:first-child { margin-top: 0; }
