@@ -1,0 +1,11 @@
+<header class="site-header" role="banner">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="{{ "/" | relative_url }}">
+      <img src="{{ "/assets/icon_small.png" | relative_url }}" alt="" class="site-logo" />
+      <span>{{ site.title }}</span>
+    </a>
+    {%- if site.github.is_project_page -%}
+    <a class="site-title-right" href="{{ site.github.repository_url }}">View on GitHub</a>
+    {%- endif -%}
+  </div>
+</header>
