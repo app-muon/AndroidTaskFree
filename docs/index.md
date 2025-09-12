@@ -2,12 +2,14 @@
 layout: default
 ---
 
-# TaskFree
+# Tasks app with reminders and categories  
 
-A simple, open-source task manager built for privacy.  
+Add due dates, set repeats, and keep tasks organised.
 No ads. No tracking. No data sharing. Your tasks stay on your device.
 
-![Tasks screenshot](images/tasks.png)
+<p align="center">
+  <img src="images/tasks.png" alt="Tasks screenshot" style="width:50%;" />
+</p>
 
 ---
 
@@ -38,7 +40,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 
 | Task list | Categories | Add task | Dark mode |
 |-----------|------------|----------|-----------|
-| ![Task list](images/tasks.png) | ![Categories](images/categories.png) | ![Dark mode](images/add_task.png) | ![Dark mode](images/dark_mode_filtered.png) |
+| ![Task list](images/tasks.png) | ![Categories](images/categories.png) | ![Adding a task](images/add_task.png) | ![Dark mode](images/dark_mode_filtered.png) |
 
 ---
 
