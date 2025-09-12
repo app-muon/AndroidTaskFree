@@ -7,7 +7,9 @@ layout: default
 Add due dates, set repeats, and keep tasks organised.
 No ads. No tracking. No data sharing. Your tasks stay on your device.
 
-![Tasks screenshot](images/tasks.png)
+<p align="center">
+  <img src="images/tasks.png" alt="Tasks screenshot" style="width:50%;" />
+</p>
 
 ---
 
