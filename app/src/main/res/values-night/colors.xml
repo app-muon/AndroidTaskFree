@@ -3,6 +3,7 @@
     <color name="category_row_colour">#2C3B2C</color>
     <color name="dialog_button_background_colour">#FF333C48</color>
     <color name="dialog_background_colour">#FF191C20</color>
+    <color name="dialog_button_text_colour">#FF29B6F6</color>
     <color name="surface_colour">#FFEEEEEE</color>
     <color name="top_bar_colour">#FF000000</color>
     <color name="bottom_bar_colour">#FF000000</color>
