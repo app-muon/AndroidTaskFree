@@ -25,9 +25,9 @@
 
 /* --- adjust spacing below the header --- */
 .page-content {
-  padding-top: 1.5rem;   /* increase from default */
+  padding-top: 3rem;   /* push the whole content down */
 }
 
 .page-content .wrapper h1:first-child {
-  margin-top: 1rem;     /* more breathing room before the first heading */
+  margin-top: 0;       /* reset so it doesn't fight with padding */
 }
