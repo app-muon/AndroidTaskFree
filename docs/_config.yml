@@ -1,7 +1,6 @@
 title: TaskFree
-description: Privacy-first, open-source task manager
+description: Simple open-source task manager with reminders and categories
 theme: minima
-logo: /assets/icon_small.png
 show_downloads: true
 
 # Optional nav (index is fine to list, or remove this section entirely)
