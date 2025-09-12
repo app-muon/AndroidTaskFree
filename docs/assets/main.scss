@@ -3,31 +3,24 @@
 
 @import "minima";
 
-/* Header layout */
+/* one clean row */
 .site-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  padding: .6rem 0; /* header height */
 }
 
+/* brand block */
 .site-brand {
   display: inline-flex;
   align-items: center;
-  gap: .5rem;
+  gap: .6rem; /* space between logo and text */
   text-decoration: none;
 }
 
-.site-logo { height: 28px; width: auto; border-radius: 50%; }
-.site-title-text { font-weight: 600; font-size: 1.1rem; }
+.site-logo { height: 26px; width: auto; }
+.site-title-text { font-weight: 600; font-size: 1.05rem; }
 
-.site-actions a { white-space: nowrap; }
-
-/* --- adjust spacing below the header --- */
-.page-content {
-  padding-top: 3rem;   /* push the whole content down */
-}
-
-.page-content .wrapper h1:first-child {
-  margin-top: 0;       /* reset so it doesn't fight with padding */
-}
+/* push page content down a bit from the divider */
+.page-content { padding-top: 2.2rem; }
+.page-content .wrapper h1:first-child { margin-top: 0; 
