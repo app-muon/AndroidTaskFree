@@ -3,10 +3,6 @@ description: Simple open-source task manager with reminders and categories
 theme: minima
 show_downloads: true
 
-# Optional nav (index is fine to list, or remove this section entirely)
-header_pages:
-  - index.md
-
-# Recommended for project pages
+# recommended for project pages
 url: https://app-muon.github.io
 baseurl: /AndroidTaskFree
