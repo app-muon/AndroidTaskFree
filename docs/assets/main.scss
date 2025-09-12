@@ -23,5 +23,11 @@
 
 .site-actions a { white-space: nowrap; }
 
-/* Tighten top spacing under header */
-.page-content .wrapper h1:first-child { margin-top: .6rem; }
+/* --- adjust spacing below the header --- */
+.page-content {
+  padding-top: 1.5rem;   /* increase from default */
+}
+
+.page-content .wrapper h1:first-child {
+  margin-top: 1rem;     /* more breathing room before the first heading */
+}
