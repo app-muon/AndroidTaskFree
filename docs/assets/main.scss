@@ -3,25 +3,34 @@
 
 @import "minima";
 
-.site-title {
+/* one clean row */
+.site-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 0; /* header height */
+}
+
+/* brand block */
+.site-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: .6rem; /* space between logo and text */
+  text-decoration: none;
 }
 
-.site-logo {
-  height: 28px;
-  width: auto;
-  border-radius: 50%;
-}
+.site-logo { height: 26px; width: auto; }
+.site-title-text { font-weight: 600; font-size: 1.05rem; }
 
-.site-title-text {
-  font-size: 1.2rem;
-  font-weight: 600;
+/* GitHub link block */
+.site-actions {
+  margin-left: 2rem;
 }
-
-.site-nav-github {
-  float: right;
-  font-size: 0.9rem;
-  margin-top: 6px;
+.site-actions a {
+  white-space: nowrap;
+  font-size: .9rem;
+  text-decoration: none;
 }
+/* push page content down a bit from the divider */
+.page-content { padding-top: 2.2rem; }
+.page-content .wrapper h1:first-child { margin-top: 0; }
