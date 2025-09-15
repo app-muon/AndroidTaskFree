@@ -143,8 +143,8 @@
         Website and source code: https://app-muon.github.io/AndroidTaskFree/
     </string>
     <string name="tip_create_your_first_category_body">
-        All tasks belong to a category.\n
-        Create a category by tapping the + button on the bottom bar
+        All tasks belong to a category.
+        \nCreate a category by tapping the + button on the bottom bar
     </string>
     <string name="got_it_confirmation">Got it</string>
 
