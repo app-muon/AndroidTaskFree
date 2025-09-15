@@ -20,7 +20,6 @@
     <color name="dialog_button_text_colour">#FF3386CA</color>
     <color name="dialog_primary_colour">#FF3386CA</color>
     <color name="dialog_background_colour">#FFE9EEF3</color>
-    <color name="dialog_pill_selected_colour">#FF3386CA</color>
 
     <color name="top_bar_colour">#FFFFFFFF</color>
     <color name="bottom_bar_colour">#FFFFFFFF</color>

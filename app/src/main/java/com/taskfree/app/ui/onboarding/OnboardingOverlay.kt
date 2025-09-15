@@ -126,7 +126,7 @@ private fun TipCard(tip: OnboardingTip, onDismiss: () -> Unit) {
                         Text(
                             text = tip.title,
                             style = MaterialTheme.typography.titleMedium,
-                            color = colorResource(R.color.dialog_primary_colour)
+                            color = colorResource(R.color.dialog_button_text_colour)
                         )
                     }
                     if (tip.body != null) {
