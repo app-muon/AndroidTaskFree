@@ -119,10 +119,7 @@ fun TextSizeDialog(onClose: () -> Unit) {
                 ) {
                     TextButton(
                         onClick = {
-                            TextScaleController.setOption(
-                                ctx,
-                                TextScaleOption.SYSTEM_ONLY
-                            )
+                            TextScaleController.resetToDefault(ctx)
                         },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = colorResource(R.color.dialog_button_text_colour)

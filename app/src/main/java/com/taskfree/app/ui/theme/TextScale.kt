@@ -32,12 +32,21 @@ object TextScaleController {
 
     /** Load once on app start (idempotent). */
     fun ensureLoaded(ctx: Context) {
-        _option.value = SettingsPrefs.getTextScaleOption(ctx)
+        val saved = SettingsPrefs.getTextScaleOption(ctx)
+        _option.value = if (saved == null) {
+            val metrics = ctx.resources.displayMetrics
+            val minDimDp = minOf(metrics.widthPixels, metrics.heightPixels) / metrics.density
+            if (minDimDp >= 600) TextScaleOption.LARGE else TextScaleOption.SYSTEM_ONLY
+        } else saved
     }
 
     fun setOption(ctx: Context, option: TextScaleOption) {
         SettingsPrefs.setTextScaleOption(ctx, option)
         _option.value = option
+    }
+    fun resetToDefault(ctx: Context) {
+        SettingsPrefs.clearTextScaleOption(ctx)
+        ensureLoaded(ctx) // re-compute: LARGE on tablet, SYSTEM_ONLY on phone
     }
 }
 
