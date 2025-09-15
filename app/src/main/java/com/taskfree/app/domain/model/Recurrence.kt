@@ -2,7 +2,7 @@
 package com.taskfree.app.domain.model
 
 enum class Recurrence {
-    NONE, DAILY, WEEKLY, WEEKENDS, WEEKDAYS, MONTHLY;
+    NONE, DAILY, WEEKLY, WEEKENDS, WEEKDAYS, MONTHLY, QUARTERLY, YEARLY;
 
     companion object {
         fun from(name: String): Recurrence =

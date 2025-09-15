@@ -10,6 +10,8 @@
     <string name="recurrence_on_weekdays">Weekdays</string>
     <string name="recurrence_on_weekends">Weekends</string>
     <string name="monthly_recurrence">Monthly</string>
+    <string name="quarterly_recurrence">Quarterly</string>
+    <string name="yearly_recurrence">Yearly</string>
     <!-- Shown when a selected date is invalid for weekday recurrence -->
     <string name="incompatibility_not_weekday">The selected date (%1$s) is not a weekday</string>
     <!-- Shown when a selected date is invalid for weekend recurrence -->

@@ -17,6 +17,8 @@ fun Recurrence.label(): String = when (this) {
     Recurrence.WEEKDAYS -> stringResource(R.string.recurrence_on_weekdays)
     Recurrence.WEEKENDS -> stringResource(R.string.recurrence_on_weekends)
     Recurrence.MONTHLY -> stringResource(R.string.monthly_recurrence)
+    Recurrence.QUARTERLY -> stringResource(R.string.quarterly_recurrence)
+    Recurrence.YEARLY -> stringResource(R.string.yearly_recurrence)
 }
 
 private fun recurrenceNextDate(recurrence: Recurrence, baseDate: LocalDate): LocalDate? {
@@ -29,6 +31,8 @@ private fun recurrenceNextDate(recurrence: Recurrence, baseDate: LocalDate): Loc
         // This single line correctly handles all the monthly recurrence cases,
         // including the day adjustment for months with fewer days than the original month.
         Recurrence.MONTHLY -> baseDate.plusMonths(1)
+        Recurrence.QUARTERLY -> baseDate.plusMonths(3)
+        Recurrence.YEARLY -> baseDate.plusYears(1)
     }
 }
 

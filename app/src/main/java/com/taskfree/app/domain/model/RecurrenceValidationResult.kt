@@ -36,7 +36,7 @@ fun validateRecurrenceDate(
     // Define the error message based on the invalid selection
 
     if (recurrence in listOf(
-            Recurrence.NONE, Recurrence.DAILY, Recurrence.WEEKLY, Recurrence.MONTHLY
+            Recurrence.NONE, Recurrence.DAILY, Recurrence.WEEKLY, Recurrence.MONTHLY, Recurrence.QUARTERLY, Recurrence.YEARLY
         )
     ) {
         return RecurrenceValidationResult.Ok
