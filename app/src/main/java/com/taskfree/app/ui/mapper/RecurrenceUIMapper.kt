@@ -18,6 +18,8 @@ fun Recurrence.labelRes(): Int = when (this) {
     Recurrence.WEEKDAYS -> R.string.recurrence_on_weekdays
     Recurrence.WEEKENDS -> R.string.recurrence_on_weekends
     Recurrence.MONTHLY -> R.string.monthly_recurrence
+    Recurrence.QUARTERLY -> R.string.quarterly_recurrence
+    Recurrence.YEARLY -> R.string.yearly_recurrence
 }
 
 /**
