@@ -54,7 +54,7 @@ fun TaskSearchAndFilter(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(colorResource(R.color.top_bar_colour)),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = {
