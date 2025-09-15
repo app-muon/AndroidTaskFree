@@ -204,7 +204,7 @@ fun TaskSearchScreen(
             } else {
                 stringResource(R.string.no_tasks_to_display_default_message)
             },
-            orderProperty = if (config.categoryId == null) OrderProperty.TODO_PAGE else OrderProperty.TASK_PAGE,
+            orderProperty = if (config.categoryId == null) OrderProperty.ALL_CATEGORY_PAGE_ORDERING else OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING,
             config = config,
             onDueChange = { due = it },
             onClickTask = { dialogs = TaskDialogs.Options(it) },

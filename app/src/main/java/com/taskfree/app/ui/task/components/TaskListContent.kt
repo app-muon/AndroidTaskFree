@@ -107,8 +107,8 @@ fun TaskListContent(
         derivedStateOf {
             allTasks.joinToString(";") {
                 when (orderProperty) {
-                    OrderProperty.TODO_PAGE -> it.task.allCategoryPageOrder
-                    OrderProperty.TASK_PAGE -> it.task.singleCategoryPageOrder
+                    OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> it.task.allCategoryPageOrder
+                    OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> it.task.singleCategoryPageOrder
                 }.toString()
             }
         }
@@ -144,8 +144,8 @@ fun TaskListContent(
         if (listState.sortMode != SortMode.USER) return@LaunchedEffect
 
         val sorted = when (orderProperty) {
-            OrderProperty.TODO_PAGE -> baseFiltered.sortedBy { it.task.allCategoryPageOrder }
-            OrderProperty.TASK_PAGE -> baseFiltered.sortedBy { it.task.singleCategoryPageOrder }
+            OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> baseFiltered.sortedBy { it.task.allCategoryPageOrder }
+            OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> baseFiltered.sortedBy { it.task.singleCategoryPageOrder }
         }
 
         uiTasks.clear()
@@ -161,12 +161,12 @@ fun TaskListContent(
     val getOrd: (Task) -> Int
     val setOrd: (Task, Int) -> Task
     when (orderProperty) {
-        OrderProperty.TODO_PAGE -> {
+        OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> {
             getOrd = { it.allCategoryPageOrder }
             setOrd = { t, ord -> t.copy(allCategoryPageOrder = ord) }
         }
 
-        OrderProperty.TASK_PAGE -> {
+        OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> {
             getOrd = { it.singleCategoryPageOrder }
             setOrd = { t, ord -> t.copy(singleCategoryPageOrder = ord) }
         }

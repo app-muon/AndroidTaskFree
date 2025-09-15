@@ -28,8 +28,8 @@ object TaskFilterUtils {
         return when (sortMode) {
             SortMode.USER -> tasks.sortedBy {
                 when (orderProperty) {
-                    OrderProperty.TODO_PAGE -> it.task.allCategoryPageOrder
-                    OrderProperty.TASK_PAGE -> it.task.singleCategoryPageOrder
+                    OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> it.task.allCategoryPageOrder
+                    OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> it.task.singleCategoryPageOrder
                 }
             }
 

@@ -2,5 +2,5 @@
 package com.taskfree.app.ui.task.components
 
 enum class OrderProperty {
-    TODO_PAGE, TASK_PAGE;
+    ALL_CATEGORY_PAGE_ORDERING, SINGLE_CATEGORY_PAGE_ORDERING;
 }
