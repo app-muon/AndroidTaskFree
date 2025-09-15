@@ -74,7 +74,7 @@ fun TaskSearchAndFilter(
             }
 
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .weight(1f)
