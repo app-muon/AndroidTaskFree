@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
@@ -145,7 +146,7 @@ fun CategoryListScreen(navController: NavHostController) {
                 .fillMaxWidth()
                 .background(colorResource(R.color.top_bar_colour))
                 .statusBarsPadding()
-                .height(30.dp)
+                .heightIn(min = 30.dp)
         )
     }, bottomBar = {
         AppBottomBar(navController = navController,
@@ -163,21 +164,12 @@ fun CategoryListScreen(navController: NavHostController) {
                 .background(colorResource(R.color.list_background_colour))
                 .fillMaxSize()
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colorResource(R.color.top_bar_colour))
-                    .height(40.dp)
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.categories),
-                    color = colorResource(R.color.surface_colour),
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
+                    .height(40.dp)   // mirrors TaskSearchAndFilter collapsed height
+            )
             Spacer(Modifier.height(2.dp))
             if (uiState.categories.isEmpty()) {
                 CategoryEmptyState()
