@@ -5,10 +5,9 @@
     <color name="dialog_background_colour">#FF191C20</color>
     <color name="dialog_button_text_colour">#FF29B6F6</color>
     <color name="surface_colour">#FFEEEEEE</color>
-    <color name="top_bar_colour">#FF000000</color>
-    <color name="bottom_bar_colour">#FF000000</color>
+    <color name="top_bar_colour">#FF111111</color>
+    <color name="bottom_bar_colour">#FF111111</color>
     <color name="list_background_colour">#FF191110</color>
-    <color name="add_task_button_background_colour">#FF000000</color>
     <color name="pill_colour">#FFE9EEF3</color>
     <color name="pill_text">#FF1F2226</color>
     <color name="add_task_or_category_pill">#FFEEEEEE</color>

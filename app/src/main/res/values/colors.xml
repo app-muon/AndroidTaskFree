@@ -21,11 +21,10 @@
     <color name="dialog_primary_colour">#FF3386CA</color>
     <color name="dialog_background_colour">#FFE9EEF3</color>
 
-    <color name="add_task_or_category_pill">#FF000000</color>
+    <color name="add_task_or_category_pill">#FF111111</color>
 
     <color name="top_bar_colour">#FFFFFFFF</color>
     <color name="bottom_bar_colour">#FFFFFFFF</color>
     <color name="list_background_colour">#FFE9EEF3</color>
-    <color name="add_task_button_background_colour">#FFFFFFFF</color>
 
 </resources>

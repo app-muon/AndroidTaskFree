@@ -1,3 +1,4 @@
+// ui/AppBottomBar.kt
 package com.taskfree.app.ui.components
 
 import androidx.annotation.StringRes
@@ -59,50 +60,67 @@ fun AppBottomBar(
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val tabShape = RoundedCornerShape(
-        topStart = 0.dp, topEnd = 0.dp, bottomEnd = 12.dp, bottomStart = 12.dp
-    )
-    val bottomBarColour = colorResource(R.color.bottom_bar_colour)
 
-    val tabIconActive = colorResource(R.color.surface_colour)
+    // Colors/strings (safe to read inside a composable)
+    val bottomBarColour = colorResource(R.color.bottom_bar_colour)
+    val surfaceCol = colorResource(R.color.surface_colour)
+    val toolsLabel = stringResource(R.string.tools_menu_name)
+
+    // Nav tab styling
+    val tabShape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomEnd = 12.dp, bottomStart = 12.dp)
+    val tabIconActive = surfaceCol
     val tabIconInactive = tabIconActive.copy(alpha = 0.74f)
     val tabBgSelected = colorResource(R.color.list_background_colour)
     val tabBgUnselected = tabBgSelected.copy(alpha = 0.22f)
-    val textMeasurer = rememberTextMeasurer()
-    val longest = stringResource(R.string.add_category_button_label)
-    val labelStyle = MaterialTheme.typography.labelSmall
 
-    val longestWidthPx = textMeasurer.measure(longest, style = labelStyle).size.width
-    val reservedWidth = with(LocalDensity.current) { longestWidthPx.toDp() + 24.dp }
-    Surface(
-        color = bottomBarColour, modifier = modifier.fillMaxWidth()
-    ) {
+    // Reserve width for the longest Add label (text + icon + spacer + padding + small buffer)
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall
+    val longest = stringResource(R.string.add_category_button_label)
+    val textPx = textMeasurer.measure(longest, style = labelStyle).size.width
+    val density = LocalDensity.current
+    val reservedWidth = with(density) {
+        textPx.toDp() +
+                18.dp +            // icon size in Add button
+                6.dp +             // spacer between icon and text
+                24.dp +            // horizontal content padding (12 + 12)
+                2.dp               // tiny safety buffer
+    }
+
+    Surface(color = bottomBarColour, modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
-                .padding(top = 0.dp), verticalAlignment = Alignment.CenterVertically
+                .padding(top = 0.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            BottomBarActionButton(
-                onClick = onShowGlobalMenu,
-                label = stringResource(R.string.tools_menu_name),
-                icon = Icons.Default.Settings,
-                containerColor = Color.Transparent,
-                contentColor = colorResource(R.color.surface_colour),
-                width = reservedWidth,
-                modifier = Modifier.padding(start = 12.dp)
-            )
+            // Tools (left) — cog + label, vertically aligned with nav tabs
+            Box(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .clickable { onShowGlobalMenu() }
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = toolsLabel,
+                        tint = surfaceCol,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(toolsLabel, style = MaterialTheme.typography.labelSmall, color = surfaceCol)
+                }
+            }
 
-            // NAV CAPSULE (center) – does NOT clip children
+            // NAV CAPSULE (center)
             Box(
                 modifier = Modifier
                     .weight(2f)
                     .padding(horizontal = 8.dp)
-                    .background(
-                        color = Color.Transparent,            // or colorResource(R.color.pill_colour)
-                        shape = RoundedCornerShape(16.dp)     // background shape only; no clipping
-                    )
                     .padding(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Row(
@@ -115,37 +133,22 @@ fun AppBottomBar(
                             BottomTab.Today -> isTodayView
                             BottomTab.Categories -> currentRoute == tab.route
                         }
-
                         val iconCol = if (selected) tabIconActive else tabIconInactive
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .then(
-                                    if (selected) {
-                                        Modifier.background(tabBgSelected, tabShape)
-                                    } else {
-                                        Modifier.background(tabBgUnselected, tabShape)
-                                    }
-                                )
-                                .clickable(enabled = !selected) {
+                                .background(if (selected) tabBgSelected else tabBgUnselected, tabShape)
+                                .clickable(enabled = !selected && (tab != BottomTab.Today || hasCategories)) {
                                     navController.popBackStack()
                                     when (tab) {
-                                        BottomTab.Today -> if (hasCategories) {
-                                            navController.navigate("search?categoryId=-1&dateOffset=0") {
-                                                launchSingleTop = true
-                                            }
-                                        }
-
-                                        BottomTab.Categories -> {
-                                            navController.navigate(tab.route) {
-                                                launchSingleTop = true
-                                            }
-                                        }
+                                        BottomTab.Today -> navController.navigate("search?categoryId=-1&dateOffset=0") { launchSingleTop = true }
+                                        BottomTab.Categories -> navController.navigate(tab.route) { launchSingleTop = true }
                                     }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center) {
+                            contentAlignment = Alignment.Center
+                        ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = tab.icon,
@@ -164,32 +167,28 @@ fun AppBottomBar(
                 }
             }
 
+            // Add (right) — primary action button with fixed width
             BottomBarActionButton(
                 onClick = onAddTask,
                 label = addButtonLabel,
                 icon = Icons.Default.Add,
-                containerColor = colorResource(R.color.add_task_or_category_pill),
+                containerColor = colorResource(R.color.pill_colour),
                 contentColor = colorResource(R.color.pill_text),
                 width = reservedWidth,
                 modifier = Modifier.padding(end = 12.dp)
             )
-
-
         }
     }
 }
 
 private enum class BottomTab(
-    @StringRes val label: Int, val route: String, val icon: ImageVector
+    @StringRes val label: Int,
+    val route: String,
+    val icon: ImageVector
 ) {
-    Categories(
-        R.string.categories, "categories", Icons.Outlined.Folder
-    ),
-    Today(
-        R.string.tasks_due, "search", Icons.Outlined.Today
-    )
+    Categories(R.string.categories, "categories", Icons.Outlined.Folder),
+    Today(R.string.tasks_due, "search", Icons.Outlined.Today)
 }
-
 
 @Composable
 fun BottomBarActionButton(
@@ -206,7 +205,8 @@ fun BottomBarActionButton(
         modifier = modifier.width(width),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor, contentColor = contentColor
+            containerColor = containerColor,
+            contentColor = contentColor
         ),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
     ) {
