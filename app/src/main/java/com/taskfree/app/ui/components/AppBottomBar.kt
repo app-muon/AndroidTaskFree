@@ -68,8 +68,6 @@ fun AppBottomBar(
     val tabIconInactive = tabIconActive.copy(alpha = 0.74f)
     val tabBgSelected = colorResource(R.color.list_background_colour)
     val tabBgUnselected = tabBgSelected.copy(alpha = 0.22f)
-    val actionButtonShape = RoundedCornerShape(16.dp)
-    val actionButtonBorder = tabIconActive.copy(alpha = 0.4f)
     val textMeasurer = rememberTextMeasurer()
     val longest = stringResource(R.string.add_category_button_label)
     val labelStyle = MaterialTheme.typography.labelSmall
