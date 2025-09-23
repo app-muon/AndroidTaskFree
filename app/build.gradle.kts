@@ -15,8 +15,8 @@ android {
         applicationId = "com.taskfree.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.0.19"
+        versionCode = 29
+        versionName = "1.0.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
