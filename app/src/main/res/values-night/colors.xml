@@ -11,4 +11,6 @@
     <color name="add_task_button_background_colour">#FF000000</color>
     <color name="pill_colour">#FFE9EEF3</color>
     <color name="pill_text">#FF1F2226</color>
+    <color name="add_task_or_category_pill">#FFEEEEEE</color>
+
 </resources>
