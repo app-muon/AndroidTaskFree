@@ -2,10 +2,8 @@ package com.taskfree.app.ui.category
 
 import android.app.Application
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,9 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,7 +20,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
@@ -74,7 +69,11 @@ fun CategoryListScreen(navController: NavHostController) {
             OnboardingTip(
                 TipId.ALL_INSTRUCTIONS,
                 context.getString(R.string.tip_instructions_title),
-                AnnotatedString(context.getString(R.string.tip_instructions_body)+context.getString(R.string.tip_contact_body)),
+                AnnotatedString(
+                    context.getString(R.string.tip_instructions_body) + context.getString(
+                        R.string.tip_contact_body
+                    )
+                ),
                 Anchor.ScreenHeightPercent(0.2f)
             )
         )
@@ -149,7 +148,8 @@ fun CategoryListScreen(navController: NavHostController) {
                 .heightIn(min = 30.dp)
         )
     }, bottomBar = {
-        AppBottomBar(navController = navController,
+        AppBottomBar(
+            navController = navController,
             isTodayView = false,
             addButtonLabel = stringResource(R.string.add_category_button_label),
             onAddTask = { dialogs = Dialogs.Add },
@@ -174,7 +174,8 @@ fun CategoryListScreen(navController: NavHostController) {
             if (uiState.categories.isEmpty()) {
                 CategoryEmptyState()
             } else {
-                CategoryList(categories = uiState.categories,
+                CategoryList(
+                    categories = uiState.categories,
                     counts = uiState.incompleteCounts,
                     onDragStart = viewModel::onDragStart,
                     onDragEnd = viewModel::onDragEnd,
