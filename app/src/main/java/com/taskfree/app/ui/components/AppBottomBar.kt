@@ -34,6 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.taskfree.app.R
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 
 @Composable
 fun AppBottomBar(
@@ -47,25 +55,30 @@ fun AppBottomBar(
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val routeBase    = currentRoute?.substringBefore("?")
     val bottomBarColour = colorResource(R.color.bottom_bar_colour)
+    val tabShape = RoundedCornerShape(12.dp)
+    val tabIconActive   = colorResource(R.color.surface_colour)
+    val tabIconInactive = tabIconActive.copy(alpha = 0.74f)
+    val tabBgSelected   = tabIconActive.copy(alpha = 0.12f)   // subtle filled tab
+    val tabBorder       = tabIconActive.copy(alpha = 0.22f)   // for unselected outline
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(bottomBarColour) // 👈 fills navigation bar background
-            .navigationBarsPadding()
     ) {
         Surface(
             color = bottomBarColour,
             modifier = modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()           // consumes the real inset
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)                 // Material-3 bottom-bar height
-                    .padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically
+                    .heightIn(min = 56.dp)                 // Material-3 bottom-bar height
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                    .padding(top = 4.dp),  // slightly less top padding to balance
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
@@ -93,19 +106,11 @@ fun AppBottomBar(
                         BottomTab.Today -> isTodayView
                         BottomTab.Categories -> currentRoute == tab.route
                     }
-                    val accentBarSelect = when (tab) {
-                        BottomTab.Today       -> routeBase == "search"
-                        BottomTab.Categories  -> routeBase == "categories"
-                    }
-
-                    val solidCol = colorResource(R.color.surface_colour)
-                    val accentCol = colorResource(R.color.dialog_primary_colour)
-                    val greyCol = solidCol.copy(alpha = 0.7f)
 
                     val iconCol = when {
-                        !hasCategories && tab == BottomTab.Today -> solidCol.copy(alpha = 0.3f)
-                        selected                                 -> greyCol
-                        else                                     -> solidCol
+                        !hasCategories && tab == BottomTab.Today -> tabIconInactive.copy(alpha = 0.4f)
+                        selected                                 -> tabIconActive
+                        else                                     -> tabIconInactive
                     }
 
                     Box(                                           // owns full width of slot
@@ -127,35 +132,35 @@ fun AppBottomBar(
                                 }
                             }
                             .padding(vertical = 2.dp)) {
-                        /* accent bar pinned to the very top */
-                        if (accentBarSelect) {
-                            Box(
-                                modifier = Modifier
-                                    .offset(y = (-8).dp)
-                                    .align(Alignment.TopCenter)
-                                    .width(24.dp)
-                                    .height(2.dp)
-                                    .background(accentCol, RoundedCornerShape(percent = 50))
-                            )
+
+
+                        /* tab pill container + icon/label */
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(horizontal = 6.dp)
+                                .clip(tabShape)
+                                .then(
+                                    if (selected) Modifier.background(tabBgSelected)
+                                    else Modifier.border(1.dp, tabBorder, tabShape)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = stringResource(tab.label),
+                                    tint = iconCol,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    stringResource(tab.label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = iconCol
+                                )
+                            }
                         }
 
-                        /* icon + label stack */
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.align(Alignment.Center)
-                        ) {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = stringResource(tab.label),
-                                tint = iconCol,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                stringResource(tab.label),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = iconCol
-                            )
-                        }
                     }
                 }
                 AddButton(
