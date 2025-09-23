@@ -89,7 +89,7 @@ internal fun ColumnScope.CategoryList(
             ReorderableItem(
                 reorderState,
                 key = category.id,
-                modifier = Modifier.padding(vertical = 1.dp)
+                modifier = Modifier.padding(vertical = 2.dp)
             ) { isDragging ->
                 // Track drag end when isDragging becomes false
                 LaunchedEffect(isDragging) {
