@@ -83,7 +83,7 @@ fun AppBottomBar(
         textPx.toDp() +
                 18.dp +            // icon size in Add button
                 6.dp +             // spacer between icon and text
-                24.dp +            // horizontal content padding (12 + 12)
+                16.dp +            // horizontal content padding (8 + 8)
                 2.dp               // tiny safety buffer
     }
 
@@ -112,7 +112,11 @@ fun AppBottomBar(
                         tint = surfaceCol,
                         modifier = Modifier.size(22.dp)
                     )
-                    Text(toolsLabel, style = MaterialTheme.typography.labelSmall, color = surfaceCol)
+                    Text(
+                        " ", // just a space
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Transparent // invisible but takes up space
+                    )
                 }
             }
 
@@ -120,8 +124,7 @@ fun AppBottomBar(
             Box(
                 modifier = Modifier
                     .weight(2f)
-                    .padding(horizontal = 8.dp)
-                    .padding(horizontal = 4.dp, vertical = 0.dp)
+                    .padding(horizontal = 2.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +149,7 @@ fun AppBottomBar(
                                         BottomTab.Categories -> navController.navigate(tab.route) { launchSingleTop = true }
                                     }
                                 }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .padding(horizontal = 2.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -175,7 +178,7 @@ fun AppBottomBar(
                 containerColor = colorResource(R.color.pill_colour),
                 contentColor = colorResource(R.color.pill_text),
                 width = reservedWidth,
-                modifier = Modifier.padding(end = 12.dp)
+                modifier = Modifier.padding(start = 4.dp, end = 12.dp)
             )
         }
     }
@@ -208,7 +211,7 @@ fun BottomBarActionButton(
             containerColor = containerColor,
             contentColor = contentColor
         ),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.size(6.dp))
