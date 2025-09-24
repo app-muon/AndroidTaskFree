@@ -84,6 +84,7 @@ fun TaskSearchScreen(
     var showGlobalMenu by remember { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedCatId by rememberSaveable { mutableStateOf(initialCategoryId) }
 
     val tipManager = LocalTipManager.current
     val resetTick by tipManager.resetTick.collectAsState()
@@ -208,6 +209,7 @@ fun TaskSearchScreen(
             config = config,
             onDueChange = { due = it },
             onClickTask = { dialogs = TaskDialogs.Options(it) },
+            onCategoryChange = { id -> selectedCatId = id },
             modifier = Modifier.weight(1f),
         )
 
@@ -218,16 +220,14 @@ fun TaskSearchScreen(
             addButtonLabel = stringResource(R.string.add_task_button_label),
             hasCategories = categoryUi.categories.isNotEmpty(),
             onAddTask = {
-                val defaultCategory = config.categoryId?.let { id ->
+                val defaultCategory = selectedCatId?.let { id ->
                     categoryUi.categories.firstOrNull { it.id == id }
                 } ?: categoryUi.categories.firstOrNull()
 
                 defaultCategory?.let { cat ->
                     val defaultDue = if (config.dueChoice.kind == DueKind.ALL) {
                         DueChoice.fromSpecial(DueChoice.Special.NONE)
-                    } else {
-                        config.dueChoice
-                    }
+                    } else config.dueChoice
                     dialogs = TaskDialogs.Add(cat, defaultDue)
                 }
             },

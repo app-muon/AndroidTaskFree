@@ -61,6 +61,7 @@ fun TaskListContent(
     config: TaskScreenConfig,
     onDueChange: (DueChoice) -> Unit,
     modifier: Modifier = Modifier,
+    onCategoryChange: (Int?) -> Unit,
     onClickTask: (TaskWithCategoryInfo) -> Unit,
 ) {
     val context = LocalContext.current.applicationContext as android.app.Application
@@ -246,8 +247,9 @@ fun TaskListContent(
                 TaskSearchFilters(
                     categories = allCategories,
                     selectedCatId = listState.selectedCategoryId,
-                    onSelectCategory = {
-                        listState = listState.copy(selectedCategoryId = it)
+                    onSelectCategory = { id ->
+                        listState = listState.copy(selectedCategoryId = id)
+                        onCategoryChange(id)
                     },
                     selectedDueChoice = listState.dueChoice,
                     onDueSelected = { due ->
