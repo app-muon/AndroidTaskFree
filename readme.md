@@ -1,6 +1,6 @@
 # TaskFree
 
-[![License: Custom](https://img.shields.io/badge/license-Custom-blue.svg)](./CUSTOM-LICENSE.txt)
+[![License: Custom](https://img.shields.io/badge/license-Custom-blue.svg)](./CUSTOM_LICENCE.txt)
 ![Made with Kotlin](https://img.shields.io/badge/Made%20with-Kotlin-purple.svg)
 [![Open Source](https://img.shields.io/badge/Open%20Source-❤-brightgreen.svg)](https://github.com/app-muon/AndroidTaskFree)
 [![Get it on Google Play](https://img.shields.io/badge/Google%20Play-TaskFree-black.svg?logo=googleplay)](https://play.google.com/store/apps/details?id=com.taskfree.app)
