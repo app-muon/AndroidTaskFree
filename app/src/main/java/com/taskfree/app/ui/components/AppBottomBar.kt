@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.Button
@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -64,10 +65,10 @@ fun AppBottomBar(
     // Colors/strings (safe to read inside a composable)
     val bottomBarColour = colorResource(R.color.bottom_bar_colour)
     val surfaceCol = colorResource(R.color.surface_colour)
-    val toolsLabel = stringResource(R.string.tools_menu_name)
 
     // Nav tab styling
-    val tabShape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomEnd = 12.dp, bottomStart = 12.dp)
+    val tabShape =
+        RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomEnd = 12.dp, bottomStart = 12.dp)
     val tabIconActive = surfaceCol
     val tabIconInactive = tabIconActive.copy(alpha = 0.74f)
     val tabBgSelected = colorResource(R.color.list_background_colour)
@@ -96,29 +97,16 @@ fun AppBottomBar(
                 .padding(top = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tools (left) — cog + label, vertically aligned with nav tabs
-            Box(
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .clickable { onShowGlobalMenu() }
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = toolsLabel,
-                        tint = surfaceCol,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        " ", // just a space
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Transparent // invisible but takes up space
-                    )
-                }
-            }
+            // Tools (left) — 3 dots, vertically aligned with nav tabs
+            BottomBarActionButton(
+                onClick = onShowGlobalMenu,
+                label = "", // no label, just the dots
+                icon = Icons.Default.MoreVert,
+                containerColor = Color.Transparent,
+                contentColor = tabIconInactive,
+                width = 40.dp,
+                modifier = Modifier.padding(start = 12.dp)
+            )
 
             // NAV CAPSULE (center)
             Box(
@@ -141,12 +129,20 @@ fun AppBottomBar(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .background(if (selected) tabBgSelected else tabBgUnselected, tabShape)
+                                .background(
+                                    if (selected) tabBgSelected else tabBgUnselected,
+                                    tabShape
+                                )
                                 .clickable(enabled = !selected && (tab != BottomTab.Today || hasCategories)) {
                                     navController.popBackStack()
                                     when (tab) {
-                                        BottomTab.Today -> navController.navigate("search?categoryId=-1&dateOffset=0") { launchSingleTop = true }
-                                        BottomTab.Categories -> navController.navigate(tab.route) { launchSingleTop = true }
+                                        BottomTab.Today -> navController.navigate("search?categoryId=-1&dateOffset=0") {
+                                            launchSingleTop = true
+                                        }
+
+                                        BottomTab.Categories -> navController.navigate(tab.route) {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 }
                                 .padding(horizontal = 2.dp, vertical = 6.dp),
@@ -162,7 +158,9 @@ fun AppBottomBar(
                                 Text(
                                     stringResource(tab.label),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = iconCol
+                                    color = iconCol,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
