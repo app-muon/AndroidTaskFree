@@ -12,7 +12,7 @@
     <color name="pending_colour">#FFB97A1E</color>
     <color name="done_colour">#FF539456</color>
 
-    <color name="all_category_pill_colour">#FF676767</color>
+    <color name="all_category_pill_colour">#226364</color>
     <color name="all_dates_pill_colour">#FF380375</color>
     <color name="selected_date_pill_colour">#FF660375</color>
     <color name="category_row_colour">#FFD4E2D4</color>
