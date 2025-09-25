@@ -121,6 +121,10 @@
     <string name="notification_cancelled">Notification cancelled</string>
     <string name="notification_updated">Notification Updated</string>
 
+    <!--  Toast messages when sort-->
+    <string name="sort_order_date_asc">Ascending date order</string>
+    <string name="sort_order_date_desc">Descending date order</string>
+    <string name="sort_order_custom">Custom order</string>
     <!--  The tips to help the users-->
     <string name="tip_show_tips_again">Show all tips again</string>
 

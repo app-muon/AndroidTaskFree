@@ -2,6 +2,7 @@
 package com.taskfree.app.ui.task.components
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -81,6 +82,10 @@ fun TaskListContent(
     val visibleStatuses = taskUi.visibleStatuses.toList()
     val allCategories = uiState.categories
 
+    val sortMsgAsc = stringResource(R.string.sort_order_date_asc)
+    val sortMsgDesc = stringResource(R.string.sort_order_date_desc)
+    val sortMsgCustom = stringResource(R.string.sort_order_custom)
+
     // Unified state management
     var listState by rememberTaskListState(
         TaskListState(
@@ -133,6 +138,14 @@ fun TaskListContent(
             uiTasks.clear()
             uiTasks += sortedFiltered
         }
+
+        // show toast
+        val msg = when (listState.sortMode) {
+            SortMode.DATE_ASC  -> sortMsgAsc
+            SortMode.DATE_DESC -> sortMsgDesc
+            SortMode.USER      -> sortMsgCustom
+        }
+        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(listState.targetDate) {
