@@ -91,12 +91,53 @@ fun TaskSearchScreen(
     /* ------------- INSTRUCTIONS------------- */
     LaunchedEffect(taskUi.isInitialLoadPending, resetTick) {
         if (taskUi.isInitialLoadPending) return@LaunchedEffect
-        tipManager.request(
-            OnboardingTip(
-                TipId.ALL_INSTRUCTIONS,
-                context.getString(R.string.tip_instructions_title),
-                AnnotatedString(context.getString(R.string.tip_instructions_body)+context.getString(R.string.tip_contact_body)),
-                Anchor.ScreenHeightPercent(0.2f)
+        tipManager.requestSequence(
+            listOf(
+                OnboardingTip(
+                    TipId.ALL_INSTRUCTIONS,
+                    context.getString(R.string.tip_instructions_title),
+                    AnnotatedString(
+                        context.getString(R.string.tip_instructions_body) +
+                                context.getString(R.string.tip_contact_body)
+                    ),
+                    Anchor.ScreenHeightPercent(0.2f)
+                ),
+                OnboardingTip(
+                    TipId.CATEGORIES_INTRO,
+                    context.getString(R.string.tip_categories_title),
+                    AnnotatedString(context.getString(R.string.tip_categories_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                ),
+                OnboardingTip(
+                    TipId.STATUSES_INTRO,
+                    context.getString(R.string.tip_status_title),
+                    AnnotatedString(context.getString(R.string.tip_statuses_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                ),
+                OnboardingTip(
+                    TipId.SORTING_INTRO,
+                    context.getString(R.string.tip_sorting_title),
+                    AnnotatedString(context.getString(R.string.tip_sorting_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                ),
+                OnboardingTip(
+                    TipId.NOTIFICATIONS_INTRO,
+                    context.getString(R.string.tip_notifications_title),
+                    AnnotatedString(context.getString(R.string.tip_notifications_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                ),
+                OnboardingTip(
+                    TipId.ARCHIVE_INTRO,
+                    context.getString(R.string.tip_archiving_title),
+                    AnnotatedString(context.getString(R.string.tip_archiving_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                ),
+                OnboardingTip(
+                    TipId.ENCRYPTION_INTRO,
+                    context.getString(R.string.tip_encryption_title),
+                    AnnotatedString(context.getString(R.string.tip_encryption_intro)),
+                    Anchor.ScreenHeightPercent(0.3f)
+                )
             )
         )
     }

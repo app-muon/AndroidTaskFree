@@ -130,17 +130,62 @@
 
     <string name="tip_instructions_title">TaskFree</string>
     <string name="tip_instructions_body">
-        A free, ad-free, and open-source task manager. No data is shared with us,
-        advertisers, or any third parties - only the usual information with Google.
+TaskFree is a simple task manager.\n
+You create categories, add tasks, and keep track of what is due.\n\n
+It is free, ad-free, and open source. No data is shared with us, advertisers, or any third parties—only the usual information with Google.\n\n
+You can set due dates, add notifications, and make tasks repeat (for example, every Friday).\n
+It’s easy to filter your list and mark tasks as "to do", "doing", "pending", or "done".\n\n
+</string>
 
-        \n\nCreate tasks by category, add due dates, and set notifications.
-        You can even make tasks repeat, for example every Friday. It’s easy to see what’s due,
-        filter your list, and mark tasks as \"pending\" \"doing\", or \"done\".
+    <!-- Categories -->
+    <string name="tip_categories_title">Categories</string>
+    <string name="tip_categories_intro">
+Every task belongs to a category.\n
+Use categories to group tasks by project, subject, or place.
+</string>
 
-        \n\nLike most apps, TaskFree syncs with your Google account. This means your tasks follow you
-        when you switch phones. You can encrypt this synced data, if you want to keep it private.
-        \n\n
-    </string>
+
+    <!-- Statuses -->
+    <string name="tip_status_title">Status</string>
+    <string name="tip_statuses_intro">
+Each task has a status:\n
+• To do – not started\n
+• Doing – in progress\n
+• Pending – waiting or blocked\n
+• Done – finished
+</string>
+
+
+    <!-- Sorting -->
+    <string name="tip_sorting_title">Sorting</string>
+    <string name="tip_sorting_intro">
+You can sort tasks by date, reverse date, or your own custom order.\n
+Drag the ≡ handle to set a custom order.
+</string>
+
+
+    <!-- Archive vs delete -->
+    <string name="tip_archiving_title">Archiving</string>
+    <string name="tip_archiving_intro">
+Archiving hides tasks but keeps them in the app.\n
+Deleting removes them permanently.
+</string>
+
+    <!-- Notifications -->
+    <string name="tip_notifications_title">Notifications</string>
+    <string name="tip_notifications_intro">
+Add notifications to get a reminder at the time you choose.
+</string>
+
+    <string name="tip_encryption_title">Encryption</string>
+    <string name="tip_encryption_intro">
+By default, tasks sync with your Google account.\n
+This lets you restore your tasks automatically on a new phone.\n\n
+If you turn on encryption, your tasks are protected so only you can read them.\n
+When you encrypt, you’ll be given an recovery phrase.\n
+Keep this phrase safe as you’ll need it to unlock your tasks on a new phone.
+</string>
+
     <string name="tip_create">Create</string>
     <string name="tip_contact_body">
         Email: muonappdevelopment@gmail.com\n\n
@@ -210,7 +255,8 @@ When you set up a new phone, enter your 8-word recovery phrase to unlock the dat
     <string name="confirm_restore_title">Confirm Restore</string>
     <string name="confirm_restore_msg">
 Choose a backup file to restore your tasks. This will replace all existing data in this app.
-</string>    <string name="err_generic_restore">Restore failed</string>
+</string>
+    <string name="err_generic_restore">Restore failed</string>
     <string name="backup_ok">Backup saved</string>
     <string name="err_backup_version">Unsupported backup version</string>
     <string name="err_cat_empty_title">A category title is blank</string>
@@ -220,7 +266,7 @@ Choose a backup file to restore your tasks. This will replace all existing data 
     <string name="err_task_empty_text">Task %1$d has an empty title</string>
     <string name="err_task_bad_category">Task %1$d points to missing category %2$d</string>
     <string name="backup_save_failed">Save failed</string>
-<!--Text size options-->
+    <!--Text size options-->
     <string name="text_size_title">Text size</string>
     <string name="text_size_system_only">Use system setting only</string>
     <string name="text_size_small">Small (%1$s)</string>

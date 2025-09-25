@@ -86,5 +86,20 @@ class TipManager(context: Context) {
             _resetTick.update { it + 1 }      // tell the UI a reset happened
         }
     }
+
+    fun requestSequence(tips: List<OnboardingTip>, overrideSeen: Boolean = false) = scope.launch {
+        mutex.withLock {
+            tips.forEach { tip ->
+                val alreadySeen = if (!overrideSeen) {
+                    withContext(Dispatchers.IO) { prefs.isSeen(tip.id) }
+                } else false
+                if (!alreadySeen && !queue.any { it.id == tip.id } && tip.id !in inMemory) {
+                    inMemory += tip.id
+                    if (_current.value == null) _current.value = tip
+                    else queue.addLast(tip)
+                }
+            }
+        }
+    }
 }
 
