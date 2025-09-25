@@ -81,10 +81,6 @@ fun TaskListContent(
     val visibleStatuses = taskUi.visibleStatuses.toList()
     val allCategories = uiState.categories
 
-    val sortMsgAsc = stringResource(R.string.sort_order_date_asc)
-    val sortMsgDesc = stringResource(R.string.sort_order_date_desc)
-    val sortMsgCustom = stringResource(R.string.sort_order_custom)
-
     // Unified state management
     var listState by rememberTaskListState(
         TaskListState(
