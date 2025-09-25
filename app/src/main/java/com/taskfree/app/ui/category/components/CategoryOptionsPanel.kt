@@ -4,8 +4,10 @@ package com.taskfree.app.ui.category.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -17,7 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -72,51 +74,106 @@ internal fun CategoryOptionsPanel(
     var currentName by remember { mutableStateOf(category.title) }
     // Track & show current colour
     var currentColor by remember { mutableLongStateOf(category.color) }
+    val previewCategory = remember(category.id, currentName, currentColor) {
+        category.copy(title = currentName, color = currentColor)
+    }
+    var isColorEditing by remember { mutableStateOf(false) }
+
+    val editButtonSizeConst = 32.dp
+    val editIconSizeConst = 20.dp
+    val swatchSizeConst = 20.dp
+
     PanelActionList(
+        // replace your current headerContent block with this
         headerContent = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
             ) {
-                /* --- CATEGORY NAME ROW --- */
-                EditableMetaRow(
-                    label = "", // No label for category name
-                    value = {
-                        if (editingField == CategoryEditingField.NAME) {
-                            var newName by rememberSaveable { mutableStateOf(currentName) }
-
-                            Column {
-                                OutlinedTextField(
-                                    value = newName,
-                                    onValueChange = { newName = it },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = colors.outlinedFieldColours()
-                                )
-                                EditCancelRow(
-                                    onCancel = {
-                                        editingField = CategoryEditingField.NONE
-                                    }, onSave = {
-                                        val trimmed = newName.trim()
-                                        catVm.rename(category, trimmed)
-                                        currentName = trimmed
-                                        editingField = CategoryEditingField.NONE
-                                    }, saveEnabled = newName.isNotBlank(), colors = colors
+                // --- Name + Color on a single line ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EditableMetaRow(
+                        label = "",
+                        value = {
+                            if (editingField == CategoryEditingField.NAME) {
+                                var newName by rememberSaveable { mutableStateOf(currentName) }
+                                Column {
+                                    OutlinedTextField(
+                                        value = newName,
+                                        onValueChange = { newName = it },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = colors.outlinedFieldColours()
+                                    )
+                                    EditCancelRow(
+                                        onCancel = { editingField = CategoryEditingField.NONE },
+                                        onSave = {
+                                            val trimmed = newName.trim()
+                                            catVm.rename(category, trimmed)
+                                            currentName = trimmed
+                                            editingField = CategoryEditingField.NONE
+                                        },
+                                        saveEnabled = newName.isNotBlank(),
+                                        colors = colors
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = currentName,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = colors.surfaceText
                                 )
                             }
-                        } else {
-                            Text(
-                                text = currentName,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = colors.surfaceText
+                        },
+                        currentField = editingField == CategoryEditingField.NAME,
+                        onEdit = { editingField = CategoryEditingField.NAME },
+                        colors = colors,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // swatch + pencil on the right
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 16.dp) // match left margin
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .size(swatchSizeConst)
+                                .clickable { isColorEditing = !isColorEditing }
+                        ) {
+                            drawCircle(
+                                color = androidx.compose.ui.graphics.Color((currentColor and 0xFFFFFFFFL).toInt())
                             )
                         }
-                    },
-                    currentField = editingField == CategoryEditingField.NAME,
-                    onEdit = { editingField = CategoryEditingField.NAME },
-                    colors = colors
-                )
+
+                        androidx.compose.material3.IconButton(
+                            onClick = { isColorEditing = !isColorEditing },
+                            modifier = Modifier.size(editButtonSizeConst) // 48.dp touch target
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = stringResource(R.string.category_colour_label),
+                                tint = colors.surfaceText,
+                                modifier = Modifier.size(editIconSizeConst) // 24.dp glyph
+                            )
+                        }
+                    }
+                }
+
+                // --- Expanded palette appears directly under the title row ---
+                if (isColorEditing) {
+                    Spacer(Modifier.padding(top = 8.dp))
+                    ColorChooserGrid(
+                        colors = colors, currentColor = currentColor, onPick = { picked ->
+                            currentColor = picked
+                            catVm.updateColor(category, picked)
+                            isColorEditing = false
+                        })
+                }
             }
         }, onDismiss = onDismiss, actions = listOf(
             ActionItem(icon = Icons.AutoMirrored.Filled.List, onClick = {
@@ -131,26 +188,12 @@ internal fun CategoryOptionsPanel(
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     CategoryPill(
-                        category = category, big = true, selected = true
+                        category = previewCategory, big = true, selected = true
                     )
 
                 }
             }),
-            // 2) Colour chooser (directly underneath "Go to", styled with MetaRow)
-            ActionItem(
-                icon = Icons.Filled.Palette,
-                onClick = {}, // no-op; interactions happen inside
-                labelContent = {
-                    ColorChooserRow(
-                        colors = colors,
-                        currentColor = currentColor,
-                        onPick = { picked ->
-                            currentColor = picked
-                            catVm.updateColor(category, picked)
-                        }
-                    )
-                }
-            ),
+
             // ——— Archive completed ———
             ActionItem(icon = Icons.Default.Archive, onClick = {
                 onRequestArchive()
@@ -183,44 +226,41 @@ internal fun CategoryOptionsPanel(
 }
 
 @Composable
-private fun ColorChooserRow(
+private fun ColorChooserGrid(
     colors: com.taskfree.app.ui.theme.PanelColors,
     currentColor: Long,
     onPick: (Long) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start
+    val swatchDiameter = 28.dp
+    val touchTarget = 40.dp // larger for accessibility
+    val strokeWidth = 3.dp
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = (touchTarget + 10.dp)),
+        userScrollEnabled = false,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .heightIn(max = 200.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.category_colour_label),
-            style = MaterialTheme.typography.bodyLarge, // matches other menu text
-            color = colors.surfaceText
-        )
-        val swatchSize = 28.dp
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = (swatchSize + 10.dp)),
-            userScrollEnabled = false,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .heightIn(max = 200.dp)
-        ) {
-            items(categoryPalette) { swatch ->
-                val swatchLong = (swatch.toArgb().toLong() and 0xFFFFFFFFL)
-                val selected = swatchLong == (currentColor and 0xFFFFFFFFL)
-                Canvas(
-                    modifier = Modifier
-                        .size(swatchSize)
-                        .clickable { onPick(swatchLong) }
-                ) {
+        items(categoryPalette) { swatch ->
+            val swatchLong = (swatch.toArgb().toLong() and 0xFFFFFFFFL)
+            val selected = swatchLong == (currentColor and 0xFFFFFFFFL)
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(touchTarget)
+                    .clickable { onPick(swatchLong) }
+            ) {
+                Canvas(modifier = Modifier.size(swatchDiameter)) {
                     drawCircle(color = swatch)
                     if (selected) {
                         drawCircle(
                             color = colors.surfaceText.copy(alpha = 0.9f),
-                            style = Stroke(width = 3f)
+                            style = Stroke(width = strokeWidth.toPx())
                         )
                     }
                 }
