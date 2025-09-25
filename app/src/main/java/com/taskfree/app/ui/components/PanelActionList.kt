@@ -42,6 +42,7 @@ fun PanelActionList(
     showBottomFade: Boolean = true,
     showTopFade: Boolean = true // optional hint
 ) {
+    val sidePad = 16.dp  // match ListItem default horizontal padding
     val surfaceShape = MaterialTheme.shapes.large
     val backgroundColour = colorResource(R.color.dialog_background_colour)
     val listState = rememberLazyListState()
@@ -76,7 +77,13 @@ fun PanelActionList(
                     // Header (scrolls with content)
                     headerContent?.let { hc ->
                         item {
-                            hc()
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = sidePad, vertical = 8.dp)
+                            ) {
+                                hc()  // your header row (title + colour + edit)
+                            }
                         }
                     }
 
