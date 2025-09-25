@@ -1,6 +1,7 @@
 // ui/task/components/TaskSearchAndFilter.kt
 package com.taskfree.app.ui.task.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -32,6 +34,7 @@ import com.taskfree.app.R
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.DragHandle
 import com.taskfree.app.ui.components.InfoPill
+import com.taskfree.app.ui.components.SortMode
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.displayName
 
@@ -44,6 +47,8 @@ fun TaskSearchAndFilter(
     onToggleStatusVisibility: (TaskStatus) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -91,10 +96,22 @@ fun TaskSearchAndFilter(
                 }
             }
 
-            DragHandle(icon = state.sortMode.icon,
+            DragHandle(
+                icon = state.sortMode.icon,
                 modifier = Modifier
                     .padding(end = 20.dp)
-                    .clickable { onUpdateState(state.copy(sortMode = state.sortMode.next())) })
+                    .clickable {
+                        val next = state.sortMode.next()
+                        onUpdateState(state.copy(sortMode = next))
+
+                        val msg = when (next) {
+                            SortMode.DATE_ASC  -> context.getString(R.string.sort_order_date_asc)
+                            SortMode.DATE_DESC -> context.getString(R.string.sort_order_date_desc)
+                            SortMode.USER      -> context.getString(R.string.sort_order_custom)
+                        }
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+            )
         }
 
         if (state.searchVisible) {
