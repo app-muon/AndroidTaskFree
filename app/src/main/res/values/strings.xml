@@ -130,61 +130,61 @@
 
     <string name="tip_instructions_title">TaskFree</string>
     <string name="tip_instructions_body">
-TaskFree is a simple task manager.\n
-You create categories, add tasks, and keep track of what is due.\n\n
-It is free, ad-free, and open source. No data is shared with us, advertisers, or any third parties—only the usual information with Google.\n\n
-You can set due dates, add notifications, and make tasks repeat (for example, every Friday).\n
-It’s easy to filter your list and mark tasks as "to do", "doing", "pending", or "done".\n\n
-</string>
+    TaskFree is a simple task manager. You can create categories, add tasks, and keep track of what is due.
+
+        \n\nIt is free, ad-free, and open source. No data is shared with us, advertisers, or any third parties—only the usual information with Google.
+        \n\nYou can set due dates, add notifications, and make tasks repeat (for example, every Friday).
+        \n\nIt’s easy to filter your list and mark tasks as "to do", "doing", "pending", or "done".
+        \n\n
+    </string>
 
     <!-- Categories -->
     <string name="tip_categories_title">Categories</string>
     <string name="tip_categories_intro">
-Every task belongs to a category.\n
-Use categories to group tasks by project, subject, or place.
-</string>
+        Every task belongs to a category.\n
+        Use categories to group tasks by project, subject, or place.
+    </string>
 
 
     <!-- Statuses -->
     <string name="tip_status_title">Status</string>
     <string name="tip_statuses_intro">
-Each task has a status:\n
-• To do – not started\n
-• Doing – in progress\n
-• Pending – waiting or blocked\n
-• Done – finished
-</string>
+        Each task has a status:\n
+        • To do – not started\n
+        • Doing – in progress\n
+        • Pending – waiting or blocked\n
+        • Done – finished
+    </string>
 
 
     <!-- Sorting -->
     <string name="tip_sorting_title">Sorting</string>
     <string name="tip_sorting_intro">
-You can sort tasks by date, reverse date, or your own custom order.\n
-Drag the ≡ handle to set a custom order.
-</string>
-
+        You can sort tasks and categories by your own custom order.
+        \n\nDrag the ≡ handles to set a custom order.
+        \n\nTasks can be sorted by date.
+    </string>
 
     <!-- Archive vs delete -->
     <string name="tip_archiving_title">Archiving</string>
     <string name="tip_archiving_intro">
-Archiving hides tasks but keeps them in the app.\n
-Deleting removes them permanently.
-</string>
+    Archiving hides tasks but keeps them in the app.\n
+    Deleting removes them permanently.
+    </string>
 
     <!-- Notifications -->
     <string name="tip_notifications_title">Notifications</string>
     <string name="tip_notifications_intro">
-Add notifications to get a reminder at the time you choose.
-</string>
+    Optionally add notifications to tasks to get a reminder at the time you choose.
+    </string>
 
     <string name="tip_encryption_title">Encryption</string>
     <string name="tip_encryption_intro">
-By default, tasks sync with your Google account.\n
-This lets you restore your tasks automatically on a new phone.\n\n
-If you turn on encryption, your tasks are protected so only you can read them.\n
-When you encrypt, you’ll be given an recovery phrase.\n
-Keep this phrase safe as you’ll need it to unlock your tasks on a new phone.
-</string>
+    By default, tasks sync with your Google account. This lets you restore your tasks automatically on a new phone.
+
+        \n\nIf you turn on encryption, your tasks are protected so only you can read them.
+        \n\nWhen you encrypt, you’ll be given an recovery phrase. Keep this phrase safe as you’ll need it to unlock your tasks on a new phone.
+    </string>
 
     <string name="tip_create">Create</string>
     <string name="tip_contact_body">
