@@ -7,68 +7,127 @@ import android.content.Intent
 import androidx.core.content.getSystemService
 import com.taskfree.app.R
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 object NotificationScheduler {
     private const val REQ = 11_337
 
-    enum class ToastKind { None, Scheduled, Updated }
+    enum class ToastKind {
+        Scheduled,
+        Cancelled,
+        DateChanged,
+        TimeChanged
+    }
+
+    // --- formatters ---
+    private fun dateFormatter(): DateTimeFormatter =
+        DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+
+    private fun dateTimeFormatter(): DateTimeFormatter =
+        DateTimeFormatter.ofPattern("dd-MMM-yy HH:mm", Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+
+    fun formatDate(instant: Instant): String = dateFormatter().format(instant)
+    fun formatDateTime(instant: Instant): String = dateTimeFormatter().format(instant)
 
     /** schedule one-shot alarm (fires roughly at the requested minute) */
-    fun schedule(
-        ctx: Context,
-        taskId: Int,
-        whenUtc: Instant,
-        toastKind: ToastKind = ToastKind.None
-    ) {
+    fun schedule(ctx: Context, taskId: Int, newUtc: Instant, oldUtc: Instant? = null) {
         val am = ctx.getSystemService<AlarmManager>() ?: return
-        // Build identifying intent once
         val intent = Intent(ctx, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION
             putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
         }
-
-        // Always (re)create the PI we hand to AlarmManager
         val pi = PendingIntent.getBroadcast(
-            ctx,
-            REQ + taskId,
-            intent,
+            ctx, REQ + taskId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val trigger = whenUtc.toEpochMilli()
-
+        val trigger = newUtc.toEpochMilli()
         if (trigger < System.currentTimeMillis()) {
-            ctx.sendBroadcast(intent)       // overdue → fire now
+            ctx.sendBroadcast(intent)
             return
         }
-
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
 
-        when (toastKind) {
-            ToastKind.Scheduled -> toast(ctx, ctx.getString(R.string.notification_scheduled))
-            ToastKind.Updated   -> toast(ctx, ctx.getString(R.string.notification_updated))
-            ToastKind.None      -> Unit
+        // toast based on diff
+        val kind = toastKindForReminderChange(oldUtc, newUtc)
+        postNotificationToast(ctx, kind, newUtc)
+    }
+
+
+    fun reschedule(ctx: Context, taskId: Int, oldUtc: Instant?, newUtc: Instant?) {
+        if (oldUtc != null && newUtc == null) {
+            postNotificationToast(ctx, ToastKind.Cancelled, oldUtc)
+            cancel(ctx, taskId, oldUtc)  // let cancel handle AM
+            return
+        }
+        if (newUtc != null) {
+            schedule(ctx, taskId, newUtc, oldUtc)
         }
     }
 
-    fun cancel(ctx: Context, taskId: Int, showToast: Boolean = false) {
+
+    /** Cancel scheduled alarm and toast */
+    fun cancel(ctx: Context, taskId: Int, oldUtc: Instant?) {
         val am = ctx.getSystemService<AlarmManager>() ?: return
         val intent = Intent(ctx, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION
             putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
         }
         val existing = PendingIntent.getBroadcast(
-            ctx, REQ + taskId, intent, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            ctx, REQ + taskId, intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
         if (existing != null) {
             am.cancel(existing)
-            if (showToast) toast(ctx, ctx.getString(R.string.notification_cancelled))
+            if (oldUtc != null) {
+                postNotificationToast(ctx, ToastKind.Cancelled, oldUtc)
+            }
+        }
+    }
+
+
+    // decide toast type
+    private fun toastKindForReminderChange(oldUtc: Instant?, newUtc: Instant): ToastKind {
+        if (oldUtc == null) return ToastKind.Scheduled
+        val zone = ZoneId.systemDefault()
+        val oldZ = oldUtc.atZone(zone)
+        val newZ = newUtc.atZone(zone)
+        return when {
+            oldZ.toLocalDate() != newZ.toLocalDate() -> ToastKind.DateChanged
+            oldZ.toLocalTime() != newZ.toLocalTime() -> ToastKind.TimeChanged
+            else -> ToastKind.Scheduled
         }
     }
 
     /* common toast helper */
-    private fun toast(ctx: Context, msg: String) =
+    private fun postNotificationToast(ctx: Context, kind: ToastKind, instant: Instant) {
+        val msg = when (kind) {
+            ToastKind.Scheduled -> ctx.getString(
+                R.string.notification_scheduled,
+                formatDateTime(instant)
+            )
+
+            ToastKind.Cancelled -> ctx.getString(
+                R.string.notification_cancelled,
+                formatDateTime(instant)
+            )
+
+            ToastKind.DateChanged -> ctx.getString(
+                R.string.notification_date_changed,
+                formatDate(instant)
+            )
+
+            ToastKind.TimeChanged -> ctx.getString(
+                R.string.notification_time_changed,
+                formatDateTime(instant)
+            )
+        }
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
 }
