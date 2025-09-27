@@ -16,22 +16,23 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 ## Features
 
 ### Privacy and control
-- 100% free and open source, with no hidden catches.  
-- No ads and no data sharing, everything stays local.  
-- Requires no permissions (only if you want notifications).  
-- Option to encrypt Google backups, so your data stays private if you change or restore your phone.  
-- Manual backup and restore for full control.  
+- Free and open source.
+- No ads, tracking, or data sharing.
+- Works without permissions (only needed for notifications).
+- Manual backup and restore included.
+- Optionally encrypt your data.
+  -   Android automatically saves app data to your Google account so it can be restored when you set up a new phone. Most apps let Google see this data as it isn’t encrypted. TaskFree gives you the option to encrypt your   backup with a recovery phrase, so the data is still saved to your Google account for convenience, but only you can read it. This means your tasks stay private even if you change or restore your phone.
 
 ### Task management
-- Add due dates, make tasks recurrent, and trigger notifications.  
+- Add due dates and repeating tasks with reminders.  
 - Organise tasks into categories.  
 - Filter and search by category, due date, status, or text.  
-- Archive completed tasks to reduce clutter.  
+- Archive completed tasks to keep lists tidy.  
 
 ### Clean design
 - Simple, distraction-free interface.  
-- Built-in dark mode.  
-- Adjustable text size for comfort.  
+- Dark mode included.  
+- Adjustable text size.  
 - Works on phones and tablets.  
 
 ---
@@ -46,7 +47,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 
 ## Get the app
 
-- [Latest GitHub release](https://github.com/app-muon/AndroidTaskFree/releases)  
+- [GitHub release](https://github.com/app-muon/AndroidTaskFree/releases)  
 - Available on [Google Play](https://play.google.com/store/apps/details?id=com.taskfree.app)  
 
 ---
@@ -54,7 +55,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 ## About
 
 TaskFree can be used as a to-do list, a planner, or a reminder app.  
-It is free, open source, and designed to keep your data private.  
+It is free, open source, and designed to protect your privacy.  
 
 No ads. No tracking. Just a simple way to manage tasks on your phone or tablet.  
 
