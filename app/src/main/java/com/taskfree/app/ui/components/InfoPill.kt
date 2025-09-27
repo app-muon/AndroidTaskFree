@@ -71,6 +71,7 @@ fun RecurrencePill(
     terse: Boolean = false,
     big: Boolean = false,
     selected: Boolean = false,
+    error: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
 
@@ -81,7 +82,7 @@ fun RecurrencePill(
     }
     InfoPill(
         title = recurrenceText,
-        selectedFillColor = colorResource(R.color.pill_colour),
+        selectedFillColor = if (error) Color.Red.copy(alpha = 0.8f) else colorResource(R.color.pill_colour),
         selectedTextColor = colorResource(R.color.pill_text),
         border = !selected,
         big = big,
@@ -115,7 +116,8 @@ fun InfoPill(
         shape = RoundedCornerShape(pillRound),
         modifier = modifier
             .padding(0.dp)
-            .then(if (onClick != null) {
+            .then(
+                if (onClick != null) {
                 Modifier.clickable { onClick() }
             } else {
                 Modifier
