@@ -117,9 +117,10 @@
     <string name="missing_due_for_notification">Cannot add notification without a due date</string>
     <string name="reminder_channel_name">Task notifications</string>
     <string name="reminder_channel_desc">Notification channel for tasks</string>
-    <string name="notification_scheduled">Notification scheduled</string>
-    <string name="notification_cancelled">Notification cancelled</string>
-    <string name="notification_updated">Notification Updated</string>
+    <string name="notification_scheduled">Notification scheduled on %1$s</string>
+    <string name="notification_cancelled">Notification cancelled on %1$s</string>
+    <string name="notification_date_changed">Notification date changed to %1$s</string>
+    <string name="notification_time_changed">Notification time changed to %1$s</string>
 
     <!--  Toast messages when sort-->
     <string name="sort_order_date_asc">Ascending date order</string>

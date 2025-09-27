@@ -158,7 +158,13 @@ class TaskViewModel(
     ) = launchIO {
         val reminder = notify.toInstant(due.date)
         val id = repo.createTask(TaskInput(text, due.date, rec, categoryId, reminder))
-        syncReminderWithToast(id, due.date, notify)
+        reminder?.let { at ->
+            NotificationScheduler.schedule(
+                ctx = appContext,
+                taskId = id,
+                newUtc = at
+            )
+        }
     }
 
     private fun updateValues(
@@ -169,32 +175,15 @@ class TaskViewModel(
         newCategoryId: Int,
         reminderTime: Instant?
     ) = launchIO {
-        /* ── snapshots before DB write ── */
         val oldReminder = task.reminderTime
         val oldDue = task.due
 
-        /* 1 ▸ persist changes */
         repo.updateTaskDetails(task, newText, newDue, rec, newCategoryId, reminderTime)
 
-        /* 2 ▸ did anything relevant change? */
-        val dueChanged = oldDue != newDue
-        val reminderChanged = oldReminder != reminderTime
-        if (!dueChanged && !reminderChanged) return@launchIO   // nothing to do
+        // Nothing changed that affects alarms? bail early
+        if (oldDue == newDue && oldReminder == reminderTime) return@launchIO
 
-        /* 3 ▸ always cancel the old alarm if it existed */
-        if (oldReminder != null) {
-            val toastNeeded =
-                reminderTime == null          // only toast if user removed the reminder
-            NotificationScheduler.cancel(appContext, task.id, showToast = toastNeeded)
-        }
-
-        /* 4 ▸ schedule the new one if present */
-        val wasExisting = oldReminder != null
-        if (reminderTime != null) {
-            val toast = if (wasExisting) NotificationScheduler.ToastKind.Updated
-            else NotificationScheduler.ToastKind.Scheduled
-            NotificationScheduler.schedule(appContext, task.id, reminderTime, toastKind = toast)
-        }
+        NotificationScheduler.reschedule(appContext, task.id, oldReminder, reminderTime)
     }
 
 
@@ -204,36 +193,30 @@ class TaskViewModel(
 
         val res = repo.updateTaskStatus(task, newStatus)
 
-        if (nowDone && !wasDone && task.reminderTime != null) {
-            NotificationScheduler.cancel(appContext, task.id, showToast = true)
+        if (nowDone && !wasDone) {
+            // Marked DONE → cancel this task’s reminder (if any)
+            task.reminderTime?.let { NotificationScheduler.cancel(appContext, task.id, it) }
         }
 
         if (nowDone && !wasDone) {
-            res.nextCreatedId?.let { id ->
-                repo.taskById(id)?.reminderTime?.let { at ->
-                    NotificationScheduler.schedule(
-                        appContext, id, at,
-                        toastKind = NotificationScheduler.ToastKind.Scheduled
-                    )
-                }
+            // A new “next” instance may have been created; schedule its reminder if present
+            res.nextCreatedId?.let { nextId ->
+                scheduleIfFuture(
+                    taskId = nextId,
+                    instant = repo.taskById(nextId)?.reminderTime
+                )
             }
-        } else if (!nowDone && wasDone) {                     // NEW: unmarking DONE
-            // 1) cancel alarm for the deleted "next" instance (if any)
-            res.nextDeletedId?.let { id ->
-                NotificationScheduler.cancel(appContext, id, showToast = true)
+        } else if (!nowDone && wasDone) {
+            // Unmarked DONE → a “next” instance may have been deleted: cancel its alarm (no toast date)
+            res.nextDeletedId?.let { deletedId ->
+                NotificationScheduler.cancel(appContext, deletedId, oldUtc = null)
             }
-            // 2) re-schedule THIS task’s reminder if it exists and is in the future
+            // Re-schedule THIS task if it still has a future reminder
             val current = repo.taskById(task.id)
-            current?.reminderTime
-                ?.takeIf { it.isAfter(Instant.now()) }
-                ?.let { at ->
-                    NotificationScheduler.schedule(
-                        appContext, current.id, at,
-                        toastKind = NotificationScheduler.ToastKind.Scheduled
-                    )
-                }
+            scheduleIfFuture(task.id, current?.reminderTime)
         }
     }
+
 
 
     /**
@@ -330,38 +313,27 @@ class TaskViewModel(
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
-        NotificationScheduler.cancel(appContext, task.id, showToast = true)
+        // Cancel this task’s reminder if it exists
+        task.reminderTime?.let { NotificationScheduler.cancel(appContext, task.id, it) }
+
         when (mode) {
             ArchiveMode.Single -> {
                 val nextId = repo.archiveSingleOccurrence(task)
+                // If a next instance was created, schedule its reminder if present
                 nextId?.let { id ->
-                    repo.taskById(id)?.reminderTime?.let { at ->
-                        NotificationScheduler.schedule(
-                            appContext, id, at,
-                            toastKind = NotificationScheduler.ToastKind.Scheduled
-                        )
-                    }
+                    scheduleIfFuture(taskId = id, instant = repo.taskById(id)?.reminderTime)
                 }
             }
-
             ArchiveMode.Series -> repo.archiveTask(task)
         }
     }
 
-    fun unArchive(task: Task) = launchIO {
-        // 1) unarchive in DB
-        repo.saveTask(task.copy(isArchived = false))
 
-        // 2) restore the alarm if the task had a reminder saved
-        task.reminderTime?.let { whenUtc ->
-            NotificationScheduler.schedule(
-                appContext,
-                task.id,
-                whenUtc,
-                toastKind = NotificationScheduler.ToastKind.Scheduled
-            )
-        }
+    fun unArchive(task: Task) = launchIO {
+        repo.saveTask(task.copy(isArchived = false))
+        scheduleIfFuture(task.id, task.reminderTime)
     }
+
 
     /** convenience wrapper that always uses IO dispatcher */
     private fun launchIO(block: suspend () -> Unit) = viewModelScope.launch(io) { block() }
@@ -416,25 +388,14 @@ class TaskViewModel(
             reminderTime = newReminderInstant
         )
     }
+
     fun forceReload() {
         // Nudge the filter so distinctUntilChanged() sees a change.
         _filter.update { it.copy(version = it.version + 1) }
     }
 
-
-    private fun syncReminderWithToast(
-        taskId: Int, due: LocalDate?, opt: NotificationOption
-    ) {
-        NotificationScheduler.cancel(appContext, taskId, true)
-        opt.toInstant(due)?.let { at ->
-            NotificationScheduler.schedule(
-                appContext,
-                taskId,
-                at,
-                toastKind = NotificationScheduler.ToastKind.Scheduled
-            )
-        }
+    private fun scheduleIfFuture(taskId: Int, instant: Instant?) {
+        instant?.takeIf { it.isAfter(Instant.now()) }
+            ?.let { NotificationScheduler.schedule(appContext, taskId, it) }
     }
-
-
 }
