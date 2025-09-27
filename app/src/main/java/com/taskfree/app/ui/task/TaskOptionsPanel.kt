@@ -37,10 +37,7 @@ import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.domain.model.Recurrence
-import com.taskfree.app.domain.model.RecurrenceValidationResult
 import com.taskfree.app.domain.model.TaskStatus
-import com.taskfree.app.domain.model.validateNotification
-import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.ui.category.CategoryViewModel
 import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.ActionItem
@@ -91,22 +88,22 @@ fun TaskOptionsPanel(
     val taskSnapshot = task ?: return
     val colors = providePanelColors()
 
-    // Initialize state with task data
     val context = LocalContext.current.applicationContext as android.app.Application
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
     val pickerContext = LocalContext.current
     val uiState by categoriesVm.uiState.collectAsState()
     val allCategories = uiState.categories
-    val currentDueChoice =
-        taskSnapshot.due?.let { DueChoice.from(it) }
-            ?: DueChoice.fromSpecial(DueChoice.Special.NONE)
+
+    val currentDueChoice = taskSnapshot.due?.let { DueChoice.from(it) }
+        ?: DueChoice.fromSpecial(DueChoice.Special.NONE)
     val currentNotifyOption = NotificationOption.fromTask(taskSnapshot)
     val kind = quickDateKind(taskSnapshot)
     val quickDateAction = ActionItem(
         label = stringResource(kind.labelRes()),
         icon = Icons.Default.DateRange,
-        onClick = { onQuickDate(taskSnapshot) } // PanelActionList dismisses after onClick
+        onClick = { onQuickDate(taskSnapshot) }
     )
+
     val editState by rememberSaveable(stateSaver = TaskEditStateSaver) {
         mutableStateOf(
             TaskEditState(
@@ -115,7 +112,9 @@ fun TaskOptionsPanel(
                 currentNotifyOption = currentNotifyOption,
                 recurrence = taskSnapshot.recurrence,
                 selectedCategory = allCategories.firstOrNull { it.id == taskSnapshot.categoryId }
-                    ?: allCategories.first()))
+                    ?: allCategories.first()
+            )
+        )
     }
 
     val category: Category =
@@ -212,7 +211,7 @@ fun TaskOptionsPanel(
             ) {
                 /* --- TITLE ROW --- */
                 EditableMetaRow(
-                    label = "",                           // no static label for title row
+                    label = "",
                     value = {
                         if (editState.editingField == EditingField.TITLE) {
                             var newTitle by rememberSaveable { mutableStateOf(editState.title) }
@@ -230,8 +229,9 @@ fun TaskOptionsPanel(
                                     onSave = {
                                         val t = newTitle.trim()
                                         if (t.isNotEmpty() && t != editState.title) {
-                                            taskVm.applyEdits(taskSnapshot.id,
-                                                TaskViewModel.TaskEdits(title = t)
+                                            taskVm.applyEdits(
+                                                taskSnapshot.id,
+                                                TaskViewModel.TaskEdits(title = FieldEdit.Set(t))  // ← wrap in Set
                                             )
                                             editState.updateTitle(t)
                                         }
@@ -260,12 +260,13 @@ fun TaskOptionsPanel(
                     label = stringResource(R.string.due),
                     value = {
                         Text(
-                            text = editState.currentDueChoice.resultLabel(),
+                            editState.currentDueChoice.resultLabel(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
                     currentField = editState.editingField == EditingField.DUE,
-                    onEdit = { editState.enterEditMode(EditingField.DUE) })
+                    onEdit = { editState.enterEditMode(EditingField.DUE) }
+                )
 
                 if (editState.editingField == EditingField.DUE) {
                     FlowRow(
@@ -277,54 +278,56 @@ fun TaskOptionsPanel(
                     ) {
                         DueChoice.allChoices().forEach { choice ->
                             val isSelected = editState.currentDueChoice.isSameKindAs(choice)
-                            val isError = editState.dueError
                             LabelledOptionPill(
                                 label = choice.choiceLabel(),
-                                selected = isSelected || isError,
-                                error = isError,
+                                selected = isSelected,
+                                error = editState.dueError != null && isSelected,
                                 onClick = {
                                     if (choice.launchDatePicker()) {
                                         showDatePicker(
                                             context = pickerContext,
+
                                             initialDate = editState.currentDueChoice.date,
                                             onDateSelected = { picked ->
                                                 commitDue(
                                                     DueChoice.from(picked),
-                                                    "date",
                                                     editState,
                                                     taskSnapshot,
                                                     taskVm
                                                 )
-                                            })
-                                    } else {
-                                        commitDue(
-                                            choice, "date", editState, taskSnapshot, taskVm
+                                            }
                                         )
+                                    } else {
+                                        commitDue(choice, editState, taskSnapshot, taskVm)
                                     }
-                                })
+                                }
+                            )
                         }
                     }
                     EditCancelRow(
-                        onCancel = { editState.exitEditMode() }, colors = colors
+                        onCancel = { editState.clearErrors(); editState.exitEditMode() },
+                        colors = colors
                     )
-                    editState.currentDueChoice.let { choice ->
-                        val validationResult = validateRecurrenceDate(editState.recurrence, choice)
-                        ValidationRecurrenceErrorText(validationResult)
+                    if (editState.dueError != null) {
+                        ValidationRecurrenceErrorText(editState.dueError!!)
                     }
-                }/* --- NOTIFICATION ROW --- */
+
+                }
+
+                /* --- NOTIFICATION ROW --- */
                 EditableMetaRow(
                     colors = colors,
                     label = stringResource(R.string.notification_heading),
                     value = {
                         Text(
-                            text = editState.currentNotifyOption.resultLabel(),
+                            editState.currentNotifyOption.resultLabel(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
                     currentField = editState.editingField == EditingField.NOTIFY,
-                    onEdit = { editState.enterEditMode(EditingField.NOTIFY) })
+                    onEdit = { editState.enterEditMode(EditingField.NOTIFY) }
+                )
 
-                /* --- NOTIFY EDIT UI --- */
                 if (editState.editingField == EditingField.NOTIFY) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
@@ -337,7 +340,8 @@ fun TaskOptionsPanel(
                             val chosen = editState.currentNotifyOption.isSameKindAs(opt)
                             LabelledOptionPill(
                                 label = opt.choiceLabel(),
-                                selected = chosen || editState.notifyError,
+                                selected = chosen,
+                                error = editState.notifyError != null && chosen,
                                 onClick = {
                                     if (opt.launchTimePicker()) {
                                         showTimePicker(
@@ -345,45 +349,30 @@ fun TaskOptionsPanel(
                                             initial = editState.currentNotifyOption.time
                                         ) { picked ->
                                             commitNotification(
-                                                opt = NotificationOption.Other(picked),
-                                                editState = editState,
-                                                task = taskSnapshot.copy(due = editState.currentDueChoice.date),   // ✅ use live due
-                                                vm = taskVm
+                                                NotificationOption.Other(picked),
+                                                editState,
+                                                taskSnapshot,
+                                                taskVm
                                             )
                                         }
                                     } else {
                                         commitNotification(
-                                            opt = opt,
-                                            editState = editState,
-                                            task = taskSnapshot.copy(due = editState.currentDueChoice.date),       // ✅ same here
-                                            vm = taskVm
+                                            opt,
+                                            editState, taskSnapshot,
+                                            taskVm
                                         )
                                     }
-                                })
-                        }
-                    }/* preview of custom time */
-                    if (editState.currentNotifyOption is NotificationOption.Other && editState.currentNotifyOption.time != null) {
-                        Text(
-                            stringResource(
-                                R.string.notification_time_with_time,
-                                editState.currentNotifyOption.time.toString()
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = colors.surfaceText,
-                            modifier = Modifier.padding(
-                                start = PanelConstants.HORIZONTAL_PADDING,
-                                top = PanelConstants.VERTICAL_PADDING
+                                }
                             )
-                        )
+                        }
                     }
                     EditCancelRow(
-                        onCancel = { editState.exitEditMode() }, colors = colors
-                    )/* validation */
-                    ValidationNotificationErrorText(
-                        validateNotification(
-                            editState.currentDueChoice, editState.currentNotifyOption
-                        )
+                        onCancel = { editState.clearErrors(); editState.exitEditMode() },
+                        colors = colors
                     )
+                    if (editState.notifyError != null) {
+                        ValidationNotificationErrorText(editState.notifyError!!)
+                    }
                 }
 
                 /* --- RECURRENCE ROW --- */
@@ -392,13 +381,16 @@ fun TaskOptionsPanel(
                     label = stringResource(R.string.repeat),
                     value = {
                         Text(
-                            text = if (editState.recurrence == Recurrence.NONE) stringResource(R.string.no_recurrence_label)
+                            if (editState.recurrence == Recurrence.NONE)
+                                stringResource(R.string.no_recurrence_label)
                             else editState.recurrence.displayName(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
                     currentField = editState.editingField == EditingField.RECURRENCE,
-                    onEdit = { editState.enterEditMode(EditingField.RECURRENCE) })
+                    onEdit = { editState.enterEditMode(EditingField.RECURRENCE) }
+                )
+
                 if (editState.editingField == EditingField.RECURRENCE) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
@@ -411,49 +403,22 @@ fun TaskOptionsPanel(
                             val isSelected = rec == editState.recurrence
                             RecurrencePill(
                                 recurrence = rec,
-                                selected = isSelected || editState.recurrenceError,
+                                selected = isSelected,
+                                error = editState.recurrenceError != null && isSelected,   // ✅ use flag
                                 onClick = {
-                                    commitRecurrence(
-                                        rec, editState, taskSnapshot, taskVm
-                                    )
-                                })
+                                    commitRecurrence(rec, editState, taskSnapshot, taskVm)
+                                }
+                            )
                         }
                     }
                     EditCancelRow(
-                        onCancel = { editState.exitEditMode() },
+                        onCancel = { editState.clearErrors(); editState.exitEditMode() },
                         colors = colors,
                         modifier = Modifier.padding(end = PanelConstants.HORIZONTAL_PADDING)
                     )
-                    editState.recurrence.let { rec ->
-                        val validationResult =
-                            validateRecurrenceDate(rec, editState.currentDueChoice)
-                        ValidationRecurrenceErrorText(validationResult)
+                    if (editState.recurrenceError != null) {
+                        ValidationRecurrenceErrorText(editState.recurrenceError!!)
                     }
-                }
-                val validate =
-                    validateRecurrenceDate(editState.recurrence, editState.currentDueChoice)
-                if (validate !is RecurrenceValidationResult.Ok) {
-                    Text(
-                        text = when (validate) {
-                            is RecurrenceValidationResult.MissingDueDate -> stringResource(R.string.a_due_date_is_required_for_recurring_tasks)
-
-                            is RecurrenceValidationResult.NotWeekday -> stringResource(
-                                R.string.incompatibility_not_weekday, validate.date
-                            )
-
-                            is RecurrenceValidationResult.NotWeekend -> stringResource(
-                                R.string.incompatibility_not_weekend, validate.date
-                            )
-
-                            else -> ""
-                        },
-                        color = colors.surfaceText,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(
-                            start = PanelConstants.HORIZONTAL_PADDING,
-                            bottom = PanelConstants.ERROR_BOTTOM_PADDING
-                        )
-                    )
                 }
                 EditableMetaRow(
                     colors = colors,
@@ -479,8 +444,9 @@ fun TaskOptionsPanel(
                             CategoryPill(category = cat, selected = selected, onClick = {
                                 if (cat.id != editState.selectedCategory.id) {
                                     editState.updateCategory(cat)
-                                    taskVm.applyEdits(taskSnapshot.id,
-                                        TaskViewModel.TaskEdits(categoryId = cat.id)
+                                    taskVm.applyEdits(
+                                        taskSnapshot.id,
+                                        TaskViewModel.TaskEdits(categoryId = FieldEdit.Set(cat.id))  // ← wrap in Set
                                     )
                                 }
                                 editState.exitEditMode()

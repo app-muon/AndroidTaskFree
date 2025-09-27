@@ -17,8 +17,10 @@ import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.PanelConstants
+import com.taskfree.app.ui.task.FieldEdit
 import com.taskfree.app.ui.task.TaskEditState
 import com.taskfree.app.ui.task.TaskViewModel
+import com.taskfree.app.ui.task.toFieldEdit
 import com.taskfree.app.ui.theme.providePanelColors
 
 @Composable
@@ -47,8 +49,7 @@ fun ValidationRecurrenceErrorText(
             color = providePanelColors().errorText,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(
-                start = PanelConstants.HORIZONTAL_PADDING,
-                top = PanelConstants.ERROR_TOP_PADDING
+                start = PanelConstants.HORIZONTAL_PADDING, top = PanelConstants.ERROR_TOP_PADDING
             )
         )
     }
@@ -72,71 +73,88 @@ fun ValidationNotificationErrorText(
             color = providePanelColors().errorText,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(
-                start = PanelConstants.HORIZONTAL_PADDING,
-                top = PanelConstants.ERROR_TOP_PADDING
+                start = PanelConstants.HORIZONTAL_PADDING, top = PanelConstants.ERROR_TOP_PADDING
             )
         )
     }
 }
 
-// Handles DATE changes coming from any DateChip, incl. date-picker callback
 fun commitDue(
-    candidate: DueChoice,
-    errorType: String,
-    state: TaskEditState, task: Task, vm: TaskViewModel
+    candidate: DueChoice, state: TaskEditState, task: Task, vm: TaskViewModel
 ) {
-    when (validateRecurrenceDate(state.recurrence, candidate)) {
-        is RecurrenceValidationResult.Ok -> {
-            vm.applyEdits(task.id, TaskViewModel.TaskEdits(
-                due = candidate.date,
-                notify = state.currentNotifyOption
+    val v = validateRecurrenceDate(state.recurrence, candidate)
+    if (v is RecurrenceValidationResult.Ok) {
+        // If due is being cleared, also clear notification
+        val clearingDue = candidate.date == null
+        val notifyEdit: FieldEdit<NotificationOption> =
+            if (clearingDue && state.currentNotifyOption != NotificationOption.None) {
+                FieldEdit.Set(NotificationOption.None)         // persist change
+            } else {
+                FieldEdit.NoChange                              // leave notify as-is
+            }
+
+        vm.applyEdits(
+            task.id, TaskViewModel.TaskEdits(
+                due = candidate.date.toFieldEdit(),             // Set(...) or Clear
+                notify = notifyEdit
             )
-            )
-            state.updateDue(candidate)
+        )
+
+        // Update local UI state so the preview reflects the change immediately
+        state.updateDue(candidate)
+        if (clearingDue && state.currentNotifyOption != NotificationOption.None) {
+            state.updateNotification(NotificationOption.None)
+            state.clearErrors() // also clears notify error if it was shown
+        } else {
             state.clearErrors()
-            state.exitEditMode()
         }
-        else -> when (errorType) {
-            "date" -> state.setDueError()
-            "recurrence" -> state.setRecurrenceError()
-        }
+        state.exitEditMode()
+    } else {
+        state.setDueError(v)
     }
 }
+
 // Handles RECURRENCE changes coming from any RepeatChip
 fun commitRecurrence(
-    candidate: Recurrence,
-    state: TaskEditState,
-    task: Task,
-    vm: TaskViewModel
+    candidate: Recurrence, state: TaskEditState, task: Task, vm: TaskViewModel
 ) {
-    when (validateRecurrenceDate(candidate, state.currentDueChoice)) {
-        is RecurrenceValidationResult.Ok -> {
-            vm.applyEdits(task.id, TaskViewModel.TaskEdits(recurrence = candidate))
-            state.updateRecurrence(candidate)
-            state.clearErrors()
-            state.exitEditMode()
-        }
-        else -> state.setRecurrenceError()
+    val validation = validateRecurrenceDate(candidate, state.currentDueChoice)
+    if (validation is RecurrenceValidationResult.Ok) {
+        vm.applyEdits(
+            task.id, TaskViewModel.TaskEdits(
+                recurrence = FieldEdit.Set(candidate)
+            )
+        )
+        state.updateRecurrence(candidate)
+        state.clearErrors()
+        state.exitEditMode()
+    } else {
+        state.setRecurrenceError(validation)
     }
 }
 
 fun commitNotification(
-    opt: NotificationOption,
-    editState: TaskEditState,
-    task: Task,
-    vm: TaskViewModel
+    opt: NotificationOption, state: TaskEditState, task: Task, vm: TaskViewModel
 ) {
-    val validation = validateNotification(editState.currentDueChoice, opt)
+    val validation = validateNotification(state.currentDueChoice, opt)
     if (validation is NotificationValidationResult.Ok) {
-        editState.updateNotification(opt)
-        vm.applyEdits(task.id, TaskViewModel.TaskEdits(
-            due = editState.currentDueChoice.date,
-            notify = opt
+
+        // Only include 'due' if it's actually different from what's stored,
+        // to avoid unnecessary DB writes.
+        val dueEdit =
+            if (state.currentDueChoice.date != task.due) state.currentDueChoice.date.toFieldEdit()
+            else FieldEdit.NoChange
+
+        vm.applyEdits(
+            task.id, TaskViewModel.TaskEdits(
+                due = dueEdit, notify = FieldEdit.Set(opt)
+            )
         )
-        )
-        editState.clearErrors()
-        editState.exitEditMode()
+
+        state.updateNotification(opt)
+        state.clearErrors()
+        state.exitEditMode()
     } else {
-        editState.setNotifyError()
+        state.setNotifyError(validation)
     }
 }

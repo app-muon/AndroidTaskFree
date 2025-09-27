@@ -343,9 +343,11 @@ class TaskViewModel(
                     }
                 }
             }
+
             ArchiveMode.Series -> repo.archiveTask(task)
         }
     }
+
     fun unArchive(task: Task) = launchIO {
         // 1) unarchive in DB
         repo.saveTask(task.copy(isArchived = false))
@@ -373,38 +375,47 @@ class TaskViewModel(
         _filter.update { it.copy(date = date) }
     }
 
-    // TaskViewModel.kt
     data class TaskEdits(
-        val title: String? = null,
-        val due: LocalDate? = null,                 // "no due" is null
-        val notify: NotificationOption? = null,     // pass the UI's current selection
-        val recurrence: Recurrence? = null,
-        val categoryId: Int? = null
+        val title: FieldEdit<String> = FieldEdit.NoChange,
+        val due: FieldEdit<LocalDate?> = FieldEdit.NoChange,
+        val recurrence: FieldEdit<Recurrence> = FieldEdit.NoChange,
+        val categoryId: FieldEdit<Int> = FieldEdit.NoChange,
+        val notify: FieldEdit<NotificationOption> = FieldEdit.NoChange
     )
 
     fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO {
         val current = repo.taskById(taskId) ?: return@launchIO
 
-        val newTitle = edits.title ?: current.text
-        val newDue = edits.due ?: current.due
-        val newRec = edits.recurrence ?: current.recurrence
-        val newCat = edits.categoryId ?: current.categoryId
+        // Title: we generally don't allow "clear title"; treat Clear as "no change".
+        val newTitle = edits.title.resolve(current.text) { current.text }
 
-        // Prefer explicit UI choice; else derive from current DB
-        val effectiveNotify = edits.notify ?: NotificationOption.fromTask(current)
-        val newReminder = effectiveNotify.toInstant(newDue)   // uses system ZoneId; fine
+        // Due can be cleared -> null
+        val newDue = edits.due.resolve(current.due) { null }
 
-        // Single source of truth for cancel/schedule and toasts:
+        // Recurrence: Clear means NONE
+        val newRecurrence = edits.recurrence.resolve(current.recurrence) { Recurrence.NONE }
+
+        // Category: typically non-null; treat Clear as "no change"
+        val newCategoryId = edits.categoryId.resolve(current.categoryId) { current.categoryId }
+
+        // Notify: NoChange = reconstruct from current task; Clear = None; Set = provided value
+        val effectiveNotify = edits.notify.resolve(
+            current = NotificationOption.fromTask(current)
+        ) { NotificationOption.None }
+
+        // Compute reminder based on the effective notify + newDue
+        val newReminderInstant = effectiveNotify.toInstant(newDue)
+
+        // Single source of truth to diff/persist + schedule/cancel alarms
         updateValues(
-            task = current,   // old snapshot for diffing
+            task = current,
             newText = newTitle,
             newDue = newDue,
-            rec = newRec,
-            newCategoryId = newCat,
-            reminderTime = newReminder
+            rec = newRecurrence,
+            newCategoryId = newCategoryId,
+            reminderTime = newReminderInstant
         )
     }
-
     fun forceReload() {
         // Nudge the filter so distinctUntilChanged() sees a change.
         _filter.update { it.copy(version = it.version + 1) }
