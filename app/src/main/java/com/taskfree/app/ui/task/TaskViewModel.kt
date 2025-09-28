@@ -9,8 +9,10 @@ import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.ReminderResult
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.domain.model.resolveReminderInstant
 import com.taskfree.app.notifications.NotificationScheduler
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
@@ -35,7 +37,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.Instant
 import java.time.LocalDate
 
 class TaskViewModel(
@@ -97,7 +98,7 @@ class TaskViewModel(
     private val allTasks = channelFlow {
         var currentJob: Job? = null
         _filter.map { Triple(it.date, it.showArchived, it.version) }.distinctUntilChanged()
-            .collect { (date, archived) ->
+            .collect { (date, archived, _) ->
                 currentJob?.cancel()
                 currentJob = launch {
                     repo.observeTasksDueBy(date, archived).collect { tasks ->
@@ -154,37 +155,30 @@ class TaskViewModel(
 
     /* ------------  commands ------------------ */
     fun add(
-        text: String, due: DueChoice, rec: Recurrence, categoryId: Int, notify: NotificationOption
+        text: String,
+        due: DueChoice,
+        rec: Recurrence,
+        categoryId: Int,
+        notify: NotificationOption
     ) = launchIO {
-        val reminder = notify.toInstant(due.date)
-        val id = repo.createTask(TaskInput(text, due.date, rec, categoryId, reminder))
-        reminder?.let { at ->
-            NotificationScheduler.schedule(
-                ctx = appContext,
-                taskId = id,
-                newUtc = at
-            )
+        // Persist the user's intent (even if it's past/blocked)
+        val intendedReminder = notify.toInstant(due.date)
+        val id = repo.createTask(TaskInput(text, due.date, rec, categoryId, intendedReminder))
+
+        // Evaluate scheduling policy using the created task snapshot
+        val task = repo.taskById(id) ?: return@launchIO
+        when (val result = task.resolveReminderInstant(notify, due.date)) {
+            is ReminderResult.Scheduled -> {
+                NotificationScheduler.schedule(appContext, id, result.instant)
+            }
+            ReminderResult.InPast -> {
+                // just a toast; no schedule
+                NotificationScheduler.showToast(appContext, NotificationScheduler.ToastKind.InPast)
+            }
+            ReminderResult.Blocked -> Unit // nothing to do
         }
     }
 
-    private fun updateValues(
-        task: Task,
-        newText: String,
-        newDue: LocalDate?,
-        rec: Recurrence,
-        newCategoryId: Int,
-        reminderTime: Instant?
-    ) = launchIO {
-        val oldReminder = task.reminderTime
-        val oldDue = task.due
-
-        repo.updateTaskDetails(task, newText, newDue, rec, newCategoryId, reminderTime)
-
-        // Nothing changed that affects alarms? bail early
-        if (oldDue == newDue && oldReminder == reminderTime) return@launchIO
-
-        NotificationScheduler.reschedule(appContext, task.id, oldReminder, reminderTime)
-    }
 
 
     fun updateStatus(task: Task, newStatus: TaskStatus) = launchIO {
@@ -193,30 +187,69 @@ class TaskViewModel(
 
         val res = repo.updateTaskStatus(task, newStatus)
 
-        if (nowDone && !wasDone) {
-            // Marked DONE → cancel this task’s reminder (if any)
-            task.reminderTime?.let { NotificationScheduler.cancel(appContext, task.id, it) }
-        }
+        // Re-read the updated task snapshot
+        val updated = repo.taskById(task.id) ?: return@launchIO
+        val oldReminder = task.reminderTime
+        val notify = NotificationOption.fromTask(updated)
 
-        if (nowDone && !wasDone) {
-            // A new “next” instance may have been created; schedule its reminder if present
-            res.nextCreatedId?.let { nextId ->
-                scheduleIfFuture(
-                    taskId = nextId,
-                    instant = repo.taskById(nextId)?.reminderTime
-                )
+        val result = updated.resolveReminderInstant(notify, updated.due)
+
+        when {
+            nowDone && !wasDone -> {
+                // Moving TO DONE → always cancel this task’s alarm
+                NotificationScheduler.cancel(appContext, updated.id, oldReminder)
+
+                // If a "next" instance was created, schedule for it if eligible
+                res.nextCreatedId?.let { nextId ->
+                    val next = repo.taskById(nextId) ?: return@let
+                    val nextResult =
+                        next.resolveReminderInstant(NotificationOption.fromTask(next), next.due)
+                    when (nextResult) {
+                        is ReminderResult.Scheduled -> NotificationScheduler.schedule(
+                            appContext,
+                            next.id,
+                            nextResult.instant
+                        )
+                        ReminderResult.InPast,
+                        ReminderResult.Blocked -> {
+                            // Do nothing: suppress toast for auto-created next tasks
+                        }
+                    }
+                }
             }
-        } else if (!nowDone && wasDone) {
-            // Unmarked DONE → a “next” instance may have been deleted: cancel its alarm (no toast date)
-            res.nextDeletedId?.let { deletedId ->
-                NotificationScheduler.cancel(appContext, deletedId, oldUtc = null)
+
+            !nowDone && wasDone -> {
+                // Moving FROM DONE → re-evaluate current task
+                when (result) {
+                    is ReminderResult.Scheduled -> NotificationScheduler.schedule(
+                        appContext,
+                        updated.id,
+                        result.instant
+                    )
+
+                    ReminderResult.InPast -> NotificationScheduler.showToast(
+                        appContext,
+                        NotificationScheduler.ToastKind.InPast
+                    )
+
+                    ReminderResult.Blocked -> NotificationScheduler.cancel(
+                        appContext,
+                        updated.id,
+                        oldReminder
+                    )
+                }
+
+                // Clean up a deleted "next" instance alarm if repo indicates it
+                res.nextDeletedId?.let { deletedId ->
+                    NotificationScheduler.cancel(appContext, deletedId, null)
+                }
             }
-            // Re-schedule THIS task if it still has a future reminder
-            val current = repo.taskById(task.id)
-            scheduleIfFuture(task.id, current?.reminderTime)
+
+            else -> {
+                // Status didn’t cross DONE boundary; nothing special to do
+            }
         }
     }
-
 
 
     /**
@@ -313,25 +346,62 @@ class TaskViewModel(
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
-        // Cancel this task’s reminder if it exists
-        task.reminderTime?.let { NotificationScheduler.cancel(appContext, task.id, it) }
+        // Always cancel this task’s alarm when archiving
+        NotificationScheduler.cancel(appContext, task.id, task.reminderTime)
 
         when (mode) {
             ArchiveMode.Single -> {
                 val nextId = repo.archiveSingleOccurrence(task)
-                // If a next instance was created, schedule its reminder if present
+                // If a next instance was created, schedule it if eligible
                 nextId?.let { id ->
-                    scheduleIfFuture(taskId = id, instant = repo.taskById(id)?.reminderTime)
+                    val next = repo.taskById(id) ?: return@let
+                    val result =
+                        next.resolveReminderInstant(NotificationOption.fromTask(next), next.due)
+                    when (result) {
+                        is ReminderResult.Scheduled -> NotificationScheduler.schedule(
+                            appContext,
+                            next.id,
+                            result.instant
+                        )
+
+                        ReminderResult.InPast -> NotificationScheduler.showToast(
+                            appContext,
+                            NotificationScheduler.ToastKind.InPast
+                        )
+
+                        ReminderResult.Blocked -> Unit
+                    }
                 }
             }
+
             ArchiveMode.Series -> repo.archiveTask(task)
         }
     }
 
 
     fun unArchive(task: Task) = launchIO {
+        // Persist unarchive
         repo.saveTask(task.copy(isArchived = false))
-        scheduleIfFuture(task.id, task.reminderTime)
+
+        // Re-read and evaluate scheduling
+        val updated = repo.taskById(task.id) ?: return@launchIO
+        val result =
+            updated.resolveReminderInstant(NotificationOption.fromTask(updated), updated.due)
+
+        when (result) {
+            is ReminderResult.Scheduled -> NotificationScheduler.schedule(
+                appContext,
+                updated.id,
+                result.instant
+            )
+
+            ReminderResult.InPast -> NotificationScheduler.showToast(
+                appContext,
+                NotificationScheduler.ToastKind.InPast
+            )
+
+            ReminderResult.Blocked -> Unit
+        }
     }
 
 
@@ -357,45 +427,49 @@ class TaskViewModel(
 
     fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO {
         val current = repo.taskById(taskId) ?: return@launchIO
-
-        // Title: we generally don't allow "clear title"; treat Clear as "no change".
+        val oldReminder = current.reminderTime
         val newTitle = edits.title.resolve(current.text) { current.text }
-
-        // Due can be cleared -> null
         val newDue = edits.due.resolve(current.due) { null }
-
-        // Recurrence: Clear means NONE
         val newRecurrence = edits.recurrence.resolve(current.recurrence) { Recurrence.NONE }
-
-        // Category: typically non-null; treat Clear as "no change"
         val newCategoryId = edits.categoryId.resolve(current.categoryId) { current.categoryId }
 
-        // Notify: NoChange = reconstruct from current task; Clear = None; Set = provided value
         val effectiveNotify = edits.notify.resolve(
             current = NotificationOption.fromTask(current)
         ) { NotificationOption.None }
 
-        // Compute reminder based on the effective notify + newDue
-        val newReminderInstant = effectiveNotify.toInstant(newDue)
-
-        // Single source of truth to diff/persist + schedule/cancel alarms
-        updateValues(
+        // Always persist the user's intent (even if in the past)
+        val intendedReminder = effectiveNotify.toInstant(newDue)
+        repo.updateTaskDetails(
             task = current,
-            newText = newTitle,
-            newDue = newDue,
-            rec = newRecurrence,
+            newTitle = newTitle,
+            newDueDate = newDue,
+            newRecurrence = newRecurrence,
             newCategoryId = newCategoryId,
-            reminderTime = newReminderInstant
+            newReminderTime = intendedReminder
         )
-    }
+
+        // Decide what to do with OS alarms/toasts
+        val postEditTask = current.copy(due = newDue, recurrence = newRecurrence) // status/isArchived unchanged
+        when (val result = postEditTask.resolveReminderInstant(effectiveNotify, newDue)) {
+            is ReminderResult.Scheduled -> {
+                NotificationScheduler.reschedule(appContext, current.id, oldReminder, result.instant)
+            }
+            ReminderResult.InPast -> {
+                // No OS schedule; let the user know it wasn’t scheduled
+                NotificationScheduler.showToast(appContext, NotificationScheduler.ToastKind.InPast)
+                // If there was an old alarm, ensure it’s not hanging around
+                if (oldReminder != null) NotificationScheduler.cancel(appContext, current.id, oldReminder)
+            }
+            ReminderResult.Blocked -> {
+                // Ensure any existing alarm is canceled
+                if (oldReminder != null) NotificationScheduler.cancel(appContext, current.id, oldReminder)
+            }
+        }    }
+
 
     fun forceReload() {
         // Nudge the filter so distinctUntilChanged() sees a change.
         _filter.update { it.copy(version = it.version + 1) }
     }
 
-    private fun scheduleIfFuture(taskId: Int, instant: Instant?) {
-        instant?.takeIf { it.isAfter(Instant.now()) }
-            ?.let { NotificationScheduler.schedule(appContext, taskId, it) }
-    }
 }
