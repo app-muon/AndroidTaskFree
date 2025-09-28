@@ -18,7 +18,8 @@ object NotificationScheduler {
         Scheduled,
         Cancelled,
         DateChanged,
-        TimeChanged
+        TimeChanged,
+        InPast
     }
 
     // --- formatters ---
@@ -103,31 +104,19 @@ object NotificationScheduler {
         }
     }
 
+    fun showToast(ctx: Context, kind: ToastKind, instant: Instant? = null) {
+        postNotificationToast(ctx, kind, instant)
+    }
     /* common toast helper */
-    private fun postNotificationToast(ctx: Context, kind: ToastKind, instant: Instant) {
+    private fun postNotificationToast(ctx: Context, kind: ToastKind, instant: Instant?) {
         val msg = when (kind) {
-            ToastKind.Scheduled -> ctx.getString(
-                R.string.notification_scheduled,
-                formatDateTime(instant)
-            )
-
-            ToastKind.Cancelled -> ctx.getString(
-                R.string.notification_cancelled,
-                formatDateTime(instant)
-            )
-
-            ToastKind.DateChanged -> ctx.getString(
-                R.string.notification_date_changed,
-                formatDate(instant)
-            )
-
-            ToastKind.TimeChanged -> ctx.getString(
-                R.string.notification_time_changed,
-                formatDateTime(instant)
-            )
+            ToastKind.Scheduled   -> ctx.getString(R.string.notification_scheduled, formatDateTime(instant!!))
+            ToastKind.Cancelled   -> ctx.getString(R.string.notification_cancelled, formatDateTime(instant!!))
+            ToastKind.DateChanged -> ctx.getString(R.string.notification_date_changed, formatDate(instant!!))
+            ToastKind.TimeChanged -> ctx.getString(R.string.notification_time_changed, formatDateTime(instant!!))
+            ToastKind.InPast      -> ctx.getString(R.string.notification_in_past)
         }
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
-    }
-}
+    }}

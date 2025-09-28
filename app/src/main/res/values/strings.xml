@@ -121,6 +121,7 @@
     <string name="notification_cancelled">Notification cancelled on %1$s</string>
     <string name="notification_date_changed">Notification date changed to %1$s</string>
     <string name="notification_time_changed">Notification time changed to %1$s</string>
+    <string name="notification_in_past">Notification not scheduled, in the past</string>
 
     <!--  Toast messages when sort-->
     <string name="sort_order_date_asc">Ascending date order</string>
