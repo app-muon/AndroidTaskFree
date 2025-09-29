@@ -23,6 +23,7 @@ fun CategoryPill(
     category: Category,
     big: Boolean = false,
     selected: Boolean = false,
+    highlight: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     InfoPill(
@@ -31,6 +32,7 @@ fun CategoryPill(
         border = !selected,
         big = big,
         selected = selected,
+        highlight = highlight,
         onClick = onClick
     )
 }
@@ -52,6 +54,7 @@ fun LabelledOptionPill(
     big: Boolean = false,
     selected: Boolean = false,
     error: Boolean = false,
+    highlight: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     InfoPill(
@@ -61,7 +64,8 @@ fun LabelledOptionPill(
         border = !selected,
         big = big,
         selected = selected,
-        onClick = onClick
+        onClick = onClick,
+        highlight = highlight
     )
 }
 
@@ -102,6 +106,7 @@ fun InfoPill(
     big: Boolean = false,
     border: Boolean = false,
     selected: Boolean = true,
+    highlight: Boolean = false,   // NEW
     onClick: (() -> Unit)? = null
 ) {
     val pillStyle =
@@ -111,22 +116,20 @@ fun InfoPill(
     val pillRound = if (big) 12.dp else 8.dp
     val useFillColor = if (selected) selectedFillColor else unselectedFillColor
     val userTextColor = if (selected) selectedTextColor else unselectedTextColor.copy(alpha = 0.8f)
+
     Surface(
         color = useFillColor,
         shape = RoundedCornerShape(pillRound),
         modifier = modifier
             .padding(0.dp)
-            .then(
-                if (onClick != null) {
-                Modifier.clickable { onClick() }
-            } else {
-                Modifier
-            }),
-        border = if (border) BorderStroke(
-            1.dp, selectedFillColor.copy(alpha = 0.3f)
-        ) else null,
-
-        ) {
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        border = when {
+            highlight -> BorderStroke(2.dp, Color.Magenta) // bold glow border
+            border -> BorderStroke(1.dp, selectedFillColor.copy(alpha = 0.3f))
+            else -> null
+        },
+        shadowElevation = if (highlight) 8.dp else 0.dp  // adds glow effect
+    ) {
         Text(
             text = title,
             style = pillStyle,

@@ -35,6 +35,7 @@ import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.showDatePicker
+import com.taskfree.app.util.AppDateProvider
 
 @Composable
 private fun CompactDropdownItem(
@@ -113,7 +114,8 @@ fun CategoryDropDown(
                 label, colorResource(R.color.all_category_pill_colour), big = true, border = true
             )
         } else {
-            CategoryPill(category = selectedCat, big = true, selected = true)
+            // highlighting if filter applied
+            CategoryPill(category = selectedCat, big = true, selected = true, highlight = true)
         }
     }
 
@@ -150,8 +152,14 @@ fun DateDropDown(
     val cap = menuCap90()
     val context = LocalContext.current
 
+    // Compute highlight: true if not "today"
+    val highlight = selectedDueChoice.date != AppDateProvider.current.today()
+
     Box(modifier = Modifier.clickable { expanded = true }) {
-        LabelledOptionPill(label = selectedDueChoice.choiceLabel(), selected = true, big = true)
+        LabelledOptionPill(
+            label = selectedDueChoice.choiceLabel(), selected = true,
+            highlight = highlight, big = true
+        )
     }
 
     DropdownMenu(
