@@ -183,7 +183,7 @@ fun CategoryListScreen(navController: NavHostController) {
                 .fillMaxWidth()
                 .background(colorResource(R.color.top_bar_colour))
                 .statusBarsPadding()
-                .heightIn(min = 30.dp)
+                .heightIn(min = 10.dp)
         )
     }, bottomBar = {
         AppBottomBar(
@@ -206,7 +206,7 @@ fun CategoryListScreen(navController: NavHostController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colorResource(R.color.top_bar_colour))
-                    .height(40.dp)   // mirrors TaskSearchAndFilter collapsed height
+                    .height(15.dp)
             )
             Spacer(Modifier.height(2.dp))
             if (uiState.categories.isEmpty()) {
