@@ -6,6 +6,7 @@ import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.ConfirmArchive
+import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.fromTask
@@ -72,15 +73,9 @@ internal fun TaskDialogHost(
                     setDialogs(TaskDialogs.None)
                 },
 
-                onClone = { original ->
-                    taskVm.add(
-                        original.text + " (copy)",
-                        DueChoice.fromTask(original),
-                        original.recurrence,
-                        original.categoryId,
-                        NotificationOption.fromTask(original)
-                    )
-                    setDialogs(TaskDialogs.None)
+                onClone = {
+                    hasInteracted = true
+                    setDialogs(TaskDialogs.ConfirmClone(ti))   // <-- show the Y/N dialog
                 },
 
                 onDismiss = {
@@ -101,5 +96,25 @@ internal fun TaskDialogHost(
                 setDialogs(TaskDialogs.None)
             }, onNo = { setDialogs(TaskDialogs.None) })
         }
+        is TaskDialogs.ConfirmClone -> {
+            ConfirmDialog(
+                title = stringResource(R.string.clone_task_action),
+                message = stringResource(R.string.clone_task_confirm_message),
+                yesMessage = stringResource(R.string.clone_yes_dialog_button),
+                onYes = {
+                    val t = dialogs.task.task   // extract Task from TaskWithCategoryInfo
+                    taskVm.add(
+                        t.text + " (copy)",
+                        DueChoice.fromTask(t),
+                        t.recurrence,
+                        t.categoryId,
+                        NotificationOption.fromTask(t)
+                    )
+                    setDialogs(TaskDialogs.None)
+                },
+                onNo = { setDialogs(TaskDialogs.None) }
+            )
+        }
+
     }
 }
