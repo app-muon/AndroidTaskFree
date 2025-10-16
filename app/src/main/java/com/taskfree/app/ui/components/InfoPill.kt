@@ -111,7 +111,7 @@ fun InfoPill(
 ) {
     val pillStyle =
         if (big) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall
-    val pillHorizontalPad = if (big) 12.dp else 6.dp
+    val pillHorizontalPad = if (big) 10.dp else 6.dp
     val pillVerticalPad = if (big) 6.dp else 2.dp
     val pillRound = if (big) 12.dp else 8.dp
     val useFillColor = if (selected) selectedFillColor else unselectedFillColor

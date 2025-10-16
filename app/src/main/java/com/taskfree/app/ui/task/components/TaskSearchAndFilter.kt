@@ -13,13 +13,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -59,55 +59,61 @@ fun TaskSearchAndFilter(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(colorResource(R.color.top_bar_colour)),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = {
-                    onUpdateState(
-                        state.copy(
-                            searchVisible = !state.searchVisible,
-                            searchText = if (state.searchVisible) "" else state.searchText
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clickable {
+                        onUpdateState(
+                            state.copy(
+                                searchVisible = !state.searchVisible,
+                                searchText = if (state.searchVisible) "" else state.searchText
+                            )
                         )
-                    )
-                }, modifier = Modifier.padding(start = 12.dp, end = 4.dp)
+                    }
+                    .padding(8.dp)
             ) {
                 Icon(
                     imageVector = if (state.searchVisible) Icons.Default.Close else Icons.Default.Search,
                     contentDescription = null,
-                    tint = colorResource(R.color.surface_colour)
+                    tint = colorResource(R.color.surface_colour),
+                    modifier = Modifier.padding(end = 4.dp)
                 )
             }
 
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp)
             ) {
                 TaskStatus.entries.forEach { status ->
                     val selected = status in visibleStatuses
-                    InfoPill(title = status.displayName(),
+                    InfoPill(
+                        title = status.displayName(),
                         selectedFillColor = status.backgroundColor(),
                         big = true,
                         border = !selected,
                         selected = selected,
-                        modifier = Modifier.clickable { onToggleStatusVisibility(status) })
+                        modifier = Modifier
+                            .padding(horizontal = 1.dp)
+                            .clickable { onToggleStatusVisibility(status) })
                 }
             }
 
             DragHandle(
                 icon = state.sortMode.icon,
                 modifier = Modifier
-                    .padding(end = 20.dp)
+                    .padding(end = 12.dp)
                     .clickable {
                         val next = state.sortMode.next()
                         onUpdateState(state.copy(sortMode = next))
 
                         val msg = when (next) {
-                            SortMode.DATE_ASC  -> context.getString(R.string.sort_order_date_asc)
+                            SortMode.DATE_ASC -> context.getString(R.string.sort_order_date_asc)
                             SortMode.DATE_DESC -> context.getString(R.string.sort_order_date_desc)
-                            SortMode.USER      -> context.getString(R.string.sort_order_custom)
+                            SortMode.USER -> context.getString(R.string.sort_order_custom)
                         }
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     }
