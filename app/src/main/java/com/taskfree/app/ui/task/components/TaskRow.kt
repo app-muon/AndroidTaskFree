@@ -90,7 +90,7 @@ fun ReorderableCollectionItemScope.TaskRow(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp), // keep normal padding
+                    .padding(start = 12.dp, top = 6.dp, end = 4.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
