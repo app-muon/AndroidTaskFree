@@ -9,4 +9,5 @@ sealed interface TaskDialogs {
     data class Add(val category: Category, val dueChoice: DueChoice) : TaskDialogs
     data class Options(val task: TaskWithCategoryInfo) : TaskDialogs
     data class ConfirmArchive(val task: TaskWithCategoryInfo, val mode: ArchiveMode) : TaskDialogs
+    data class ConfirmClone(val task: TaskWithCategoryInfo) : TaskDialogs
 }

@@ -65,8 +65,8 @@
     <string name="contact_title">Contact developer</string>
     <string name="archive_old_completed">Archive old completed tasks</string>
     <string name="permanently_delete_tasks">Permanently delete archived tasks</string>
-    <string name="toggle_view_archived">Toggle to view archived tasks</string>
-    <string name="toggle_view_unarchived">Toggle to view unarchived tasks</string>
+    <string name="toggle_view_archived">View archived tasks</string>
+    <string name="toggle_view_unarchived">View unarchived tasks</string>
     <string name="confirm_archived_completed_title">Archive completed tasks?</string>
     <string name="confirm_archive_old_completed_msg">This will archive all tasks completed before today</string>
     <string name="confirm_archive_category_completed_msg">This will archive all completed tasks in this category</string>
@@ -103,6 +103,8 @@
     <string name="postpone_to_tomorrow_action">Postpone to tomorrow</string>
     <string name="make_due_today">Make due date today</string>
     <string name="clone_task_action">Clone</string>
+    <string name="clone_task_confirm_message">Clone this task?</string>
+    <string name="clone_yes_dialog_button">Clone</string>
     <!--   Notifications-->
     <string name="no_notification">No</string>
     <!-- Time option shown in notification picker -->
