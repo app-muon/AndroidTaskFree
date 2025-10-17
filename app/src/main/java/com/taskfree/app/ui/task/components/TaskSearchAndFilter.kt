@@ -71,13 +71,13 @@ fun TaskSearchAndFilter(
                             )
                         )
                     }
-                    .padding(8.dp)
+                    .padding(5.dp)
             ) {
                 Icon(
                     imageVector = if (state.searchVisible) Icons.Default.Close else Icons.Default.Search,
                     contentDescription = null,
                     tint = colorResource(R.color.surface_colour),
-                    modifier = Modifier.padding(end = 4.dp)
+                    modifier = Modifier.padding(end = 2.dp)
                 )
             }
 
