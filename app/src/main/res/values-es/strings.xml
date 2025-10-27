@@ -1,0 +1,243 @@
+<resources>
+    <string name="app_name">TaskFree</string>
+
+    <!-- Navegación -->
+    <string name="tasks_due">Tareas</string>
+
+    <!-- Repetición -->
+    <string name="repeat">Repetir</string>
+    <string name="no_recurrence_label">No</string>
+    <string name="daily_recurrence">Diaria</string>
+    <string name="weekly_recurrence">Semanal</string>
+    <string name="recurrence_on_weekdays">Días laborables</string>
+    <string name="recurrence_on_weekends">Fines de semana</string>
+    <string name="monthly_recurrence">Mensual</string>
+    <string name="quarterly_recurrence">Trimestral</string>
+    <string name="yearly_recurrence">Anual</string>
+    <string name="incompatibility_not_weekday">La fecha seleccionada (%1$s) no es un día laborable</string>
+    <string name="incompatibility_not_weekend">La fecha seleccionada (%1$s) no es un fin de semana</string>
+    <string name="a_due_date_is_required_for_recurring_tasks">Se requiere una fecha de vencimiento para las tareas recurrentes.</string>
+    <string name="no_string" />
+
+    <!-- Estados -->
+    <string name="to_do_status">Por hacer</string>
+    <string name="doing_status">Activa</string>
+    <string name="pending_status">Pendiente</string>
+    <string name="done_status">Hecha</string>
+    <string name="set_as_for_task_status">Marcar como %1$s</string>
+
+    <!-- Categorías -->
+    <string name="category">Categoría</string>
+    <string name="categories">Categorías</string>
+    <string name="all_categories">Todas las categorías</string>
+    <string name="no_categories_yet">Aún no hay categorías</string>
+    <string name="add_category_button_label">Añadir categoría</string>
+    <string name="category_name">Nombre de la categoría</string>
+    <string name="name_of_unknown_category">Desconocida</string>
+    <string name="go_to_category_action">Ver tareas en la categoría</string>
+    <string name="category_colour_label">Cambiar color</string>
+    <string name="delete_this_category_action">Eliminar categoría</string>
+    <string name="archive_completed_in_category_action">Archivar completadas</string>
+    <string name="are_you_sure_you_delete_category">¿Seguro que quieres eliminar permanentemente “%1$s” y todas sus tareas?</string>
+
+    <!-- Diálogos -->
+    <string name="add_category_yes_dialog_button">Añadir</string>
+    <string name="delete_yes_dialog_button">Eliminar</string>
+    <string name="archive_task_yes_dialog_button">Archivar</string>
+    <string name="this_action_cannot_be_undone">Esta acción no se puede deshacer</string>
+    <string name="save_yes_dialog_button">Guardar</string>
+    <string name="cancel_no_dialog_button">Cancelar</string>
+    <string name="close_yes_dialog_button">Cerrar</string>
+
+    <!-- Archivado -->
+    <string name="archive_task_action">Archivar tarea</string>
+    <string name="archive_series_action">Archivar serie</string>
+    <string name="unarchive_task">Desarchivar</string>
+    <string name="menu_archive_task_action_confirmation">¿Archivar tarea?</string>
+    <string name="menu_archive_series_action_confirmation">¿Archivar serie?</string>
+    <string name="are_you_sure_you_want_to_archive_task">¿Seguro que quieres archivar esta tarea?</string>
+    <string name="are_you_sure_you_want_to_archive_series">¿Seguro que quieres archivar esta serie de tareas?</string>
+    <string name="this_will_archive_the_task_and_prevent_future_recurring_tasks_from_being_created">Esto archivará la tarea y evitará que se creen tareas recurrentes futuras.</string>
+
+    <!-- Menú de herramientas -->
+    <string name="tools_menu_name">Herramientas</string>
+    <string name="contact_title">Contactar</string>
+    <string name="archive_old_completed">Archivar completadas</string>
+    <string name="permanently_delete_tasks">Eliminar archivadas</string>
+    <string name="toggle_view_archived">Ver archivadas</string>
+    <string name="toggle_view_unarchived">Ver activas</string>
+    <string name="confirm_archived_completed_title">¿Archivar completadas?</string>
+    <string name="confirm_archive_old_completed_msg">Esto archivará todas las tareas completadas antes de hoy.</string>
+    <string name="confirm_archive_category_completed_msg">Esto archivará todas las tareas completadas en esta categoría.</string>
+    <string name="confirm_permanently_delete_title">¿Eliminar tareas archivadas permanentemente?</string>
+
+    <!-- Mensajes -->
+    <string name="no_tasks_match_your_filters">Ninguna tarea coincide con tus filtros</string>
+    <string name="no_tasks_to_display_default_message">No hay tareas</string>
+    <string name="no_archived_tasks_to_display_default_message">No hay archivadas</string>
+
+    <!-- Botones -->
+    <string name="add_task_button_label">Añadir</string>
+
+    <!-- Fechas -->
+    <string name="all_dates">Todas</string>
+    <string name="due">Vence</string>
+    <string name="due_with_date">Vence: %1$s</string>
+    <string name="task_text_label">Tarea</string>
+    <string name="no_due_date_due_value">Ninguna</string>
+    <string name="today">Hoy</string>
+    <string name="tomorrow">Mañana</string>
+    <string name="yesterday">Ayer</string>
+    <string name="today_offset">Hoy %+d</string>
+    <string name="date_picker">Elegir fecha…</string>
+    <string name="completed_date_label">Completada</string>
+    <string name="completed_no_label">No</string>
+    <string name="task_name_when_copy">%1$s (copia)</string>
+    <string name="search_tasks_placeholder">Buscar</string>
+    <string name="archived_task_label">Archivada</string>
+
+    <!-- Acciones -->
+    <string name="postpone_to_tomorrow_action">Mañana</string>
+    <string name="make_due_today">Vence hoy</string>
+    <string name="clone_task_action">Clonar</string>
+    <string name="clone_task_confirm_message">¿Clonar tarea?</string>
+    <string name="clone_yes_dialog_button">Clonar</string>
+
+    <!-- Notificaciones -->
+    <string name="no_notification">No</string>
+    <string name="nine_am">9:00</string>
+    <string name="noon">12:00</string>
+    <string name="three_pm">15:00</string>
+    <string name="time_picker">Elegir hora…</string>
+    <string name="notification_heading">Notificación</string>
+    <string name="notification_time_with_time">Hora: %1$s</string>
+    <string name="missing_due_for_notification">No se puede añadir notificación sin fecha</string>
+    <string name="reminder_channel_name">Notificaciones</string>
+    <string name="reminder_channel_desc">Canal de notificaciones</string>
+    <string name="notification_scheduled">Notificación para %1$s</string>
+    <string name="notification_cancelled">Notificación cancelada %1$s</string>
+    <string name="notification_date_changed">Fecha cambiada a %1$s</string>
+    <string name="notification_time_changed">Hora cambiada a %1$s</string>
+    <string name="notification_in_past">No programada (pasada)</string>
+
+    <!-- Ordenar -->
+    <string name="sort_order_date_asc">Fecha ↑</string>
+    <string name="sort_order_date_desc">Fecha ↓</string>
+    <string name="sort_order_custom">Personalizado</string>
+
+    <!-- Consejos -->
+    <string name="tip_show_tips_again">Mostrar consejos</string>
+    <string name="tip_instructions_title">TaskFree</string>
+    <string name="tip_instructions_body">
+        TaskFree es un gestor de tareas simple. Crea categorías, añade tareas y controla tus pendientes.
+        \n\nGratis, sin anuncios y de código abierto. No se comparte ningún dato.
+        \n\nPuedes establecer fechas, notificaciones y repeticiones (por ejemplo, cada viernes).
+        \n\nFiltra fácilmente y marca tareas como "por hacer", "activa", "pendiente" o "hecha".
+    </string>
+
+    <string name="tip_categories_title">Categorías</string>
+    <string name="tip_categories_intro">Cada tarea pertenece a una categoría.\nÚsalas para agrupar tareas por tema o proyecto.</string>
+
+    <string name="tip_status_title">Estado</string>
+    <string name="tip_statuses_intro">
+        Cada tarea tiene un estado:\n
+        • Por hacer – no iniciada\n
+        • Activa – en progreso\n
+        • Pendiente – en espera\n
+        • Hecha – terminada
+    </string>
+
+    <string name="tip_sorting_title">Ordenar</string>
+    <string name="tip_sorting_intro">
+        Ordena tareas o categorías por tu cuenta.\n\nArrastra el icono ≡ para establecer el orden o usa la fecha.
+    </string>
+
+    <string name="tip_archiving_title">Archivado</string>
+    <string name="tip_archiving_intro">Archivar oculta tareas, eliminar las borra.</string>
+
+    <string name="tip_notifications_title">Notificaciones</string>
+    <string name="tip_notifications_intro">Añade recordatorios para recibir avisos a la hora elegida.</string>
+
+    <string name="tip_encryption_title">Cifrado</string>
+    <string name="tip_encryption_intro">
+        Las tareas se sincronizan con tu cuenta de Google.
+        \n\nSi activas el cifrado, solo tú podrás leerlas.
+        \n\nRecibirás una frase de recuperación. Guárdala para restaurarlas en otro dispositivo.
+    </string>
+
+    <string name="tip_create">Crear</string>
+    <string name="tip_contact_body">
+        Correo electrónico: muonappdevelopment@gmail.com\n\n
+        Sitio web: https://app-muon.github.io/AndroidTaskFree/
+    </string>
+    <string name="tip_create_your_first_category_body">Todas las tareas tienen categoría.\nCrea una tocando + en la barra inferior.</string>
+    <string name="got_it_confirmation">Entendido</string>
+
+    <string name="tip_title_reorder_rows">Reordenar</string>
+    <string name="tip_drag_the_handle_to_reorder_rows">Arrastra el icono ≡ para reordenar</string>
+    <string name="tip_more_actions_title">Más</string>
+    <string name="tip_click_to_edit_and_more">Toca para editar o más</string>
+    <string name="tip_navigate_title">Navegación</string>
+    <string name="tip_view_prefix">Toca</string>
+    <string name="tip_view_tasks_label">Tareas</string>
+    <string name="tip_view_navigate_or">o</string>
+    <string name="tip_view_category_label">Categorías</string>
+    <string name="tip_view_suffix">en la barra inferior</string>
+    <string name="tip_create_your_first_task_body">Crea una tarea tocando + en la barra inferior.</string>
+
+    <string name="tip_filter_tasks_title">Filtrar</string>
+    <string name="tip_filter_tasks">Usa los filtros superiores para ver solo lo que quieras.</string>
+
+    <!-- Cifrado -->
+    <string name="encrypting_header">Cifrando…</string>
+    <string name="encrypt_my_data_command">Cifrar mis datos</string>
+    <string name="you_ll_need_to_enter">Tus datos se cifrarán en tu copia de seguridad de Google. Cuando configures un nuevo dispositivo, introduce tu frase de recuperación para desbloquearlos.</string>
+    <string name="view_recovery_phrase">Ver frase</string>
+    <string name="no_phrase_found">No se encontró frase.</string>
+    <string name="close">Cerrar</string>
+    <string name="restore_found_title">Copia cifrada</string>
+    <string name="restore_found_body">Se detectaron datos cifrados. ¿Restaurarlos?</string>
+    <string name="enter_phrase_title">Introduce la frase</string>
+    <string name="phrase_incorrect">Frase incorrecta</string>
+    <string name="restore">Restaurar</string>
+    <string name="skip">Omitir</string>
+    <string name="encrypt_yes_dialog_button">Cifrar</string>
+    <string name="your_recovery_phrase">Tu frase</string>
+    <string name="i_ve_written_the_8_words">He anotado las 8 palabras</string>
+    <string name="i_understand_i_can_t_recover_without_them">Entiendo que no podré recuperar sin ellas</string>
+    <string name="encrypt_my_data_temp">Cifrar datos</string>
+    <string name="encryption_progress_percentage">Cifrando… %d%%</string>
+    <string name="keep_your_8_word_phrase_safe">Guarda tu frase en un lugar seguro</string>
+    <string name="data_encrypted">Datos cifrados</string>
+
+    <!-- Copias -->
+    <string name="backup_to_file">Guardar copia</string>
+    <string name="restore_from_file">Restaurar</string>
+    <string name="restore_ok">Restauración exitosa</string>
+    <string name="restore_yes_dialog_button">Seleccionar archivo</string>
+    <string name="confirm_restore_title">Confirmar</string>
+    <string name="confirm_restore_msg">Elige una copia para restaurar tus tareas. Reemplazará los datos actuales.</string>
+    <string name="err_generic_restore">Error al restaurar</string>
+    <string name="backup_ok">Copia guardada</string>
+    <string name="err_backup_version">Versión no compatible</string>
+    <string name="err_cat_empty_title">Categoría sin título</string>
+    <string name="err_cat_duplicate_id">ID duplicado</string>
+    <string name="err_cat_bad_id">ID inválido</string>
+    <string name="err_task_duplicate_id">ID de tarea duplicado</string>
+    <string name="err_task_empty_text">La tarea %1$d no tiene título</string>
+    <string name="err_task_bad_category">La tarea %1$d apunta a una categoría inexistente %2$d</string>
+    <string name="backup_save_failed">Error al guardar</string>
+
+    <!-- Tamaño del texto -->
+    <string name="text_size_title">Tamaño</string>
+    <string name="text_size_system_only">Según el sistema</string>
+    <string name="text_size_small">Pequeño (%1$s)</string>
+    <string name="text_size_normal">Normal (%1$s)</string>
+    <string name="text_size_large">Grande (%1$s)</string>
+    <string name="text_size_xl">Muy grande (%1$s)</string>
+    <string name="text_size_xxl">Enorme (%1$s)</string>
+    <string name="text_size_preview_title">Título</string>
+    <string name="text_size_preview_body">Texto</string>
+    <string name="text_size_preview_label">Etiqueta</string>
+    <string name="reset_to_default">Restablecer</string>
+</resources>
