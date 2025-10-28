@@ -1,32 +1,32 @@
 package com.taskfree.app.ui.task.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
@@ -48,30 +48,130 @@ import com.taskfree.app.ui.mapper.recurrenceLabel
 import com.taskfree.app.ui.theme.RowTransparency
 import com.taskfree.app.util.AppDateProvider
 import isNotificationPassed
+import kotlin.math.roundToInt
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 
-/* ====== constants ====== */
-private val ContentPaddingStart = 12.dp
-private val ContentPaddingEnd = 4.dp
-private val ContentPaddingTop = 6.dp
-private val ContentPaddingBottom = 6.dp
-private val TitleStartIndent = 12.dp
-private val HandleGap = 8.dp                 // space between meta block and handle
-private val TierSpacing = 2.dp               // vertical space between meta-only lines
-private val TextMetaGap = 8.dp               // REQUIRED minimum gap text → first meta
-private val MetaGap = 4.dp                   // gap between meta items
-private val StripeWidth = 4.dp
-private val BellIconSize = 16.dp
-private val MinTouchTarget = 24.dp
+/* ====== dims & helpers ====== */
+private object TaskRowDimens {
+    val contentPaddingStart = 12.dp
+    val contentPaddingEnd = 4.dp
+    val contentPaddingTop = 6.dp
+    val contentPaddingBottom = 6.dp
+    val titleStartIndent = 12.dp
+    val handleGap = 8.dp                 // space between meta block and handle
+    val tierSpacing = 2.dp               // vertical space between meta-only lines
+    val textMetaGap = 8.dp               // REQUIRED minimum gap text → first meta
+    val metaGap = 4.dp                   // gap between meta items
+    val stripeWidth = 4.dp
+    val bellIconSize = 16.dp
+    val minTouchTarget = 24.dp
+}
+
+private data class PackResultI(
+    val inlineIndices: List<Int>,
+    val carryLines: List<List<Int>>,
+    val inlineWidthPx: Int,            // includes leading TextMetaGap (for fit calc)
+    val inlineContentWidthPx: Int,     // excludes leading gap (for end-align)
+    val inlineHeightPx: Int,
+    val carryLineHeightsPx: List<Int>,
+    val carryTotalHeightPx: Int
+)
 
 @Composable
 private fun MetaBox(content: @Composable () -> Unit) {
     Box(
-        modifier = Modifier.sizeIn(minHeight = BellIconSize),
+        modifier = Modifier.sizeIn(minHeight = TaskRowDimens.bellIconSize),
         contentAlignment = Alignment.Center
     ) { content() }
 }
 
+private fun calculateLineWidthPx(
+    itemIndices: List<Int>, itemWidthsPx: IntArray, gapPx: Int
+): Int = itemIndices.fold(0) { acc, idx ->
+    if (acc == 0) itemWidthsPx[idx] else acc + gapPx + itemWidthsPx[idx]
+}
+
+/** Integer-based packing to avoid cumulative rounding drift */
+private fun packMetaInt(
+    remainingOnLastLinePx: Int,
+    slotWidthPx: Int,
+    widthsPx: IntArray,
+    heightsPx: IntArray,
+    textMetaGapPx: Int,
+    metaGapPx: Int
+): PackResultI {
+    val count = widthsPx.size
+
+    // Inline pack on last text line
+    var inlineCount = 0
+    var used = 0
+    if (count > 0 && remainingOnLastLinePx > 0) {
+        for (i in 0 until count) {
+            val w = widthsPx[i]
+            val add = if (inlineCount == 0) (textMetaGapPx + w) else (metaGapPx + w)
+            if (used + add <= remainingOnLastLinePx) {
+                used += add
+                inlineCount++
+            } else break
+        }
+    }
+    val inline = if (inlineCount > 0) (0 until inlineCount).toList() else emptyList()
+    val carryIdx = if (inlineCount < count) (inlineCount until count).toList() else emptyList()
+
+    // Wrap carry meta across new lines, end-aligned
+    val carryLines = mutableListOf<MutableList<Int>>()
+    if (carryIdx.isNotEmpty()) {
+        var current = mutableListOf<Int>()
+        var widthAcc = 0
+        carryIdx.forEach { idx ->
+            val w = widthsPx[idx]
+            val add = if (current.isEmpty()) w else (metaGapPx + w)
+            if (widthAcc + add <= slotWidthPx) { current.add(idx); widthAcc += add }
+            else {
+                if (current.isNotEmpty()) carryLines.add(current)
+                current = mutableListOf(idx)
+                widthAcc = w
+            }
+        }
+        if (current.isNotEmpty()) carryLines.add(current)
+    }
+
+    val inlineContentWidthPx = if (inline.isEmpty()) 0
+    else calculateLineWidthPx(inline, widthsPx, metaGapPx)
+
+    val inlineH = inline.maxOfOrNull { heightsPx[it] } ?: 0
+    val carryHs = carryLines.map { line -> line.maxOf { heightsPx[it] } }
+
+    return PackResultI(
+        inlineIndices = inline,
+        carryLines = carryLines,
+        inlineWidthPx = used,                    // with leading gap
+        inlineContentWidthPx = inlineContentWidthPx, // without leading gap
+        inlineHeightPx = inlineH,
+        carryLineHeightsPx = carryHs,
+        carryTotalHeightPx = carryHs.sum()
+    )
+}
+
+/** Placement helper (horizontal ints, vertical centered with floats) */
+private fun Placeable.PlacementScope.placeLineEndAlignedInt(
+    placeables: List<Placeable>,
+    indices: List<Int>,
+    startX: Int,
+    yTopF: Float,
+    lineHeightPx: Int,
+    gapPx: Int
+) {
+    var x = startX
+    indices.forEachIndexed { j, idx ->
+        val p = placeables[idx]
+        val y = (yTopF + (lineHeightPx - p.height) / 2f).roundToInt()
+        p.placeRelative(x, y)
+        x += p.width + if (j < indices.lastIndex) gapPx else 0
+    }
+}
+
+/* ====== main composable ====== */
 @Composable
 fun ReorderableCollectionItemScope.TaskRow(
     task: Task,
@@ -95,276 +195,226 @@ fun ReorderableCollectionItemScope.TaskRow(
     val overdueStripeColor = Color.Red.copy(alpha = 0.3f)
     val titleStyle: TextStyle = MaterialTheme.typography.bodyMedium
 
+    // A11y: single node description
+    val a11yDesc = buildString {
+        append(task.text)
+        if (dueLabel.isNotBlank()) append(", ").append(dueLabel)
+        if (task.isArchived) append(", ").append("Archived")
+        if (showCategory) append(", ").append("Category ").append(category.title)
+        if (task.reminderTime != null) append(", ").append("Reminder set")
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick),
+            .combinedClickable(onClick = onClick)
+            .semantics { contentDescription = a11yDesc }
+            .drawBehind {
+                if (isOverdue) {
+                    val stripeW = TaskRowDimens.stripeWidth.toPx()
+                    drawRect(color = overdueStripeColor, size = Size(stripeW, size.height))
+                }
+            },
         elevation = CardDefaults.cardElevation(elevation),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(12.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     ) {
-        Box(Modifier.fillMaxWidth()) {
-            // Overdue stripe anchored to PHYSICAL LEFT regardless of locale
-            if (isOverdue) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TaskRowDimens.contentPaddingStart,
+                    top = TaskRowDimens.contentPaddingTop,
+                    end = TaskRowDimens.contentPaddingEnd,
+                    bottom = TaskRowDimens.contentPaddingBottom
+                )
+        ) {
+            val density = LocalDensity.current
+            SubcomposeLayout(Modifier.fillMaxWidth()) { constraints ->
+                val layoutDir = this.layoutDirection
+                val maxW = constraints.maxWidth
+
+                // ints for horizontal planning
+                val titleStartPx = with(density) { TaskRowDimens.titleStartIndent.toPx().roundToInt() }
+                val handleGapPx = with(density) { TaskRowDimens.handleGap.toPx().roundToInt() }
+                val tierSpacingPx = with(density) { TaskRowDimens.tierSpacing.toPx().roundToInt() }
+                val textMetaGapPx = with(density) { TaskRowDimens.textMetaGap.toPx().roundToInt() }
+                val metaGapPx = with(density) { TaskRowDimens.metaGap.toPx().roundToInt() }
+                val minTouchPx = with(density) { TaskRowDimens.minTouchTarget.toPx().roundToInt() }
+
+                val contentLeftPx = titleStartPx
+
+                /* ---- 1) HANDLE ---- */
+                val handlePlaceable = subcompose("Handle") {
                     Box(
                         Modifier
-                            .width(StripeWidth)
-                            .fillMaxHeight()
-                            .background(
-                                overdueStripeColor,
-                                RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
+                            .sizeIn(
+                                minWidth = TaskRowDimens.minTouchTarget,
+                                minHeight = TaskRowDimens.minTouchTarget
                             )
-                            .align(Alignment.CenterStart)
+                            .let { if (!showHandle) it.alpha(0f) else it }
+                    ) {
+                        // Not using draggableHandle()
+                        DragHandle(show = true, modifier = Modifier.draggableHandle())
+                    }
+                }.first().measure(
+                    Constraints(
+                        minWidth = minTouchPx,
+                        minHeight = minTouchPx
                     )
+                )
+                val handleW = handlePlaceable.width
+                val handleH = handlePlaceable.height
+                val contentRightPx = maxW - handleW - handleGapPx
+                val maxTextWidthPx = (contentRightPx - contentLeftPx).coerceAtLeast(0)
+
+                /* ---- 2) TITLE ---- */
+                var titleLayout: TextLayoutResult? = null
+                val titlePlaceable = subcompose("Title") {
+                    Text(
+                        text = task.text,
+                        style = titleStyle,
+                        color = textColor,
+                        textDecoration = textDecoration,
+                        softWrap = true,
+                        overflow = TextOverflow.Clip,
+                        onTextLayout = { titleLayout = it }
+                    )
+                }.first().measure(Constraints(maxWidth = maxTextWidthPx))
+                val titleResult = titleLayout ?: return@SubcomposeLayout layout(maxW, 0) {}
+
+                val titleHeightPx = titlePlaceable.height
+                val lineCount = titleResult.lineCount
+                val lastLine = (lineCount - 1).coerceAtLeast(0)
+
+                // use rounded right edge to align with integer packing; switch to ceil() if needed
+                val lastRightPx = titleResult.getLineRight(lastLine).roundToInt()
+                val remainingOnLastLinePx = (maxTextWidthPx - lastRightPx).coerceAtLeast(0)
+
+                /* ---- 3) META (declarative list; no remember in measure) ---- */
+                val iconTint = when {
+                    task.status == TaskStatus.DONE -> Color.Gray
+                    isNotificationPassed -> textColor.copy(alpha = 0.2f)
+                    else -> textColor
                 }
-            }
-
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = ContentPaddingStart,
-                        top = ContentPaddingTop,
-                        end = ContentPaddingEnd,
-                        bottom = ContentPaddingBottom
-                    )
-            ) {
-                val density = LocalDensity.current
-                SubcomposeLayout(Modifier.fillMaxWidth()) { constraints ->
-                    val layoutDir = this.layoutDirection
-                    val maxW = constraints.maxWidth
-
-                    val titleStartPx = with(density) { TitleStartIndent.toPx().toInt() }
-                    val handleGapPx = with(density) { HandleGap.toPx().toInt() }
-                    val tierSpacingPx = with(density) { TierSpacing.toPx().toInt() }
-                    val textMetaGapPx = with(density) { TextMetaGap.toPx().toInt() }
-                    val metaGapPx = with(density) { MetaGap.toPx().toInt() }
-                    val minTouchPx = with(density) { MinTouchTarget.toPx().toInt() }
-
-                    val contentLeftPx = titleStartPx
-
-                    /* ---- 1) HANDLE: subcompose ONCE and measure with a single constraint policy ---- */
-                    val handlePlaceable = subcompose("Handle") {
-                        // Keep size target consistent; if hidden, draw transparent but same layout size.
-                        Box(
-                            Modifier
-                                .sizeIn(minWidth = MinTouchTarget, minHeight = MinTouchTarget)
-                                .let { if (!showHandle) it.alpha(0f) else it }
-                        ) {
-                            DragHandle(show = true,
-                                modifier = Modifier.draggableHandle())
-                        }
-                    }.first().measure(
-                        Constraints(
-                            minWidth = minTouchPx,
-                            minHeight = minTouchPx
-                        )
-                    )
-                    val handleW = handlePlaceable.width
-                    val handleH = handlePlaceable.height
-                    val reservedHandleSpace = handleW + handleGapPx
-
-                    /* ---- 2) TITLE: compose once, capture TextLayoutResult non-null ---- */
-                    var titleLayout: TextLayoutResult? = null
-                    val contentRightPx = maxW - reservedHandleSpace
-                    val maxTextWidth = (contentRightPx - contentLeftPx).coerceAtLeast(0)
-                    val titlePlaceable = subcompose("Title") {
-                        Text(
-                            text = task.text,
-                            style = titleStyle,
-                            color = textColor,
-                            textDecoration = textDecoration,
-                            softWrap = true,
-                            overflow = TextOverflow.Clip,
-                            onTextLayout = { titleLayout = it }
-                        )
-                    }.first().measure(Constraints(maxWidth = maxTextWidth))
-
-                    val titleResult = titleLayout ?: return@SubcomposeLayout layout(maxW, 0) {}
-                    val titleHeight = titlePlaceable.height
-                    val lineCount = titleResult.lineCount
-
-                    val lastLine = (lineCount - 1).coerceAtLeast(0)
-                    val lastRight = titleResult.getLineRight(lastLine).toInt()
-                    val lastBaseline = titleResult.getLineBaseline(lastLine).toInt()
-                    val remainingOnLastLine = (maxTextWidth - lastRight).coerceAtLeast(0)
-
-                    /* ---- 3) META: subcompose & measure; clamp to available line width ---- */
-                    val metaSlotWidth = (contentRightPx - 0).coerceAtLeast(0)
-                    val metaPlaceables = run {
-                        val iconTint = when {
-                            task.status == TaskStatus.DONE -> Color.Gray
-                            isNotificationPassed -> textColor.copy(alpha = 0.2f)
-                            else -> textColor
-                        }
-                        subcompose("MetaItems") {
-                            if (task.reminderTime != null) {
-                                MetaBox {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_notification),
-                                        contentDescription = stringResource(R.string.notification_heading),
-                                        tint = iconTint,
-                                        modifier = Modifier.size(BellIconSize)
-                                    )
-                                }
-                            }
-                            if (task.isArchived) {
-                                MetaBox { ArchivePill(big = false) }
-                            }
-                            if (showCategory) {
-                                MetaBox {
-                                    CategoryPill(category = category, big = false, selected = true)
-                                }
-                            }
-                            if (dueLabel.isNotBlank()) {
-                                MetaBox {
-                                    Text(
-                                        text = dueLabel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (task.status == TaskStatus.DONE) Color.Gray else textColor,
-                                        modifier = Modifier.padding(
-                                            horizontal = 2.dp,
-                                            vertical = 2.dp
-                                        ),
-                                        softWrap = true,
-                                        overflow = TextOverflow.Clip
-                                    )
-                                }
-                            }
-                        }.map {
-                            it.measure(
-                                Constraints(
-                                    maxWidth = metaSlotWidth // prevent overflow on long labels
-                                )
+                val metaItems = buildList<@Composable () -> Unit> {
+                    if (task.reminderTime != null) add {
+                        MetaBox {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_notification),
+                                contentDescription = stringResource(R.string.notification_heading),
+                                tint = iconTint,
+                                modifier = Modifier.size(TaskRowDimens.bellIconSize)
                             )
                         }
                     }
-                    val metaCount = metaPlaceables.size
-                    val metaWidths = metaPlaceables.map { it.width }
-                    val metaHeights = metaPlaceables.map { it.height }
-
-                    /* ---- 4) INLINE PACK ON LAST TEXT LINE ---- */
-                    var inlineCount = 0
-                    var used = 0
-                    if (metaCount > 0 && remainingOnLastLine > 0) {
-                        for (i in 0 until metaCount) {
-                            val w = metaWidths[i]
-                            val add = if (inlineCount == 0) (textMetaGapPx + w) else (metaGapPx + w)
-                            if (used + add <= remainingOnLastLine) {
-                                used += add
-                                inlineCount++
-                            } else break
+                    if (task.isArchived) add { MetaBox { ArchivePill(big = false) } }
+                    if (showCategory) add { MetaBox { CategoryPill(category = category, big = false, selected = true) } }
+                    if (dueLabel.isNotBlank()) add {
+                        MetaBox {
+                            Text(
+                                text = dueLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (task.status == TaskStatus.DONE) Color.Gray else textColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                softWrap = true,
+                                overflow = TextOverflow.Clip
+                            )
                         }
                     }
-                    val inlineIndices =
-                        if (inlineCount > 0) (0 until inlineCount).toList() else emptyList()
-                    val carryIndices =
-                        if (inlineCount < metaCount) (inlineCount until metaCount).toList() else emptyList()
+                }
 
-                    val inlineWidth = used
-                    val inlineHeight = inlineIndices.maxOfOrNull { metaHeights[it] } ?: 0
+                val metaSlotWidthPx = contentRightPx
+                val metaPlaceables: List<Placeable> = subcompose("MetaItems") {
+                    metaItems.forEachIndexed { i, item -> key(i) { item() } }
+                }.map { it.measure(Constraints(maxWidth = metaSlotWidthPx)) }
+                val metaWidthsPx = IntArray(metaPlaceables.size) { metaPlaceables[it].width }
+                val metaHeightsPx = IntArray(metaPlaceables.size) { metaPlaceables[it].height }
 
-                    /* ---- 5) WRAP CARRY META ACROSS NEW LINES (end-aligned) ---- */
-                    val carryLines: List<List<Int>> = if (carryIndices.isEmpty()) {
-                        emptyList()
-                    } else {
-                        val acc = mutableListOf<MutableList<Int>>()
-                        var current = mutableListOf<Int>()
-                        var widthAcc = 0
-                        carryIndices.forEach { idx ->
-                            val w = metaWidths[idx]
-                            val add = if (current.isEmpty()) w else (metaGapPx + w)
-                            if (widthAcc + add <= metaSlotWidth) {
-                                current.add(idx); widthAcc += add
-                            } else {
-                                if (current.isNotEmpty()) acc.add(current)
-                                // start new line with this item
-                                current = mutableListOf(idx)
-                                widthAcc = w
-                            }
-                        }
-                        if (current.isNotEmpty()) acc.add(current)
-                        acc
+                /* ---- 4) PACK (ints) ---- */
+                val pack = packMetaInt(
+                    remainingOnLastLinePx = remainingOnLastLinePx,
+                    slotWidthPx = metaSlotWidthPx,
+                    widthsPx = metaWidthsPx,
+                    heightsPx = metaHeightsPx,
+                    textMetaGapPx = textMetaGapPx,
+                    metaGapPx = metaGapPx
+                )
+
+                /* ---- 5) HEIGHTS ---- */
+                val topRowHeightPx = maxOf(titleHeightPx, pack.inlineHeightPx, minTouchPx)
+                val carryBlockHeightPx =
+                    if (pack.carryLines.isEmpty()) 0
+                    else pack.carryTotalHeightPx + tierSpacingPx * (pack.carryLines.size - 1)
+                val totalHeightPx =
+                    if (pack.carryLines.isEmpty()) topRowHeightPx
+                    else topRowHeightPx + tierSpacingPx + carryBlockHeightPx
+
+                /* ---- 6) PLACE ---- */
+                layout(width = maxW, height = totalHeightPx) {
+                    // Title (horizontal ints; vertical center as float)
+                    val textYF = (topRowHeightPx - titleHeightPx) / 2f
+                    val textX = when (layoutDir) {
+                        LayoutDirection.Ltr -> contentLeftPx
+                        LayoutDirection.Rtl -> (contentRightPx - titlePlaceable.width)
                     }
-                    val carryLinesHeights =
-                        carryLines.map { line -> line.maxOf { metaHeights[it] } }
-                    val carryBlockHeight = if (carryLinesHeights.isEmpty()) 0
-                    else carryLinesHeights.sum() + tierSpacingPx * (carryLinesHeights.size - 1)
+                    titlePlaceable.placeRelative(textX, textYF.roundToInt())
 
-                    /* ---- 6) HEIGHTS ---- */
-                    val topRowHeight = maxOf(titleHeight, inlineHeight, minTouchPx)
-                    val totalHeightPx =
-                        if (carryLines.isEmpty()) topRowHeight else topRowHeight + tierSpacingPx + carryBlockHeight
+                    // Inline meta on last text line (end-aligned + gap rule, all ints)
+                    if (pack.inlineIndices.isNotEmpty()) {
+                        val lastLineTop = titleResult.getLineTop(lastLine)
+                        val lastLineBottom = titleResult.getLineBottom(lastLine)
+                        val lastLineHeightPx = (lastLineBottom - lastLineTop).coerceAtLeast(0f)
+                        val inlineTopF = textYF + lastLineTop +
+                                (lastLineHeightPx - pack.inlineHeightPx) / 2f
 
-                    /* ---- 7) PLACE ---- */
-                    layout(width = maxW, height = totalHeightPx) {
-                        // Title (centered within top row)
-                        val textY = (topRowHeight - titleHeight) / 2
-                        val textX = when (layoutDir) {
-                            LayoutDirection.Ltr -> contentLeftPx
-                            LayoutDirection.Rtl -> (contentRightPx - titlePlaceable.width)
+                        val endAlignedStart = when (layoutDir) {
+                            LayoutDirection.Ltr -> contentRightPx - pack.inlineContentWidthPx
+                            LayoutDirection.Rtl -> contentLeftPx
                         }
-                        titlePlaceable.place(x = textX, y = textY)
+                        val gapEnforcedStart = when (layoutDir) {
+                            LayoutDirection.Ltr -> contentLeftPx + lastRightPx + textMetaGapPx
+                            LayoutDirection.Rtl -> contentRightPx - lastRightPx - textMetaGapPx - pack.inlineWidthPx
+                        }
+                        val startX = maxOf(endAlignedStart, gapEnforcedStart)
 
-                        // Inline meta: baseline-align to last text line; enforce minimum TextMetaGap
-                        // Inline meta: center on the last text line; enforce minimum TextMetaGap
-                        if (inlineIndices.isNotEmpty()) {
-                            val lastLineTop = textY + titleResult.getLineTop(lastLine).toInt()
-                            val lastLineBottom = textY + titleResult.getLineBottom(lastLine).toInt()
-                            val lastLineHeight = (lastLineBottom - lastLineTop).coerceAtLeast(0)
-                            val inlineTop = (lastLineTop + (lastLineHeight - inlineHeight) / 2).coerceAtLeast(0)
+                        placeLineEndAlignedInt(
+                            placeables = metaPlaceables,
+                            indices = pack.inlineIndices,
+                            startX = startX,
+                            yTopF = inlineTopF,
+                            lineHeightPx = pack.inlineHeightPx,
+                            gapPx = metaGapPx
+                        )
+                    }
 
-                            val endAlignedStart = when (layoutDir) {
-                                LayoutDirection.Ltr -> contentRightPx - inlineWidth
+                    // Carry meta lines below (end-aligned, all ints)
+                    if (pack.carryLines.isNotEmpty()) {
+                        var yF = topRowHeightPx + tierSpacingPx.toFloat()
+                        pack.carryLines.forEachIndexed { li, line ->
+                            val lineH = pack.carryLineHeightsPx[li]
+                            val lineW = calculateLineWidthPx(line, metaWidthsPx, metaGapPx)
+                                .coerceAtMost(metaSlotWidthPx)
+                            val startX = when (layoutDir) {
+                                LayoutDirection.Ltr -> contentRightPx - lineW
                                 LayoutDirection.Rtl -> contentLeftPx
                             }
-                            val gapEnforcedStart = when (layoutDir) {
-                                LayoutDirection.Ltr -> (contentLeftPx + lastRight + textMetaGapPx)
-                                LayoutDirection.Rtl -> (contentRightPx - lastRight - textMetaGapPx - inlineWidth)
-                            }
-                            val startX = maxOf(endAlignedStart, gapEnforcedStart)
-
-                            var x = startX
-                            inlineIndices.forEachIndexed { j, idx ->
-                                val p = metaPlaceables[idx]
-                                val yCentered = inlineTop + (inlineHeight - p.height) / 2
-                                p.place(x, yCentered)
-                                x += p.width + if (j < inlineIndices.lastIndex) metaGapPx else 0
-                            }
+                            placeLineEndAlignedInt(
+                                placeables = metaPlaceables,
+                                indices = line,
+                                startX = startX,
+                                yTopF = yF,
+                                lineHeightPx = lineH,
+                                gapPx = metaGapPx
+                            )
+                            yF += lineH + tierSpacingPx
                         }
-
-
-                        // Carry meta lines (below top row), end-aligned per line
-                        if (carryLines.isNotEmpty()) {
-                            var y = topRowHeight + tierSpacingPx
-                            carryLines.forEachIndexed { li, line ->
-                                val lineH = carryLinesHeights[li]
-                                val lineW = line.fold(0) { acc, idx ->
-                                    if (acc == 0) metaWidths[idx] else acc + metaGapPx + metaWidths[idx]
-                                }.coerceAtMost(metaSlotWidth)
-
-                                val startX = when (layoutDir) {
-                                    LayoutDirection.Ltr -> contentRightPx - lineW
-                                    LayoutDirection.Rtl -> contentLeftPx
-                                }
-                                var x = startX
-                                line.forEachIndexed { j, idx ->
-                                    val p = metaPlaceables[idx]
-                                    val yCentered = y + (lineH - p.height) / 2
-                                    p.place(x, yCentered)
-                                    x += p.width + if (j < line.lastIndex) metaGapPx else 0
-                                }
-                                y += lineH + tierSpacingPx
-
-                            }
-                        }
-
-                        // Handle at PHYSICAL RIGHT, vertically centered
-                        val hx = maxW - handleW
-                        val hy = (totalHeightPx - handleH) / 2
-                        handlePlaceable.place(x = hx, y = hy)
                     }
+
+                    // Handle at PHYSICAL RIGHT, vertically centered
+                    val hx = maxW - handleW
+                    val hy = (totalHeightPx - handleH) / 2
+                    handlePlaceable.placeRelative(hx, hy)
                 }
             }
         }
