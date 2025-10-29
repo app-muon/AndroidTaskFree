@@ -468,7 +468,7 @@ fun TaskOptionsPanel(
                 MetaRow(
                     headlineContent = {
                         TaskFieldHeading(stringResource(R.string.completed_date_label).uppercase())
-                    }, supportingContent = { Text(content) }, colors = colors
+                    }, supportingContent = { Text(content, style = MaterialTheme.typography.bodyMedium) }, colors = colors
                 )
                 HorizontalDivider(color = Color.Gray)
             }
