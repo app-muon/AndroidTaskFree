@@ -20,10 +20,10 @@
     <string name="no_string" />
 
     <!-- Estados -->
-    <string name="to_do_status">Por hacer</string>
-    <string name="doing_status">Activa</string>
-    <string name="pending_status">Pendiente</string>
-    <string name="done_status">Hecha</string>
+    <string name="to_do_status">¡Haz!</string>
+    <string name="doing_status">¡Sigue!</string>
+    <string name="pending_status">¡Espera!</string>
+    <string name="done_status">Hecho</string>
     <string name="set_as_for_task_status">Marcar como %1$s</string>
 
     <!-- Categorías -->
@@ -34,7 +34,7 @@
     <string name="add_category_button_label">Añadir categoría</string>
     <string name="category_name">Nombre de la categoría</string>
     <string name="name_of_unknown_category">Desconocida</string>
-    <string name="go_to_category_action">Ver tareas en la categoría</string>
+    <string name="go_to_category_action">Ver tareas en </string>
     <string name="category_colour_label">Cambiar color</string>
     <string name="delete_this_category_action">Eliminar categoría</string>
     <string name="archive_completed_in_category_action">Archivar completadas</string>
@@ -88,7 +88,7 @@
     <string name="today">Hoy</string>
     <string name="tomorrow">Mañana</string>
     <string name="yesterday">Ayer</string>
-    <string name="today_offset">Hoy %+d</string>
+    <string name="today_offset">Hoy%+d</string>
     <string name="date_picker">Elegir fecha…</string>
     <string name="completed_date_label">Completada</string>
     <string name="completed_no_label">No</string>
