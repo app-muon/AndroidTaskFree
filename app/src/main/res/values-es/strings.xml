@@ -132,7 +132,7 @@
         TaskFree es un gestor de tareas simple. Crea categorías, añade tareas y controla tus pendientes.
         \n\nGratis, sin anuncios y de código abierto. No se comparte ningún dato.
         \n\nPuedes establecer fechas, notificaciones y repeticiones (por ejemplo, cada viernes).
-        \n\nFiltra fácilmente y marca tareas como "por hacer", "activa", "pendiente" o "hecha".
+        \n\nFiltra fácilmente y marca tareas como "¡Haz!", "¡Sigue!", "¡Espera!" o "Hecho".
     </string>
 
     <string name="tip_categories_title">Categorías</string>
@@ -141,10 +141,10 @@
     <string name="tip_status_title">Estado</string>
     <string name="tip_statuses_intro">
         Cada tarea tiene un estado:\n
-        • Por hacer – no iniciada\n
-        • Activa – en progreso\n
-        • Pendiente – en espera\n
-        • Hecha – terminada
+        • ¡Haz! – no iniciada\n
+        • ¡Sigue! – en progreso\n
+        • ¡Espera! – en espera\n
+        • Hecho – terminada
     </string>
 
     <string name="tip_sorting_title">Ordenar</string>
