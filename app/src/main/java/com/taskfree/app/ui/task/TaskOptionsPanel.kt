@@ -136,7 +136,7 @@ fun TaskOptionsPanel(
                 stringResource(R.string.set_as_for_task_status, status.displayName())
             },
             enabled = !isCurrent,
-            onClick = { taskVm.updateStatus(taskSnapshot, status) },
+            onClick = { taskVm.updateStatus(taskSnapshot.id, status) },
             icon = if (isCurrent) Icons.Default.Check else null,
             fontWeight = if (status == TaskStatus.DONE) FontWeight.Bold else null,
             backgroundColour = status.backgroundColor(),
