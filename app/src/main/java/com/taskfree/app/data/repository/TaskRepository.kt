@@ -172,11 +172,14 @@ class TaskRepository(
         return database.taskDao().taskListForDate(date, archived)
     }
 
-    suspend fun updateTaskStatus(task: Task, newStatus: TaskStatus): UpdateResult {   // <-- CHANGED return type
-        var createdId: Int? = null   // <-- ADDED
-        var deletedId: Int? = null   // <-- ADDED
+    suspend fun updateTaskStatus(taskId: Int, newStatus: TaskStatus): UpdateResult {   // <-- CHANGED return type
+        var createdId: Int? = null
+        var deletedId: Int? = null
 
         database.withTransaction {
+            val task = database.taskDao().taskById(taskId)
+                ?: throw IllegalArgumentException("Task $taskId not found")
+
             val wasDone = task.status == TaskStatus.DONE
             val nowDone = newStatus == TaskStatus.DONE
 

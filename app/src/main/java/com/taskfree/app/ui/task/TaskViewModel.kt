@@ -181,15 +181,17 @@ class TaskViewModel(
 
 
 
-    fun updateStatus(task: Task, newStatus: TaskStatus) = launchIO {
-        val wasDone = task.status == TaskStatus.DONE
+    fun updateStatus(taskId: Int, newStatus: TaskStatus) = launchIO {
+        val before = repo.taskById(taskId) ?: return@launchIO
+
+        val wasDone = before.status == TaskStatus.DONE
         val nowDone = newStatus == TaskStatus.DONE
 
-        val res = repo.updateTaskStatus(task, newStatus)
+        val res = repo.updateTaskStatus(taskId, newStatus)
 
         // Re-read the updated task snapshot
-        val updated = repo.taskById(task.id) ?: return@launchIO
-        val oldReminder = task.reminderTime
+        val updated = repo.taskById(taskId) ?: return@launchIO
+        val oldReminder = before.reminderTime
         val notify = NotificationOption.fromTask(updated)
 
         val result = updated.resolveReminderInstant(notify, updated.due)
