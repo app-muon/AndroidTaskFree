@@ -16,6 +16,7 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -48,8 +49,8 @@ import com.taskfree.app.ui.mapper.recurrenceLabel
 import com.taskfree.app.ui.theme.RowTransparency
 import com.taskfree.app.util.AppDateProvider
 import isNotificationPassed
-import kotlin.math.roundToInt
 import sh.calvin.reorderable.ReorderableCollectionItemScope
+import kotlin.math.roundToInt
 
 /* ====== dims & helpers ====== */
 private object TaskRowDimens {
@@ -126,8 +127,9 @@ private fun packMetaInt(
         carryIdx.forEach { idx ->
             val w = widthsPx[idx]
             val add = if (current.isEmpty()) w else (metaGapPx + w)
-            if (widthAcc + add <= slotWidthPx) { current.add(idx); widthAcc += add }
-            else {
+            if (widthAcc + add <= slotWidthPx) {
+                current.add(idx); widthAcc += add
+            } else {
                 if (current.isNotEmpty()) carryLines.add(current)
                 current = mutableListOf(idx)
                 widthAcc = w
@@ -204,9 +206,11 @@ fun ReorderableCollectionItemScope.TaskRow(
         if (task.reminderTime != null) append(", ").append("Reminder set")
     }
 
+    val cardShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(cardShape) // stripe + ripple + hit area follow card shape
             .combinedClickable(onClick = onClick)
             .semantics { contentDescription = a11yDesc }
             .drawBehind {
@@ -217,7 +221,7 @@ fun ReorderableCollectionItemScope.TaskRow(
             },
         elevation = CardDefaults.cardElevation(elevation),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        shape = cardShape
     ) {
         Box(
             Modifier
@@ -235,7 +239,8 @@ fun ReorderableCollectionItemScope.TaskRow(
                 val maxW = constraints.maxWidth
 
                 // ints for horizontal planning
-                val titleStartPx = with(density) { TaskRowDimens.titleStartIndent.toPx().roundToInt() }
+                val titleStartPx =
+                    with(density) { TaskRowDimens.titleStartIndent.toPx().roundToInt() }
                 val handleGapPx = with(density) { TaskRowDimens.handleGap.toPx().roundToInt() }
                 val tierSpacingPx = with(density) { TaskRowDimens.tierSpacing.toPx().roundToInt() }
                 val textMetaGapPx = with(density) { TaskRowDimens.textMetaGap.toPx().roundToInt() }
@@ -309,7 +314,15 @@ fun ReorderableCollectionItemScope.TaskRow(
                         }
                     }
                     if (task.isArchived) add { MetaBox { ArchivePill(big = false) } }
-                    if (showCategory) add { MetaBox { CategoryPill(category = category, big = false, selected = true) } }
+                    if (showCategory) add {
+                        MetaBox {
+                            CategoryPill(
+                                category = category,
+                                big = false,
+                                selected = true
+                            )
+                        }
+                    }
                     if (dueLabel.isNotBlank()) add {
                         MetaBox {
                             Text(
