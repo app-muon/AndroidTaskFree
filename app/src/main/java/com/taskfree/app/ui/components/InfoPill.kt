@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.Recurrence
-import com.taskfree.app.domain.model.label
+import com.taskfree.app.domain.model.labelResId
 
 @Composable
 fun CategoryPill(
@@ -82,8 +82,9 @@ fun RecurrencePill(
     val recurrenceText = if (terse && recurrence == Recurrence.NONE) {
         ""
     } else {
-        recurrence.label()
+        stringResource(recurrence.labelResId())
     }
+
     InfoPill(
         title = recurrenceText,
         selectedFillColor = if (error) Color.Red.copy(alpha = 0.8f) else colorResource(R.color.pill_colour),

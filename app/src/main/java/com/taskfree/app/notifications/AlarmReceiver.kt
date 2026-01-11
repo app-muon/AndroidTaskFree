@@ -1,19 +1,23 @@
 package com.taskfree.app.notifications
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.taskfree.app.MainActivity
 import com.taskfree.app.R
 import com.taskfree.app.data.AppDatabaseFactory
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.labelResId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 class AlarmReceiver : BroadcastReceiver() {
 
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION) return
         val taskId = intent.getIntExtra(EXTRA_TASK_ID, -1)
@@ -28,7 +32,9 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = "Reminder: ${row.text}"
 
         val body = buildList {
-            if (row.recurrence != Recurrence.NONE) add("Repeats: ${row.recurrence}")
+            if (row.recurrence != Recurrence.NONE) {
+                add("Repeats: ${context.getString(row.recurrence.labelResId())}")
+            }
             add("Category: ${row.catTitle}")
         }.joinToString("\n")
 
