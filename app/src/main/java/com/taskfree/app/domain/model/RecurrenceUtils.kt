@@ -1,24 +1,23 @@
 package com.taskfree.app.domain.model
 
 import android.util.Log
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import com.taskfree.app.R
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-@Composable
-fun Recurrence.label(): String = when (this) {
-    Recurrence.NONE -> stringResource(R.string.no_recurrence_label)
-    Recurrence.DAILY -> stringResource(R.string.daily_recurrence)
-    Recurrence.WEEKLY -> stringResource(R.string.weekly_recurrence)
-    Recurrence.WEEKDAYS -> stringResource(R.string.recurrence_on_weekdays)
-    Recurrence.WEEKENDS -> stringResource(R.string.recurrence_on_weekends)
-    Recurrence.MONTHLY -> stringResource(R.string.monthly_recurrence)
-    Recurrence.QUARTERLY -> stringResource(R.string.quarterly_recurrence)
-    Recurrence.YEARLY -> stringResource(R.string.yearly_recurrence)
+@StringRes
+fun Recurrence.labelResId(): Int = when (this) {
+    Recurrence.NONE -> R.string.no_recurrence_label
+    Recurrence.DAILY -> R.string.daily_recurrence
+    Recurrence.WEEKLY -> R.string.weekly_recurrence
+    Recurrence.WEEKDAYS -> R.string.recurrence_on_weekdays
+    Recurrence.WEEKENDS -> R.string.recurrence_on_weekends
+    Recurrence.MONTHLY -> R.string.monthly_recurrence
+    Recurrence.QUARTERLY -> R.string.quarterly_recurrence
+    Recurrence.YEARLY -> R.string.yearly_recurrence
 }
 
 private fun recurrenceNextDate(recurrence: Recurrence, baseDate: LocalDate): LocalDate? {
