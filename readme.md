@@ -55,7 +55,7 @@ This app is built with [Jetpack Compose](https://developer.android.com/jetpack/c
 Contributions, bug reports, and feature requests are welcome!  
 
 ---
-
+ 
 ## 📄 License
  
 This project is licensed under the [License](https://github.com/app-muon/AndroidTaskFree/blob/main/CUSTOM_LICENCE.txt).
