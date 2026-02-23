@@ -29,11 +29,12 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
-    private val repo by lazy {
+    private val repoOrNull by lazy {
         if (Prefs.isEncrypted(this) && !MnemonicManager.hasKey(this)) {
-            throw IllegalStateException("Cannot initialize repository - encryption key not available")
+            null
+        } else {
+            TaskRepository(application.db)
         }
-        TaskRepository(application.db)
     }
 
     // Permission launcher
@@ -82,10 +83,10 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
 
-        // Only access repo if encryption is properly set up
-        if (!Prefs.isEncrypted(this) || MnemonicManager.hasKey(this)) {
+        repoOrNull?.let { repo ->
             lifecycleScope.launch {
-                repo.reindexAllTaskPageOrders()
+                runCatching { repo.reindexAllTaskPageOrders() }
+                    .onFailure { android.util.Log.e("MainActivity", "reindex failed", it) }
             }
         }
     }
