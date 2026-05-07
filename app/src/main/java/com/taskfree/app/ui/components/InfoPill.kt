@@ -51,6 +51,7 @@ fun ArchivePill(
 @Composable
 fun LabelledOptionPill(
     label: String,
+    modifier: Modifier = Modifier,
     big: Boolean = false,
     selected: Boolean = false,
     error: Boolean = false,
@@ -63,6 +64,7 @@ fun LabelledOptionPill(
         selectedTextColor = colorResource(R.color.pill_text),
         border = !selected,
         big = big,
+        modifier = modifier,
         selected = selected,
         onClick = onClick,
         highlight = highlight

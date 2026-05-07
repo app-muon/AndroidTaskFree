@@ -99,7 +99,9 @@ fun PanelActionList(
                             enabled = action.enabled,
                             onClick = {
                                 action.onClick()
-                                onDismiss()
+                                if (action.dismissOnClick) {
+                                    onDismiss()
+                                }
                             }
                         ) {
                             ListItem(

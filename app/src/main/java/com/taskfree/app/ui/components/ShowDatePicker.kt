@@ -4,12 +4,13 @@ package com.taskfree.app.ui.components
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.fragment.app.FragmentActivity
-import com.taskfree.app.R
+import com.google.android.material.datepicker.CalendarConstraints
+import com.google.android.material.datepicker.DateValidatorPointForward
 import com.google.android.material.datepicker.MaterialDatePicker
+import com.taskfree.app.R
 import com.taskfree.app.util.AppDateProvider
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.ZoneOffset
 
 /**
@@ -21,16 +22,30 @@ import java.time.ZoneOffset
 fun showDatePicker(
     context: Context,
     initialDate: LocalDate? = null,
+    minDate: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit
 ) {
     val dp = AppDateProvider.current
     val utc = ZoneOffset.UTC
-    val init = initialDate ?: dp.today()
+    val minMillis = minDate?.atStartOfDay(utc)?.toInstant()?.toEpochMilli()
+    val requestedInit = initialDate ?: minDate ?: dp.today()
+    val init = if (minDate != null && requestedInit.isBefore(minDate)) minDate else requestedInit
     val selectionMillis = init.atStartOfDay(utc).toInstant().toEpochMilli()
 
-    val datePicker = MaterialDatePicker.Builder.datePicker()
+    val builder = MaterialDatePicker.Builder.datePicker()
         .setTheme(R.style.MyMaterialDatePickerTheme)
         .setSelection(selectionMillis)
+
+    minMillis?.let { start ->
+        builder.setCalendarConstraints(
+            CalendarConstraints.Builder()
+                .setStart(start)
+                .setValidator(DateValidatorPointForward.from(start))
+                .build()
+        )
+    }
+
+    val datePicker = builder
         .build()
 
     datePicker.addOnPositiveButtonClickListener { timestamp ->
