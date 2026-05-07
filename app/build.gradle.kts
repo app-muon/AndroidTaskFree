@@ -15,7 +15,7 @@ android {
         applicationId = "com.taskfree.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 49
+        versionCode = 50
         versionName = "1.0.17"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
