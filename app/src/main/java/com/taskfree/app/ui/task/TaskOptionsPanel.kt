@@ -63,6 +63,7 @@ import com.taskfree.app.ui.components.specificDateLabel
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.displayName
 import com.taskfree.app.ui.task.components.ArchiveMode
+import com.taskfree.app.ui.task.components.QuickDateKind
 import com.taskfree.app.ui.task.components.ValidationNotificationErrorText
 import com.taskfree.app.ui.task.components.ValidationRecurrenceErrorText
 import com.taskfree.app.ui.task.components.commitDue
@@ -72,6 +73,7 @@ import com.taskfree.app.ui.task.components.labelRes
 import com.taskfree.app.ui.task.components.quickDateKind
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
+import com.taskfree.app.util.AppDateProvider
 import showTimePicker
 
 @Composable
@@ -98,11 +100,69 @@ fun TaskOptionsPanel(
         ?: DueChoice.fromSpecial(DueChoice.Special.NONE)
     val currentNotifyOption = NotificationOption.fromTask(taskSnapshot)
     val kind = quickDateKind(taskSnapshot)
-    val quickDateAction = ActionItem(
-        label = stringResource(kind.labelRes()),
-        icon = Icons.Default.DateRange,
-        onClick = { onQuickDate(taskSnapshot) }
-    )
+    fun applyPostponeDate(date: java.time.LocalDate) {
+        taskVm.applyEdits(
+            taskSnapshot.id,
+            TaskViewModel.TaskEdits(due = FieldEdit.Set(date))
+        )
+    }
+
+    val quickDateAction = when (kind) {
+        QuickDateKind.SET_TODAY -> ActionItem(
+            label = stringResource(kind.labelRes()),
+            icon = Icons.Default.DateRange,
+            onClick = { onQuickDate(taskSnapshot) }
+        )
+
+        QuickDateKind.POSTPONE_TOMORROW -> ActionItem(
+            icon = Icons.Default.DateRange,
+            onClick = {},
+            dismissOnClick = false,
+            labelContent = {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.postpone_action),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.surfaceText,
+                        modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
+                    )
+                    listOf(
+                        1L to stringResource(R.string.postpone_plus_one_day),
+                        2L to stringResource(R.string.postpone_plus_two_days),
+                        7L to stringResource(R.string.postpone_plus_one_week)
+                    ).forEach { (days, label) ->
+                        LabelledOptionPill(
+                            label = label,
+                            onClick = {
+                                val target = AppDateProvider.current.today().plusDays(days)
+                                applyPostponeDate(target)
+                                onDismiss()
+                            }
+                        )
+                    }
+                    LabelledOptionPill(
+                        label = stringResource(R.string.postpone_pick_date),
+                        onClick = {
+                            val minDate = AppDateProvider.current.today().plusDays(1)
+                            showDatePicker(
+                                context = pickerContext,
+                                initialDate = minDate,
+                                minDate = minDate,
+                                onDateSelected = { picked ->
+                                    applyPostponeDate(picked)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+        )
+    }
 
     val editState by rememberSaveable(stateSaver = TaskEditStateSaver) {
         mutableStateOf(

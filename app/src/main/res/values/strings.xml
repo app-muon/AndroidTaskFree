@@ -101,6 +101,11 @@
 
     <!--Task actions-->
     <string name="postpone_to_tomorrow_action">Postpone to tomorrow</string>
+    <string name="postpone_action">Postpone</string>
+    <string name="postpone_plus_one_day">+1 day</string>
+    <string name="postpone_plus_two_days">+2 days</string>
+    <string name="postpone_plus_one_week">+1 week</string>
+    <string name="postpone_pick_date">Pick date&#8230;</string>
     <string name="make_due_today">Make due date today</string>
     <string name="clone_task_action">Clone</string>
     <string name="clone_task_confirm_message">Clone this task?</string>
