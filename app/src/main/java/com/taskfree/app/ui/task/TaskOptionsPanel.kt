@@ -119,46 +119,36 @@ fun TaskOptionsPanel(
             onClick = {},
             dismissOnClick = false,
             labelContent = {
+                val today = AppDateProvider.current.today()
+                val tomorrowLabel = stringResource(R.string.tomorrow)
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
                     verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = stringResource(R.string.postpone_action),
-                        style = MaterialTheme.typography.bodyMedium,
                         color = colors.surfaceText,
                         modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
                     )
-                    listOf(
-                        1L to stringResource(R.string.postpone_plus_one_day),
-                        2L to stringResource(R.string.postpone_plus_two_days),
-                        7L to stringResource(R.string.postpone_plus_one_week)
-                    ).forEach { (days, label) ->
+                    (1L..4L).forEach { offset ->
+                        val date = today.plusDays(offset)
+                        val label = if (offset == 1L) {
+                            tomorrowLabel
+                        } else {
+                            date.dayOfWeek
+                                .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+                                .take(3)
+                                .replaceFirstChar { it.uppercaseChar() }
+                        }
                         LabelledOptionPill(
                             label = label,
                             onClick = {
-                                val target = AppDateProvider.current.today().plusDays(days)
-                                applyPostponeDate(target)
+                                applyPostponeDate(date)
                                 onDismiss()
                             }
                         )
                     }
-                    LabelledOptionPill(
-                        label = stringResource(R.string.postpone_pick_date),
-                        onClick = {
-                            val minDate = AppDateProvider.current.today().plusDays(1)
-                            showDatePicker(
-                                context = pickerContext,
-                                initialDate = minDate,
-                                minDate = minDate,
-                                onDateSelected = { picked ->
-                                    applyPostponeDate(picked)
-                                    onDismiss()
-                                }
-                            )
-                        }
-                    )
                 }
             }
         )

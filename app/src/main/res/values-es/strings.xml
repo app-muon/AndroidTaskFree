@@ -99,10 +99,6 @@
     <!-- Acciones -->
     <string name="postpone_to_tomorrow_action">Mañana</string>
     <string name="postpone_action">Posponer</string>
-    <string name="postpone_plus_one_day">+1 día</string>
-    <string name="postpone_plus_two_days">+2 días</string>
-    <string name="postpone_plus_one_week">+1 semana</string>
-    <string name="postpone_pick_date">Elegir fecha&#8230;</string>
     <string name="make_due_today">Vence hoy</string>
     <string name="clone_task_action">Clonar</string>
     <string name="clone_task_confirm_message">¿Clonar tarea?</string>
