@@ -97,9 +97,10 @@
     <string name="archived_task_label">Archivada</string>
 
     <!-- Acciones -->
-    <string name="postpone_to_tomorrow_action">Mañana</string>
     <string name="postpone_action">Posponer</string>
-    <string name="make_due_today">Vence hoy</string>
+    <string name="move_action">Mover</string>
+    <string name="set_due_action">Fijar</string>
+    <string name="offset_weeks_format">+%ds</string>
     <string name="clone_task_action">Clonar</string>
     <string name="clone_task_confirm_message">¿Clonar tarea?</string>
     <string name="clone_yes_dialog_button">Clonar</string>

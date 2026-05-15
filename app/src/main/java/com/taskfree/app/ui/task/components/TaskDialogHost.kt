@@ -10,7 +10,6 @@ import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.fromTask
-import com.taskfree.app.ui.task.FieldEdit
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
 
@@ -62,15 +61,6 @@ internal fun TaskDialogHost(
                     hasInteracted = true
                     setDialogs(TaskDialogs.None)
                     onNavigateToCategory(catId)
-                },
-
-                onQuickDate = { task ->
-                    val target = quickDateTarget(task) // LocalDate
-                    taskVm.applyEdits(
-                        task.id,
-                        TaskViewModel.TaskEdits(due = FieldEdit.Set(target))
-                    )
-                    setDialogs(TaskDialogs.None)
                 },
 
                 onClone = {
