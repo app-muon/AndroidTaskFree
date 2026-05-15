@@ -69,7 +69,6 @@ import com.taskfree.app.ui.task.components.ValidationRecurrenceErrorText
 import com.taskfree.app.ui.task.components.commitDue
 import com.taskfree.app.ui.task.components.commitNotification
 import com.taskfree.app.ui.task.components.commitRecurrence
-import com.taskfree.app.ui.task.components.labelRes
 import com.taskfree.app.ui.task.components.quickDateKind
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
@@ -82,7 +81,6 @@ fun TaskOptionsPanel(
     taskVm: TaskViewModel,
     onNavigateToCategory: (Int) -> Unit,
     onArchive: (Task, ArchiveMode) -> Unit,
-    onQuickDate: (Task) -> Unit,
     onClone: (Task) -> Unit,
     onDismiss: () -> Unit,
     currentFilterCatId: Int?
@@ -108,13 +106,7 @@ fun TaskOptionsPanel(
     }
 
     val quickDateAction = when (kind) {
-        QuickDateKind.SET_TODAY -> ActionItem(
-            label = stringResource(kind.labelRes()),
-            icon = Icons.Default.DateRange,
-            onClick = { onQuickDate(taskSnapshot) }
-        )
-
-        QuickDateKind.POSTPONE_TOMORROW -> ActionItem(
+        QuickDateKind.POSTPONE -> ActionItem(
             icon = Icons.Default.DateRange,
             onClick = {},
             dismissOnClick = false,
@@ -124,6 +116,7 @@ fun TaskOptionsPanel(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
                     verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    itemVerticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
@@ -149,6 +142,109 @@ fun TaskOptionsPanel(
                             }
                         )
                     }
+                }
+            }
+        )
+
+        QuickDateKind.SET -> ActionItem(
+            icon = Icons.Default.DateRange,
+            onClick = {},
+            dismissOnClick = false,
+            labelContent = {
+                val today = AppDateProvider.current.today()
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
+                    verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.set_due_action),
+                        color = colors.surfaceText,
+                        modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.today),
+                        onClick = { applyPostponeDate(today); onDismiss() }
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.tomorrow),
+                        onClick = { applyPostponeDate(today.plusDays(1)); onDismiss() }
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.offset_weeks_format, 1),
+                        onClick = { applyPostponeDate(today.plusDays(7)); onDismiss() }
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.date_picker),
+                        onClick = {
+                            showDatePicker(
+                                context = pickerContext,
+                                initialDate = today,
+                                minDate = today,
+                                onDateSelected = { picked ->
+                                    applyPostponeDate(picked)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+        )
+
+        QuickDateKind.MOVE -> ActionItem(
+            icon = Icons.Default.DateRange,
+            onClick = {},
+            dismissOnClick = false,
+            labelContent = {
+                val today = AppDateProvider.current.today()
+                val due = taskSnapshot.due!!
+                val tomorrow = today.plusDays(1)
+                val dayAfter = today.plusDays(2)
+                val dayAfterLabel = dayAfter.dayOfWeek
+                    .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+                    .take(3)
+                    .replaceFirstChar { it.uppercaseChar() }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
+                    verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.move_action),
+                        color = colors.surfaceText,
+                        modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.today),
+                        onClick = { applyPostponeDate(today); onDismiss() }
+                    )
+                    if (due != tomorrow) {
+                        LabelledOptionPill(
+                            label = stringResource(R.string.tomorrow),
+                            onClick = { applyPostponeDate(tomorrow); onDismiss() }
+                        )
+                    }
+                    LabelledOptionPill(
+                        label = dayAfterLabel,
+                        onClick = { applyPostponeDate(dayAfter); onDismiss() }
+                    )
+                    LabelledOptionPill(
+                        label = stringResource(R.string.date_picker),
+                        onClick = {
+                            showDatePicker(
+                                context = pickerContext,
+                                initialDate = due,
+                                minDate = today,
+                                onDateSelected = { picked ->
+                                    applyPostponeDate(picked)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    )
                 }
             }
         )
