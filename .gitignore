@@ -45,3 +45,7 @@ app/build/
 
 # Android NDK
 ndkBuild/
+
+# AI assistant guidance files
+CLAUDE.md
+AGENTS.md
