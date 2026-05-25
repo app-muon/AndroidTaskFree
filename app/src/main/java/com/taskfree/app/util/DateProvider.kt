@@ -5,6 +5,8 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * Simple date/time provider that always uses the phone's system timezone.
@@ -33,6 +35,16 @@ object AppDateProvider {
     val current: DateProvider get() = _instance
 }
 
+
+/**
+ * Short, capitalized weekday code for a date, e.g. "Mon".
+ * Locale-aware; the single source of truth for weekday labels in the UI.
+ */
+fun weekdayShortLabel(date: LocalDate): String =
+    date.dayOfWeek
+        .getDisplayName(TextStyle.SHORT, Locale.getDefault())
+        .take(3)
+        .replaceFirstChar { it.uppercaseChar() }
 
 // Common formatters you might need
 object DateFormatters {
