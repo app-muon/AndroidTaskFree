@@ -15,7 +15,7 @@ fun specificDateLabel(
     dp: DateProvider = AppDateProvider.current   // <-- inject, default to singleton
 ): String {
     val today = dp.today()                        // <-- use provider
-    return when (val days = ChronoUnit.DAYS.between(today, date)) {
+    return when (ChronoUnit.DAYS.between(today, date)) {
         0L -> context.getString(R.string.today)
         1L -> context.getString(R.string.tomorrow)
         -1L -> context.getString(R.string.yesterday)
