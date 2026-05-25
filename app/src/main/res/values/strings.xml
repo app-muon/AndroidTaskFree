@@ -89,8 +89,8 @@
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
     <string name="yesterday">Yesterday</string>
-    <!-- Placeholder for offset day label like "Today+1", "Today+2", etc. -->
-    <string name="today_offset">Today%+d</string>
+    <!-- Past in-week date label; %1$s is a weekday code like "Mon" -->
+    <string name="last_weekday">last %1$s</string>
     <string name="date_picker">Date…</string>
     <string name="completed_date_label">Completed</string>
     <string name="completed_no_label">No</string>

@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.weekdayShortLabel
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -85,7 +86,7 @@ fun DueChoice.choiceLabel(): String = when (this) {
     DueChoice.All -> stringResource(R.string.all_dates)
     DueChoice.Today -> stringResource(R.string.today)
     DueChoice.Tomorrow -> stringResource(R.string.tomorrow)
-    DueChoice.Plus2 -> stringResource(R.string.today_offset, 2)
+    DueChoice.Plus2 -> weekdayShortLabel(AppDateProvider.current.today().plusDays(2))
     is DueChoice.Other -> stringResource(R.string.date_picker)          // always says "Pick date…"
 }
 

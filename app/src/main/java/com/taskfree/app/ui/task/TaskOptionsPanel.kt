@@ -73,6 +73,7 @@ import com.taskfree.app.ui.task.components.quickDateKind
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.weekdayShortLabel
 import showTimePicker
 
 @Composable
@@ -129,10 +130,7 @@ fun TaskOptionsPanel(
                         val label = if (offset == 1L) {
                             tomorrowLabel
                         } else {
-                            date.dayOfWeek
-                                .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
-                                .take(3)
-                                .replaceFirstChar { it.uppercaseChar() }
+                            weekdayShortLabel(date)
                         }
                         LabelledOptionPill(
                             label = label,
@@ -202,10 +200,7 @@ fun TaskOptionsPanel(
                 val due = taskSnapshot.due!!
                 val tomorrow = today.plusDays(1)
                 val dayAfter = today.plusDays(2)
-                val dayAfterLabel = dayAfter.dayOfWeek
-                    .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
-                    .take(3)
-                    .replaceFirstChar { it.uppercaseChar() }
+                val dayAfterLabel = weekdayShortLabel(dayAfter)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
                     verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
