@@ -4,7 +4,6 @@ package com.taskfree.app.util
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -45,10 +44,3 @@ fun weekdayShortLabel(date: LocalDate): String =
         .getDisplayName(TextStyle.SHORT, Locale.getDefault())
         .take(3)
         .replaceFirstChar { it.uppercaseChar() }
-
-// Common formatters you might need
-object DateFormatters {
-    val ISO_LOCAL_DATE: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-    val DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
-    val SHORT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd")
-}
