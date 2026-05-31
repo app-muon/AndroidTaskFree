@@ -3,13 +3,16 @@ package com.taskfree.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -69,6 +72,38 @@ fun LabelledOptionPill(
         onClick = onClick,
         highlight = highlight
     )
+}
+
+@Composable
+fun IconOptionPill(
+    icon: ImageVector,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    val selectedFillColor = colorResource(R.color.pill_colour)
+    val selectedIconColor = colorResource(R.color.pill_text)
+    val useFillColor = if (selected) selectedFillColor else selectedIconColor
+    val iconColor = if (selected) selectedIconColor else selectedFillColor.copy(alpha = 0.8f)
+
+    Surface(
+        color = useFillColor,
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier
+            .padding(0.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        border = if (selected) null else BorderStroke(1.dp, selectedFillColor.copy(alpha = 0.3f))
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconColor,
+            modifier = Modifier
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+                .size(16.dp)
+        )
+    }
 }
 
 @Composable
