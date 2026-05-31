@@ -46,6 +46,7 @@ import com.taskfree.app.ui.components.CategoryPill
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.EditCancelRow
 import com.taskfree.app.ui.components.EditableMetaRow
+import com.taskfree.app.ui.components.IconOptionPill
 import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.MetaRow
 import com.taskfree.app.ui.components.NotificationOption
@@ -125,6 +126,7 @@ fun TaskOptionsPanel(
                         color = colors.surfaceText,
                         modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
                     )
+                    val tomorrow = today.plusDays(1)
                     (1L..4L).forEach { offset ->
                         val date = today.plusDays(offset)
                         val label = if (offset == 1L) {
@@ -140,6 +142,21 @@ fun TaskOptionsPanel(
                             }
                         )
                     }
+                    IconOptionPill(
+                        icon = Icons.Default.DateRange,
+                        contentDescription = stringResource(R.string.date_picker),
+                        onClick = {
+                            showDatePicker(
+                                context = pickerContext,
+                                initialDate = tomorrow,
+                                minDate = tomorrow,
+                                onDateSelected = { picked ->
+                                    applyPostponeDate(picked)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    )
                 }
             }
         )
