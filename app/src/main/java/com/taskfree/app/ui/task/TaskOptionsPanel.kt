@@ -106,6 +106,17 @@ fun TaskOptionsPanel(
             TaskViewModel.TaskEdits(due = FieldEdit.Set(date))
         )
     }
+    fun showDueDatePicker(initialDate: java.time.LocalDate, minDate: java.time.LocalDate) {
+        showDatePicker(
+            context = pickerContext,
+            initialDate = initialDate,
+            minDate = minDate,
+            onDateSelected = { picked ->
+                applyPostponeDate(picked)
+                onDismiss()
+            }
+        )
+    }
 
     val quickDateAction = when (kind) {
         QuickDateKind.POSTPONE -> ActionItem(
@@ -127,7 +138,7 @@ fun TaskOptionsPanel(
                         modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
                     )
                     val tomorrow = today.plusDays(1)
-                    (1L..4L).forEach { offset ->
+                    (1L..3L).forEach { offset ->
                         val date = today.plusDays(offset)
                         val label = if (offset == 1L) {
                             tomorrowLabel
@@ -145,17 +156,7 @@ fun TaskOptionsPanel(
                     IconOptionPill(
                         icon = Icons.Default.DateRange,
                         contentDescription = stringResource(R.string.date_picker),
-                        onClick = {
-                            showDatePicker(
-                                context = pickerContext,
-                                initialDate = tomorrow,
-                                minDate = tomorrow,
-                                onDateSelected = { picked ->
-                                    applyPostponeDate(picked)
-                                    onDismiss()
-                                }
-                            )
-                        }
+                        onClick = { showDueDatePicker(initialDate = tomorrow, minDate = tomorrow) }
                     )
                 }
             }
@@ -192,17 +193,7 @@ fun TaskOptionsPanel(
                     )
                     LabelledOptionPill(
                         label = stringResource(R.string.date_picker),
-                        onClick = {
-                            showDatePicker(
-                                context = pickerContext,
-                                initialDate = today,
-                                minDate = today,
-                                onDateSelected = { picked ->
-                                    applyPostponeDate(picked)
-                                    onDismiss()
-                                }
-                            )
-                        }
+                        onClick = { showDueDatePicker(initialDate = today, minDate = today) }
                     )
                 }
             }
@@ -216,8 +207,10 @@ fun TaskOptionsPanel(
                 val today = AppDateProvider.current.today()
                 val due = taskSnapshot.due!!
                 val tomorrow = today.plusDays(1)
-                val dayAfter = today.plusDays(2)
-                val dayAfterLabel = weekdayShortLabel(dayAfter)
+                val moveDateOptions = generateSequence(today) { it.plusDays(1) }
+                    .filter { it != due }
+                    .take(3)
+                    .toList()
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
                     verticalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
@@ -229,33 +222,21 @@ fun TaskOptionsPanel(
                         color = colors.surfaceText,
                         modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
                     )
-                    LabelledOptionPill(
-                        label = stringResource(R.string.today),
-                        onClick = { applyPostponeDate(today); onDismiss() }
-                    )
-                    if (due != tomorrow) {
+                    moveDateOptions.forEach { date ->
+                        val label = when (date) {
+                            today -> stringResource(R.string.today)
+                            tomorrow -> stringResource(R.string.tomorrow)
+                            else -> weekdayShortLabel(date)
+                        }
                         LabelledOptionPill(
-                            label = stringResource(R.string.tomorrow),
-                            onClick = { applyPostponeDate(tomorrow); onDismiss() }
+                            label = label,
+                            onClick = { applyPostponeDate(date); onDismiss() }
                         )
                     }
-                    LabelledOptionPill(
-                        label = dayAfterLabel,
-                        onClick = { applyPostponeDate(dayAfter); onDismiss() }
-                    )
-                    LabelledOptionPill(
-                        label = stringResource(R.string.date_picker),
-                        onClick = {
-                            showDatePicker(
-                                context = pickerContext,
-                                initialDate = due,
-                                minDate = today,
-                                onDateSelected = { picked ->
-                                    applyPostponeDate(picked)
-                                    onDismiss()
-                                }
-                            )
-                        }
+                    IconOptionPill(
+                        icon = Icons.Default.DateRange,
+                        contentDescription = stringResource(R.string.date_picker),
+                        onClick = { showDueDatePicker(initialDate = due, minDate = today) }
                     )
                 }
             }
