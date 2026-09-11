@@ -1,6 +1,6 @@
 [versions]
-agp = "8.13.0"
-kotlin = "2.1.0"
+agp = "9.4.0"
+kotlin = "2.2.10"
 composeBom = "2025.05.00"
 reorderable      = "2.4.3"
 coroutines = "1.8.0"
@@ -35,4 +35,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "2.1.0-1.0.29" }
+ksp = { id = "com.google.devtools.ksp", version = "2.3.6" }
