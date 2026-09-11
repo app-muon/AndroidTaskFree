@@ -11,7 +11,7 @@ import com.taskfree.app.data.converters.TaskStatusConverter
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 
-@Database(entities = [Category::class, Task::class], version = 16, exportSchema = false)
+@Database(entities = [Category::class, Task::class], version = 17, exportSchema = false)
 @TypeConverters(TaskStatusConverter::class, LocalDateConverter::class, InstantConverter::class,
     RecurrenceConverter::class)
 abstract class AppDatabase : RoomDatabase() {

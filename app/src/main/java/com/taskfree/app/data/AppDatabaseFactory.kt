@@ -3,14 +3,32 @@ package com.taskfree.app.data
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
+import androidx.room.migration.Migration
 import com.taskfree.app.Prefs
 import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.data.database.MIGRATION_10_11
+import com.taskfree.app.data.database.MIGRATION_11_12
+import com.taskfree.app.data.database.MIGRATION_13_14
+import com.taskfree.app.data.database.MIGRATION_14_15
+import com.taskfree.app.data.database.MIGRATION_15_16
+import com.taskfree.app.data.database.MIGRATION_16_17
+import com.taskfree.app.data.database.MIGRATION_FIX_RECURRENCE
 import com.taskfree.app.enc.DatabaseKeyManager
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 object AppDatabaseFactory {
     @Volatile
     private var INSTANCE: AppDatabase? = null
+
+    private val migrations: Array<Migration> = arrayOf(
+        MIGRATION_10_11,
+        MIGRATION_11_12,
+        MIGRATION_FIX_RECURRENCE,
+        MIGRATION_13_14,
+        MIGRATION_14_15,
+        MIGRATION_15_16,
+        MIGRATION_16_17
+    )
 
     fun getDatabase(context: Context): AppDatabase {
         return INSTANCE ?: synchronized(this) {
@@ -34,7 +52,10 @@ object AppDatabaseFactory {
     fun createTempEncryptedDatabase(context: Context, key: ByteArray): AppDatabase {
         return Room.databaseBuilder(
             context.applicationContext, AppDatabase::class.java, "checklists_temp.db"
-        ).openHelperFactory(SupportOpenHelperFactory(key)).build()
+        )
+            .addMigrations(*migrations)
+            .openHelperFactory(SupportOpenHelperFactory(key))
+            .build()
     }
 
     private fun buildDatabase(context: Context): AppDatabase {
@@ -42,7 +63,7 @@ object AppDatabaseFactory {
             context.applicationContext,
             AppDatabase::class.java,
             "checklists.db"
-        )
+        ).addMigrations(*migrations)
 
         if (Prefs.isEncrypted(context)) {
             // LOG THE STORED VALUES
@@ -89,6 +110,7 @@ object AppDatabaseFactory {
         if (!context.getDatabasePath(dbName).exists()) return true
         return try {
             val tmp = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+                .addMigrations(*migrations)
                 .openHelperFactory(SupportOpenHelperFactory(key))
                 .build()
             tmp.openHelper.readableDatabase.query("SELECT 1").use { /* ok */ }

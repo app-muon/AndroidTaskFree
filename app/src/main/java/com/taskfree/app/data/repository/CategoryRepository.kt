@@ -42,9 +42,10 @@ class CategoryRepository(private val database: AppDatabase) {
 
     suspend fun deleteCategoryWithTasks(category: Category) {
         database.withTransaction {
-            database.taskDao().deleteTasksInCategory(category.id)
-            val rows = database.categoryDao().delete(category)
+            database.taskDao().archiveTasksInCategory(category.id)
+            val rows = database.categoryDao().markDeleted(category.id)
             require(rows > 0) { "Delete failed for category id=${category.id}" }
+            database.categoryDao().deleteDeletedWithoutTasks()
         }
     }
 

@@ -406,9 +406,17 @@ class TaskViewModel(
         }
     }
 
+    fun deletePermanently(task: Task) = launchIO {
+        NotificationScheduler.cancel(appContext, task.id, task.reminderTime)
+        repo.deleteTaskPermanently(task)
+    }
+
 
     /** convenience wrapper that always uses IO dispatcher */
-    private fun launchIO(block: suspend () -> Unit) = viewModelScope.launch(io) { block() }
+    private fun launchIO(block: suspend () -> Unit) = viewModelScope.launch(io) {
+        runCatching { block() }
+            .onFailure { Log.e("TaskViewModel", "Task operation failed", it) }
+    }
 
     fun setShowArchived(value: Boolean) {
         Log.d("TaskViewModel", "Updating filter: showArchived=$value")
@@ -451,7 +459,14 @@ class TaskViewModel(
         )
 
         // Decide what to do with OS alarms/toasts
-        val postEditTask = current.copy(due = newDue, recurrence = newRecurrence) // status/isArchived unchanged
+        val postEditTask = current.copy(
+            text = newTitle,
+            due = newDue,
+            baseDate = if (newRecurrence != Recurrence.NONE) newDue else null,
+            categoryId = newCategoryId,
+            recurrence = newRecurrence,
+            reminderTime = intendedReminder
+        )
         when (val result = postEditTask.resolveReminderInstant(effectiveNotify, newDue)) {
             is ReminderResult.Scheduled -> {
                 NotificationScheduler.reschedule(appContext, current.id, oldReminder, result.instant)
@@ -466,7 +481,8 @@ class TaskViewModel(
                 // Ensure any existing alarm is canceled
                 if (oldReminder != null) NotificationScheduler.cancel(appContext, current.id, oldReminder)
             }
-        }    }
+        }
+    }
 
 
     fun forceReload() {

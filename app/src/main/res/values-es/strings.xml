@@ -38,6 +38,8 @@
     <string name="category_colour_label">Cambiar color</string>
     <string name="delete_this_category_action">Eliminar categoría</string>
     <string name="archive_completed_in_category_action">Archivar completadas</string>
+    <string name="confirm_delete_category_title">&#191;Eliminar categor&#237;a?</string>
+    <string name="confirm_delete_category_msg">Sus tareas se mover&#225;n al archivo.</string>
     <string name="are_you_sure_you_delete_category">¿Seguro que quieres eliminar permanentemente “%1$s” y todas sus tareas?</string>
 
     <!-- Diálogos -->
@@ -104,6 +106,9 @@
     <string name="clone_task_action">Clonar</string>
     <string name="clone_task_confirm_message">¿Clonar tarea?</string>
     <string name="clone_yes_dialog_button">Clonar</string>
+    <string name="delete_task_permanently_action">Eliminar permanentemente</string>
+    <string name="confirm_permanently_delete_task_title">&#191;Eliminar esta tarea permanentemente?</string>
+    <string name="confirm_permanently_delete_task_msg">Esta acci&#243;n no se puede deshacer.</string>
 
     <!-- Notificaciones -->
     <string name="no_notification">No</string>
@@ -228,6 +233,7 @@
     <string name="err_task_duplicate_id">ID de tarea duplicado</string>
     <string name="err_task_empty_text">La tarea %1$d no tiene título</string>
     <string name="err_task_bad_category">La tarea %1$d apunta a una categoría inexistente %2$d</string>
+    <string name="err_task_live_deleted_category">La tarea %1$d est&#225; activa en la categor&#237;a eliminada %2$d</string>
     <string name="backup_save_failed">Error al guardar</string>
 
     <!-- Tamaño del texto -->

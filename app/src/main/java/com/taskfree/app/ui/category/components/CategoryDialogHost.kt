@@ -50,10 +50,8 @@ internal fun CategoryDialogHost(
                 onNavigateToCategory = onNavigateToCategory)
         }
 
-        is Dialogs.ConfirmDelete -> ConfirmDeletion(title = stringResource(R.string.delete_this_category_action),
-            message = stringResource(
-                R.string.are_you_sure_you_delete_category, dialogs.category.title
-            ),
+        is Dialogs.ConfirmDelete -> ConfirmDeletion(title = stringResource(R.string.confirm_delete_category_title),
+            message = stringResource(R.string.confirm_delete_category_msg),
             onYes = { onDelete(dialogs.category); setDialogs(Dialogs.None) },
             onNo = { setDialogs(Dialogs.None) })
 

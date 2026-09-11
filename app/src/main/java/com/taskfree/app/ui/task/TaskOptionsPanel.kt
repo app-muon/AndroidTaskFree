@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,14 +29,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskfree.app.R
-import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.category.CategoryViewModel
@@ -79,15 +79,18 @@ import showTimePicker
 
 @Composable
 fun TaskOptionsPanel(
-    task: Task?,
+    task: TaskWithCategoryInfo?,
     taskVm: TaskViewModel,
     onNavigateToCategory: (Int) -> Unit,
     onArchive: (Task, ArchiveMode) -> Unit,
     onClone: (Task) -> Unit,
+    onDeletePermanently: (Task) -> Unit,
     onDismiss: () -> Unit,
     currentFilterCatId: Int?
 ) {
-    val taskSnapshot = task ?: return
+    val taskWithCategory = task ?: return
+    val taskSnapshot = taskWithCategory.task
+    val category = taskWithCategory.category
     val colors = providePanelColors()
 
     val context = LocalContext.current.applicationContext as android.app.Application
@@ -251,18 +254,15 @@ fun TaskOptionsPanel(
                 currentNotifyOption = currentNotifyOption,
                 recurrence = taskSnapshot.recurrence,
                 selectedCategory = allCategories.firstOrNull { it.id == taskSnapshot.categoryId }
-                    ?: allCategories.first()
+                    ?: category
             )
         )
     }
-
-    val category: Category =
-        allCategories.firstOrNull { it.id == taskSnapshot.categoryId } ?: Category(
-            id = -1,
-            title = stringResource(R.string.name_of_unknown_category),
-            color = colorResource(R.color.pill_colour).value.toLong(),
-            categoryPageOrder = -1
-        )
+    val currentCategory =
+        allCategories.firstOrNull { it.id == editState.selectedCategory.id }
+            ?: editState.selectedCategory
+    val categoryDeleted = currentCategory.isDeleted
+    val taskForLiveActions = taskSnapshot.copy(categoryId = currentCategory.id)
 
     /* ---------- status sub-menu ---------- */
     val statusActions = TaskStatus.entries.map { status ->
@@ -284,27 +284,29 @@ fun TaskOptionsPanel(
 
     /* ---------- archive / unarchive ---------- */
     val archiveActions = when {
-        taskSnapshot.isArchived -> listOf(
+        taskSnapshot.isArchived && !categoryDeleted -> listOf(
             ActionItem(
                 label = stringResource(R.string.unarchive_task),
                 icon = Icons.Default.Check,
                 onClick = {
-                    taskVm.unArchive(taskSnapshot)
+                    taskVm.unArchive(taskForLiveActions)
                     onDismiss()
                 })
         )
+
+        taskSnapshot.isArchived -> emptyList()
 
         taskSnapshot.recurrence != Recurrence.NONE -> listOf(
             ActionItem(
                 label = stringResource(R.string.archive_task_action),
                 icon = Icons.Default.Archive,
                 iconTint = colors.darkRed,
-                onClick = { onArchive(taskSnapshot, ArchiveMode.Single) }),
+                onClick = { onArchive(taskForLiveActions, ArchiveMode.Single) }),
             ActionItem(
                 label = stringResource(R.string.archive_series_action),
                 icon = Icons.Default.Archive,
                 iconTint = colors.brightRed,
-                onClick = { onArchive(taskSnapshot, ArchiveMode.Series) })
+                onClick = { onArchive(taskForLiveActions, ArchiveMode.Series) })
         )
 
         else -> listOf(
@@ -312,17 +314,17 @@ fun TaskOptionsPanel(
                 label = stringResource(R.string.archive_task_action),
                 icon = Icons.Default.Archive,
                 iconTint = colors.darkRed,
-                onClick = { onArchive(taskSnapshot, ArchiveMode.Single) })
+                onClick = { onArchive(taskForLiveActions, ArchiveMode.Single) })
         )
     }
 
     /* ---------- “go to category” pill ---------- */
-    val categoryExists = allCategories.any { it.id == taskSnapshot.categoryId }
-    val gotoCategoryEnabled = categoryExists && currentFilterCatId != taskSnapshot.categoryId
+    val categoryExists = allCategories.any { it.id == currentCategory.id }
+    val gotoCategoryEnabled = categoryExists && currentFilterCatId != currentCategory.id
     val gotoCategoryAction =
         ActionItem(icon = Icons.AutoMirrored.Filled.List, enabled = gotoCategoryEnabled, onClick = {
             onDismiss()
-            onNavigateToCategory(taskSnapshot.categoryId)
+            onNavigateToCategory(currentCategory.id)
         }, labelContent = {
             val alpha = if (gotoCategoryEnabled) 1f else 0.4f
             Row(
@@ -335,7 +337,7 @@ fun TaskOptionsPanel(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 CategoryPill(
-                    category = category, big = true, selected = true
+                    category = currentCategory, big = true, selected = true
                 )
             }
         })
@@ -612,12 +614,18 @@ fun TaskOptionsPanel(
                 HorizontalDivider(color = Color.Gray)
             }
 
-        }, actions = listOf(
+        }, actions = listOfNotNull(
             quickDateAction,
-            ActionItem(
+            if (categoryDeleted) null else ActionItem(
                 label = stringResource(R.string.clone_task_action),
                 icon = Icons.Default.Add,
-                onClick = { onClone(taskSnapshot) }
+                onClick = { onClone(taskForLiveActions) }
+            ),
+            ActionItem(
+                label = stringResource(R.string.delete_task_permanently_action),
+                icon = Icons.Default.Delete,
+                iconTint = colors.brightRed,
+                onClick = { onDeletePermanently(taskSnapshot) }
             )
         ) + archiveActions + gotoCategoryAction + statusActions, onDismiss = onDismiss
     )
