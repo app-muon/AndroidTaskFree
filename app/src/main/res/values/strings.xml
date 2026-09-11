@@ -39,6 +39,8 @@
     <string name="category_colour_label">Change category color</string>
     <string name="delete_this_category_action">Delete this category</string>
     <string name="archive_completed_in_category_action">Archive completed tasks in category</string>
+    <string name="confirm_delete_category_title">Delete category?</string>
+    <string name="confirm_delete_category_msg">Its tasks will be moved to the archive.</string>
     <string name="are_you_sure_you_delete_category">Are you sure you want to permanently delete “%1$s” and all its tasks?</string>
     <!--Dialog confirmations-->
     <string name="add_category_yes_dialog_button">Add</string>
@@ -108,6 +110,9 @@
     <string name="clone_task_action">Clone</string>
     <string name="clone_task_confirm_message">Clone this task?</string>
     <string name="clone_yes_dialog_button">Clone</string>
+    <string name="delete_task_permanently_action">Delete permanently</string>
+    <string name="confirm_permanently_delete_task_title">Permanently delete this task?</string>
+    <string name="confirm_permanently_delete_task_msg">This action cannot be undone.</string>
     <!--   Notifications-->
     <string name="no_notification">No</string>
     <!-- Time option shown in notification picker -->
@@ -272,6 +277,7 @@ Choose a backup file to restore your tasks. This will replace all existing data 
     <string name="err_task_duplicate_id">Duplicate task IDs</string>
     <string name="err_task_empty_text">Task %1$d has an empty title</string>
     <string name="err_task_bad_category">Task %1$d points to missing category %2$d</string>
+    <string name="err_task_live_deleted_category">Task %1$d is active in deleted category %2$d</string>
     <string name="backup_save_failed">Save failed</string>
     <!--Text size options-->
     <string name="text_size_title">Text size</string>

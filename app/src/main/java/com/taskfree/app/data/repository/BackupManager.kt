@@ -18,6 +18,7 @@ object BackupManager {
 
     private val json = Json {
         encodeDefaults = true
+        ignoreUnknownKeys = true
         serializersModule = SerializersModule {
             contextual(LocalDateSerializer)
             contextual(InstantSerializer)
@@ -68,6 +69,10 @@ object BackupManager {
             throw BackupValidationException(R.string.err_cat_bad_id)
         if (b.categories.any { it.title.isBlank() })
             throw BackupValidationException(R.string.err_cat_empty_title)
+        val deletedCatIds = b.categories.asSequence()
+            .filter { it.isDeleted }
+            .map { it.id }
+            .toSet()
 
         val taskIds = b.tasks.map { it.id }
         requireUnique(taskIds) { BackupValidationException(R.string.err_task_duplicate_id) }
@@ -77,6 +82,10 @@ object BackupManager {
             if (it.categoryId !in catIds)
                 throw BackupValidationException(
                     R.string.err_task_bad_category, it.id, it.categoryId
+                )
+            if (!it.isArchived && it.categoryId in deletedCatIds)
+                throw BackupValidationException(
+                    R.string.err_task_live_deleted_category, it.id, it.categoryId
                 )
         }
     }

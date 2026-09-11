@@ -36,7 +36,8 @@ interface TaskDao {
         (due IS NOT NULL AND due <= :date AND (completedDate IS NULL OR completedDate >= :date))
         OR 
         (completedDate == :date))
-    AND isArchived = :archived
+    AND Task.isArchived = :archived
+    AND (Task.isArchived = 1 OR Category.isDeleted = 0)
     ORDER BY allCategoryPageOrder ASC
     """
     )
@@ -64,8 +65,8 @@ interface TaskDao {
     @Query("SELECT DISTINCT categoryId FROM Task")
     suspend fun getAllCategoryIds(): List<Int>
 
-    @Query("DELETE FROM Task WHERE categoryId = :categoryId")
-    suspend fun deleteTasksInCategory(categoryId: Int)
+    @Query("UPDATE Task SET isArchived = 1 WHERE categoryId = :categoryId")
+    suspend fun archiveTasksInCategory(categoryId: Int): Int
 
     @Update
     suspend fun updateMany(tasks: List<Task>)
@@ -120,17 +121,34 @@ WHERE categoryId = :categoryId
     )
     suspend fun archiveCompletedInCategory(catId: Int)
 
-    @Transaction
     @Query("DELETE FROM Task WHERE isArchived = 1")
-    suspend fun permanentlyDeleteArchivedTasks()
+    suspend fun permanentlyDeleteArchivedTasks(): Int
 
-    @Query("SELECT id, reminderTime FROM Task WHERE reminderTime > :from")
+    @Query(
+        """
+        SELECT Task.id AS id, Task.reminderTime AS reminderTime
+        FROM Task
+        JOIN Category ON Category.id = Task.categoryId
+        WHERE Task.reminderTime > :from
+          AND Task.isArchived = 0
+          AND Category.isDeleted = 0
+        """
+    )
     suspend fun upcomingReminders(from: Instant): List<IdTimeTuple>
 
     data class IdTimeTuple(val id: Int, val reminderTime: Instant)
 
-    @Transaction
-    @Query("SELECT Task.id, Task.text, Task.due, Task.recurrence, Category.title AS catTitle, Category.color AS catColor FROM Task JOIN Category ON Category.id = Task.categoryId WHERE Task.id = :id")
+    @Query(
+        """
+        SELECT Task.id, Task.text, Task.due, Task.recurrence,
+               Category.title AS catTitle, Category.color AS catColor
+        FROM Task
+        JOIN Category ON Category.id = Task.categoryId
+        WHERE Task.id = :id
+          AND Task.isArchived = 0
+          AND Category.isDeleted = 0
+        """
+    )
     suspend fun taskWithCatById(id: Int): TaskRow?
 
     data class TaskRow(
@@ -152,6 +170,9 @@ WHERE categoryId = :categoryId
 
     @Query("SELECT * FROM task WHERE id = :id LIMIT 1")
     suspend fun taskById(id: Int): Task?
+
+    @Query("DELETE FROM Task WHERE id = :id")
+    suspend fun deleteById(id: Int): Int
 
     @Query("""
 SELECT id FROM task

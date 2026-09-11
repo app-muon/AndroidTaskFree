@@ -6,6 +6,7 @@ import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.ConfirmArchive
+import com.taskfree.app.ui.components.ConfirmDeletion
 import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
@@ -52,9 +53,9 @@ internal fun TaskDialogHost(
             var hasInteracted = false      // <-- NEW
 
             TaskOptionsPanel(
-                task = ti.task, taskVm = taskVm, onArchive = { _, mode ->
+                task = ti, taskVm = taskVm, onArchive = { taskToArchive, mode ->
                     hasInteracted = true
-                    setDialogs(TaskDialogs.ConfirmArchive(ti, mode))
+                    setDialogs(TaskDialogs.ConfirmArchive(ti.copy(task = taskToArchive), mode))
                 },
 
                 onNavigateToCategory = { catId ->
@@ -63,9 +64,14 @@ internal fun TaskDialogHost(
                     onNavigateToCategory(catId)
                 },
 
-                onClone = {
+                onClone = { taskToClone ->
                     hasInteracted = true
-                    setDialogs(TaskDialogs.ConfirmClone(ti))   // <-- show the Y/N dialog
+                    setDialogs(TaskDialogs.ConfirmClone(ti.copy(task = taskToClone)))   // <-- show the Y/N dialog
+                },
+
+                onDeletePermanently = { taskToDelete ->
+                    hasInteracted = true
+                    setDialogs(TaskDialogs.ConfirmPermanentDelete(ti.copy(task = taskToDelete)))
                 },
 
                 onDismiss = {
@@ -100,6 +106,17 @@ internal fun TaskDialogHost(
                         t.categoryId,
                         NotificationOption.fromTask(t)
                     )
+                    setDialogs(TaskDialogs.None)
+                },
+                onNo = { setDialogs(TaskDialogs.None) }
+            )
+        }
+        is TaskDialogs.ConfirmPermanentDelete -> {
+            ConfirmDeletion(
+                title = stringResource(R.string.confirm_permanently_delete_task_title),
+                message = stringResource(R.string.confirm_permanently_delete_task_msg),
+                onYes = {
+                    taskVm.deletePermanently(dialogs.task.task)
                     setDialogs(TaskDialogs.None)
                 },
                 onNo = { setDialogs(TaskDialogs.None) }

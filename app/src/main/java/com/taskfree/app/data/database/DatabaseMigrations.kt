@@ -202,4 +202,9 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
     }
 }
 
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `Category` ADD COLUMN `isDeleted` INTEGER NOT NULL DEFAULT 0")
+    }
+}
 
