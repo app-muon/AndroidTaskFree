@@ -102,7 +102,7 @@
     <string name="postpone_action">Posponer</string>
     <string name="move_action">Mover</string>
     <string name="set_due_action">Fijar</string>
-    <string name="offset_weeks_format">+%ds</string>
+    <string name="offset_weeks_format">%d semana</string>
     <string name="clone_task_action">Clonar</string>
     <string name="clone_task_confirm_message">¿Clonar tarea?</string>
     <string name="clone_yes_dialog_button">Clonar</string>
