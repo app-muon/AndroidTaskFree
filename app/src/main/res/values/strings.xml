@@ -105,8 +105,8 @@
     <string name="postpone_action">Postpone</string>
     <string name="move_action">Move</string>
     <string name="set_due_action">Set</string>
-    <!-- Compact week-offset chip, e.g. "+1w" -->
-    <string name="offset_weeks_format">+%dw</string>
+    <!-- Compact week shortcut chip, e.g. "1 week" -->
+    <string name="offset_weeks_format">%d week</string>
     <string name="clone_task_action">Clone</string>
     <string name="clone_task_confirm_message">Clone this task?</string>
     <string name="clone_yes_dialog_button">Clone</string>

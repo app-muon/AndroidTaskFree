@@ -194,8 +194,9 @@ fun TaskOptionsPanel(
                         label = stringResource(R.string.offset_weeks_format, 1),
                         onClick = { applyPostponeDate(today.plusDays(7)); onDismiss() }
                     )
-                    LabelledOptionPill(
-                        label = stringResource(R.string.date_picker),
+                    IconOptionPill(
+                        icon = Icons.Default.DateRange,
+                        contentDescription = stringResource(R.string.date_picker),
                         onClick = { showDueDatePicker(initialDate = today, minDate = today) }
                     )
                 }
