@@ -77,14 +77,16 @@ fun ConfirmDialog(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(
-                        onClick = onNo,
-                        colors = ButtonDefaults.textButtonColors(contentColor = noColour)
-                    ) {
-                        Text(noMessage)
-                    }
+                    if (noMessage.isNotEmpty()) {
+                        TextButton(
+                            onClick = onNo,
+                            colors = ButtonDefaults.textButtonColors(contentColor = noColour)
+                        ) {
+                            Text(noMessage)
+                        }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
 
                     TextButton(
                         onClick = onYes,
