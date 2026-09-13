@@ -64,6 +64,8 @@
     <!-- Menú de herramientas -->
     <string name="tools_menu_name">Herramientas</string>
     <string name="contact_title">Contactar</string>
+    <string name="privacy_policy_title">Pol&#237;tica de privacidad</string>
+    <string name="privacy_policy_body">TaskFree es una aplicaci&#243;n local. No usa anuncios, anal&#237;ticas, cuentas, servidores del desarrollador ni acceso a internet.\n\nLa excepci&#243;n principal es la copia de seguridad de datos de Android/Google si est&#225; activada en tu dispositivo. TaskFree no opera ni recibe esas copias.\n\nPol&#237;tica de privacidad completa: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContacto: muonappdevelopment@gmail.com</string>
     <string name="archive_old_completed">Archivar completadas</string>
     <string name="permanently_delete_tasks">Eliminar archivadas</string>
     <string name="toggle_view_archived">Ver archivadas</string>
@@ -175,7 +177,8 @@
     <string name="tip_create">Crear</string>
     <string name="tip_contact_body">
         Correo electrónico: muonappdevelopment@gmail.com\n\n
-        Sitio web: https://app-muon.github.io/AndroidTaskFree/
+        Sitio web: https://app-muon.github.io/AndroidTaskFree/\n\n
+        Pol&#237;tica de privacidad: https://app-muon.github.io/AndroidTaskFree/privacy/
     </string>
     <string name="tip_create_your_first_category_body">Todas las tareas tienen categoría.\nCrea una tocando + en la barra inferior.</string>
     <string name="got_it_confirmation">Entendido</string>

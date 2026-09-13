@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
@@ -67,6 +68,7 @@ fun ToolsMenuDialog(
     val isOn = vm.uiState.collectAsState().value.showArchived
     var pending by remember { mutableStateOf<PendingAction?>(null) }
     var showContact by rememberSaveable { mutableStateOf(false) }
+    var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showTextSize by rememberSaveable { mutableStateOf(false) }
     val colors = providePanelColors()
     val ctx = LocalContext.current
@@ -152,6 +154,14 @@ fun ToolsMenuDialog(
                     }
                 ),
                 ActionItem(
+                    label = stringResource(R.string.privacy_policy_title),
+                    icon = Icons.Filled.PrivacyTip,
+                    onClick = {
+                        showPrivacyPolicy = true
+                        onDismiss()
+                    }
+                ),
+                ActionItem(
                     label = stringResource(R.string.backup_to_file),
                     icon = Icons.Outlined.Backup,
                     onClick = {
@@ -230,6 +240,18 @@ fun ToolsMenuDialog(
             noMessage = "",                 // hide second button
             onYes = { showContact = false },
             onNo = { showContact = false }
+        )
+    }
+
+    if (showPrivacyPolicy) {
+        ConfirmDialog(
+            title = stringResource(R.string.privacy_policy_title),
+            message = stringResource(R.string.privacy_policy_body),
+            yesMessage = stringResource(R.string.close),
+            yesColour = colorResource(R.color.dialog_button_text_colour),
+            noMessage = "",
+            onYes = { showPrivacyPolicy = false },
+            onNo = { showPrivacyPolicy = false }
         )
     }
 
