@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskfree.app.R
@@ -44,6 +45,7 @@ import com.taskfree.app.ui.category.CategoryViewModel
 import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.SortMode
+import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.thinVerticalScrollbar
 import com.taskfree.app.ui.task.TaskViewModel
 import com.taskfree.app.ui.task.TaskVmFactory
@@ -104,53 +106,15 @@ fun TaskListContent(
         }
     }
 
-    val orderFingerprint by remember(allTasks) {
-        derivedStateOf {
-            allTasks.joinToString(";") {
-                when (orderProperty) {
-                    OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> it.task.allCategoryPageOrder
-                    OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> it.task.singleCategoryPageOrder
-                }.toString()
-            }
-        }
-    }
-
-    // Reorder handler
-    val handleReorder = rememberTaskReorderHandler(
-        taskVm = taskVm, orderProperty = orderProperty, initialCategoryId = config.categoryId
-    )
-
-    // Effects for list management
-    LaunchedEffect(orderFingerprint, listState.sortMode) {
-        if (listState.sortMode != SortMode.USER) {
-            uiTasks.clear()
-            uiTasks += sortedFiltered
-        }
-    }
-
-    LaunchedEffect(listState.sortMode) {
-        if (listState.sortMode == SortMode.USER) {
-            uiTasks.clear()
-            uiTasks += sortedFiltered
-        }
+    // Show the filtered, sorted list; drags reorder uiTasks locally until the DB emits again
+    LaunchedEffect(sortedFiltered) {
+        uiTasks.clear()
+        uiTasks += sortedFiltered
     }
 
     LaunchedEffect(listState.targetDate) {
         // null when “All”, else the chosen cut-off date
         taskVm.setDate(listState.targetDate)
-    }
-
-
-    LaunchedEffect(baseFiltered, listState.sortMode) {
-        if (listState.sortMode != SortMode.USER) return@LaunchedEffect
-
-        val sorted = when (orderProperty) {
-            OrderProperty.ALL_CATEGORY_PAGE_ORDERING -> baseFiltered.sortedBy { it.task.allCategoryPageOrder }
-            OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING -> baseFiltered.sortedBy { it.task.singleCategoryPageOrder }
-        }
-
-        uiTasks.clear()
-        uiTasks += sorted
     }
 
     val lazyListState = rememberLazyListState()
@@ -174,19 +138,19 @@ fun TaskListContent(
     }
     fun persistMove(
         fromVis: Int,
-        toVis: Int
+        toVis: Int,
+        vis: List<Task>,    // on-screen order, already reordered
+        full: List<Task>    // every task sharing the order field, sorted by it
     ) {/* ───────────────────────── HEADER ───────────────────────── */
         if (fromVis == toVis) {
             Log.d(tag, "↪ no-op"); return
         }
 
-        /* 1️⃣  SNAPSHOTS ------------------------------------------------ */
-        val full = allTasksUnfiltered.map { it.task }.sortedBy(getOrd)
-        val vis = uiTasks.map { it.task }   // already reordered on screen
-
-        /* 2️⃣  FIND MOVED TASK + INSERT IDX --------------------------- */
+        /* 1️⃣  FIND MOVED TASK + INSERT IDX --------------------------- */
         val movedId = vis[toVis].id
-        val movedTask = full.first { it.id == movedId }
+        val movedTask = full.firstOrNull { it.id == movedId } ?: run {
+            Log.d(tag, "↪ task $movedId not in snapshot"); return
+        }
         val fullWithout = full.filter { it.id != movedId }.toMutableList()
 
         val insertIdx = when {
@@ -197,10 +161,10 @@ fun TaskListContent(
                 ?.plus(1) ?: fullWithout.size
         }
 
-        /* 3️⃣  INSERT & SHOW ORDER ------------------------------------ */
+        /* 2️⃣  INSERT & SHOW ORDER ------------------------------------ */
         fullWithout.add(insertIdx, movedTask)
 
-        /* 4️⃣  REINDEX ONLY WHEN NEEDED --------------------------------*/
+        /* 3️⃣  REINDEX ONLY WHEN NEEDED --------------------------------*/
         val updates = mutableListOf<Task>()
         fullWithout.forEachIndexed { idx, t ->
             if (getOrd(t) != idx) {
@@ -209,7 +173,7 @@ fun TaskListContent(
             }
         }
 
-        /* 5️⃣  WRITE --------------------------------------------------- */
+        /* 4️⃣  WRITE --------------------------------------------------- */
         if (updates.isNotEmpty()) taskVm.updateTaskOrder(updates)
     }
 
@@ -222,11 +186,22 @@ fun TaskListContent(
                 add(to.index, removeAt(from.index))
             }
 
-            /* ---- 2. debounce persistence ---- */
+            /* ---- 2. snapshot now, so a filter change during the debounce can't mix states ---- */
+            val vis = uiTasks.map { it.task }
+            val catId = listState.selectedCategoryId
+            // singleCategoryPageOrder is a per-category sequence, so only renumber that category
+            val full = allTasksUnfiltered.map { it.task }
+                .filter {
+                    orderProperty == OrderProperty.ALL_CATEGORY_PAGE_ORDERING ||
+                            it.categoryId == catId
+                }
+                .sortedBy(getOrd)
+
+            /* ---- 3. debounce persistence ---- */
             persistJob?.cancel()              // reset timer
             persistJob = coroutineScope.launch {
                 delay(debounceMs)
-                persistMove(from.index, to.index)   // see part 2
+                persistMove(from.index, to.index, vis, full)
             }
         })
 
@@ -277,15 +252,21 @@ fun TaskListContent(
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                val emptyMessage = if (listState.debouncedSearch.isNotBlank()) {
-                    stringResource(R.string.no_tasks_match_your_filters)
-                } else {
-                    noTaskMessage
+                val emptyMessage = when {
+                    listState.searchQuery.isBlank() -> noTaskMessage
+                    // Search is limited by the date filter; say so, and how to widen it
+                    listState.dueChoice !is DueChoice.All -> stringResource(
+                        R.string.no_search_matches_due_by,
+                        listState.dueChoice.resultLabel(),
+                        stringResource(R.string.all_dates)
+                    )
+                    else -> stringResource(R.string.no_tasks_match_your_filters)
                 }
                 Text(
                     emptyMessage,
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
                     color = colorResource(R.color.surface_colour)
                 )
             }
