@@ -14,8 +14,8 @@ object TaskFilterUtils {
         return tasks.asSequence()
             .filter { state.selectedCategoryId == null || it.task.categoryId == state.selectedCategoryId }
             .filter { it.task.status in visibleStatuses }.filter { task ->
-                val matchesSearch = state.debouncedSearch.isBlank() || task.task.text.contains(
-                    state.debouncedSearch,
+                val matchesSearch = state.searchQuery.isBlank() || task.task.text.contains(
+                    state.searchQuery,
                     ignoreCase = true
                 )
                 matchesSearch

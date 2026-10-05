@@ -34,6 +34,7 @@ import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
+import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.showDatePicker
 import com.taskfree.app.util.AppDateProvider
 
@@ -157,7 +158,7 @@ fun DateDropDown(
 
     Box(modifier = Modifier.clickable { expanded = true }) {
         LabelledOptionPill(
-            label = selectedDueChoice.choiceLabel(), selected = true,
+            label = selectedDueChoice.resultLabel(), selected = true,
             highlight = highlight, big = true
         )
     }

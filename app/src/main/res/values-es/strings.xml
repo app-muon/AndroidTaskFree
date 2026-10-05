@@ -77,6 +77,7 @@
 
     <!-- Mensajes -->
     <string name="no_tasks_match_your_filters">Ninguna tarea coincide con tus filtros</string>
+    <string name="no_search_matches_due_by">No hay coincidencias con vencimiento hasta %1$s.\nPara buscar también tareas posteriores o sin fecha, elige «%2$s».</string>
     <string name="no_tasks_to_display_default_message">No hay tareas</string>
     <string name="no_archived_tasks_to_display_default_message">No hay archivadas</string>
 

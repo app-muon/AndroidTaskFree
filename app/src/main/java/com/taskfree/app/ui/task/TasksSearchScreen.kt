@@ -246,7 +246,7 @@ fun TaskSearchScreen(
             } else {
                 stringResource(R.string.no_tasks_to_display_default_message)
             },
-            orderProperty = if (config.categoryId == null) OrderProperty.ALL_CATEGORY_PAGE_ORDERING else OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING,
+            orderProperty = if (selectedCatId == null) OrderProperty.ALL_CATEGORY_PAGE_ORDERING else OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING,
             config = config,
             onDueChange = { due = it },
             onClickTask = { dialogs = TaskDialogs.Options(it) },
@@ -257,7 +257,7 @@ fun TaskSearchScreen(
         // Bottom bar
         AppBottomBar(
             navController = navController,
-            isTodayView = (config.dueChoice.date == AppDateProvider.current.today() && config.categoryId == null),
+            isTodayView = (config.dueChoice.date == AppDateProvider.current.today() && selectedCatId == null),
             addButtonLabel = stringResource(R.string.add_task_button_label),
             hasCategories = categoryUi.categories.isNotEmpty(),
             onAddTask = {
@@ -281,7 +281,7 @@ fun TaskSearchScreen(
         setDialogs = { dialogs = it },
         allCategories = categoryUi.categories,
         taskVm = taskVm,
-        currentFilterCatId = config.categoryId,
+        currentFilterCatId = selectedCatId,
         onNavigateToCategory = { catId ->
             navController.navigate("search?categoryId=$catId")
         })
