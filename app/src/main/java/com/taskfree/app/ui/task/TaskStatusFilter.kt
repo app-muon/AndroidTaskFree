@@ -2,6 +2,7 @@
 package com.taskfree.app.ui.task
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import com.taskfree.app.domain.model.TaskStatus
 import kotlinx.coroutines.CoroutineScope
@@ -45,5 +46,11 @@ object TaskStatusFilter {
                 putStringSet(KEY_VISIBLE, set.map { it.name }.toSet())
             }
         }.launchIn(scope)
+    }
+
+    @VisibleForTesting
+    internal fun resetForTesting() {
+        started = false
+        _visible.value = TaskStatus.entries.toSet()
     }
 }

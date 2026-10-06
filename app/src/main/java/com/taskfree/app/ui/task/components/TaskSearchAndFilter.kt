@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,9 @@ import com.taskfree.app.ui.components.InfoPill
 import com.taskfree.app.ui.components.SortMode
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.displayName
+
+/** Test tag for the search show/hide icon (it has no text or content description). */
+const val SEARCH_TOGGLE_TAG = "searchToggle"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -63,6 +67,7 @@ fun TaskSearchAndFilter(
             Box(
                 modifier = Modifier
                     .padding(start = 8.dp)
+                    .testTag(SEARCH_TOGGLE_TAG)
                     .clickable {
                         onUpdateState(
                             state.copy(

@@ -1,6 +1,7 @@
 // DateProvider.kt
 package com.taskfree.app.util
 
+import androidx.annotation.VisibleForTesting
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -32,6 +33,16 @@ object AppDateProvider {
     @Volatile private var _instance: DateProvider = DateProvider()
 
     val current: DateProvider get() = _instance
+
+    @VisibleForTesting
+    fun setForTesting(provider: DateProvider) {
+        _instance = provider
+    }
+
+    @VisibleForTesting
+    fun reset() {
+        _instance = DateProvider()
+    }
 }
 
 

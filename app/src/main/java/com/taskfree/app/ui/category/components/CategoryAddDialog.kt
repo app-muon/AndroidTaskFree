@@ -53,17 +53,17 @@ internal fun CategoryAddDialog(
     val keyboard = LocalSoftwareKeyboardController.current
     val backgroundColor = colorResource(R.color.dialog_background_colour)
 
-    // Autofocus only when creating a new category
-    LaunchedEffect(Unit) {
-        if (initialText.isBlank()) {
-            focusRequester.requestFocus()
-            keyboard?.show()
-        }
-    }
-
     Dialog(
         onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        // Autofocus only when creating a new category.
+        // Must live inside the Dialog so the text field is composed before focus is requested.
+        LaunchedEffect(Unit) {
+            if (initialText.isBlank()) {
+                focusRequester.requestFocus()
+                keyboard?.show()
+            }
+        }
         Surface(
             color = backgroundColor,
             modifier = Modifier
