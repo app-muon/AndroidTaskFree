@@ -19,6 +19,7 @@ import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.toInstant
 import com.taskfree.app.ui.task.components.ArchiveMode
 import com.taskfree.app.ui.task.components.TaskFilter
+import com.taskfree.app.ui.task.components.computeReorderUpdates
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.CoroutineDispatcher
@@ -254,16 +255,7 @@ class TaskViewModel(
     }
 
 
-    /**
-     * Re-orders a visible slice of tasks and rewrites **all** order fields so they are
-     * simple 0-based integers. No sparse gaps, no ×10 bodges.
-     *
-     * • allTasks   – full list (usually already fetched from DB)
-     * • visible    – subset currently on screen (same objects as in allTasks)
-     * • from / to  – indices within the *visible* list (sorted by order field)
-     * • getOrder   – returns the order field you care about
-     * • setOrder   – returns a *copy* of the task with a new order value
-     */
+    /** Re-orders a visible slice of tasks and persists the renumbered rows. */
     private suspend fun reorderVisibleItems(
         allTasks: List<Task>,
         visible: List<Task>,
@@ -272,40 +264,7 @@ class TaskViewModel(
         getOrder: (Task) -> Int,
         setOrder: (Task, Int) -> Task,
     ) {
-        if (from == to) {
-            return
-        }
-
-        /* -------------------------------------------------------------
-         * 1. Work on deterministic snapshots
-         * ------------------------------------------------------------ */
-        val fullSorted = allTasks.sortedBy(getOrder).toMutableList()
-        val visibleSorted = visible.sortedBy(getOrder).toMutableList()
-        val visibleIds = visibleSorted.map { it.id }.toSet()
-
-        /* -------------------------------------------------------------
-         * 2. Re-order the visible slice
-         * ------------------------------------------------------------ */
-        val moved = visibleSorted.removeAt(from)
-        visibleSorted.add(to, moved)
-
-        /* -------------------------------------------------------------
-         * 3. Stitch the reordered slice back into the full list
-         * ------------------------------------------------------------ */
-        val itVis = visibleSorted.iterator()
-        val newFull = fullSorted.map { if (it.id in visibleIds) itVis.next() else it }
-
-        /* -------------------------------------------------------------
-         * 4. Renumber every task (contiguous integers starting at 0)
-         *    – touch only the ones whose order actually changed
-         * ------------------------------------------------------------ */
-        val updates = newFull.mapIndexedNotNull { idx, task ->
-            if (getOrder(task) != idx) setOrder(task, idx) else null
-        }
-
-        /* -------------------------------------------------------------
-         * 5. Persist
-         * ------------------------------------------------------------ */
+        val updates = computeReorderUpdates(allTasks, visible, from, to, getOrder, setOrder)
         if (updates.isNotEmpty()) repo.updateTaskOrder(updates)
     }
 

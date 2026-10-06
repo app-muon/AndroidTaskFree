@@ -144,7 +144,7 @@ class TaskRepository(
                 val baseDate = task.baseDate
                     ?: throw IllegalArgumentException("null baseDate but recurrence is not NONE")
 
-                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
+                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates)
 
                 if (nextDueDate != null && database.categoryDao().isActive(task.categoryId)) {
                     val existingNextId = database.taskDao().findNextInstanceId(
@@ -223,7 +223,7 @@ class TaskRepository(
                 val baseDate = task.baseDate
                     ?: throw IllegalArgumentException("null baseDate but recurrence is not NONE")
 
-                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate)
+                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates)
 
                 if (!task.isArchived && categoryActive && nowDone && !wasDone && nextDueDate != null) {
                     // create the next instance, keeping the SAME local time-of-day as current reminder

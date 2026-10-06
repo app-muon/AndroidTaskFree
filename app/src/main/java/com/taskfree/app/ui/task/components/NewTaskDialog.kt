@@ -99,13 +99,6 @@ fun NewTaskDialog(
     val keyboard = LocalSoftwareKeyboardController.current
     val colors = providePanelColors()
 
-    LaunchedEffect(Unit) {
-        if (text.isBlank()) {
-            focusRequester.requestFocus()
-            keyboard?.show()
-        }
-    }
-
     var pickDate by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -140,6 +133,13 @@ fun NewTaskDialog(
             usePlatformDefaultWidth = false, dismissOnClickOutside = false
         )
     ) {
+        // Must live inside the Dialog so the text field is composed before focus is requested.
+        LaunchedEffect(Unit) {
+            if (text.isBlank()) {
+                focusRequester.requestFocus()
+                keyboard?.show()
+            }
+        }
         Surface(
             color = colors.dialogBackground,
             modifier = Modifier

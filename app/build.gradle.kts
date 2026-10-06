@@ -66,6 +66,18 @@ android {
         disable += setOf("NullSafeMutableLiveData")
         // or: checkReleaseBuilds = false
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true // Robolectric needs merged resources (R.string, toasts)
+            isReturnDefaultValues = true     // plain JVM tests hit android.util.Log stubs
+            all {
+                // Fixed zone/locale so date maths and formatted strings are deterministic
+                it.systemProperty("user.timezone", "Europe/London")
+                it.systemProperty("user.language", "en")
+                it.systemProperty("user.country", "GB")
+            }
+        }
+    }
 
 }
 
@@ -90,6 +102,19 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.androidx.sqlite)
     ksp(libs.room.compiler)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
 
 composeCompiler {

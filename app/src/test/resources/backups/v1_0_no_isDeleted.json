@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "app_version": "1.0.20",
+  "exported_at": "2026-01-15T10:00:00Z",
+  "field_from_a_future_version": true,
+  "categories": [
+    { "id": 1, "title": "Home", "color": 4282339765, "categoryPageOrder": 0 }
+  ],
+  "tasks": [
+    {
+      "id": 1, "categoryId": 1, "text": "Fix tap",
+      "due": "2026-01-20", "baseDate": null,
+      "singleCategoryPageOrder": 0, "allCategoryPageOrder": 0,
+      "completedDate": null, "recurrence": "NONE", "status": "TODO",
+      "isArchived": false, "reminderTime": "2026-01-20T09:00:00Z"
+    },
+    {
+      "id": 2, "categoryId": 1, "text": "Bins",
+      "due": "2026-01-21", "baseDate": "2026-01-21",
+      "singleCategoryPageOrder": 1, "allCategoryPageOrder": 1,
+      "completedDate": "2026-01-14", "recurrence": "WEEKLY", "status": "DONE",
+      "isArchived": true
+    }
+  ]
+}

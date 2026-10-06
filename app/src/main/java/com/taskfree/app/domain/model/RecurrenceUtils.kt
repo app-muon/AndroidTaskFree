@@ -48,7 +48,7 @@ fun Recurrence.calculateNextValidDueDate(
         "Calculating next due date from base: $baseDate, tomorrow is: $tomorrow"
     )
 
-    repeat(1000) {
+    repeat(3000) {
         next = recurrenceNextDate(this, next) ?: return null
         if (!next.isBefore(tomorrow)) return next
     }
