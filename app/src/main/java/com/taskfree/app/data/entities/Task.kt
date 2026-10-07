@@ -27,8 +27,14 @@ import java.time.LocalDate
         parentColumns = ["id"],
         childColumns = ["categoryId"],
         onDelete = ForeignKey.CASCADE
+    ), ForeignKey(
+        entity = Task::class,
+        parentColumns = ["id"],
+        childColumns = ["sourceTaskId"],
+        onDelete = ForeignKey.SET_NULL,
+        deferred = true
     )],
-    indices = [Index(value = ["categoryId"])]
+    indices = [Index(value = ["categoryId"]), Index(value = ["sourceTaskId"], unique = true)]
 )
 data class Task(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -49,5 +55,14 @@ data class Task(
     @ColumnInfo(defaultValue = "0")
     val isArchived: Boolean = false,
 
-    val reminderTime: Instant? = null
+    val reminderTime: Instant? = null,
+
+    /** When the user first added this task; inherited by automatic recurrences. */
+    val originalCreatedAt: Instant? = null,
+
+    /** When this occurrence was generated. Null for tasks predating date tracking. */
+    val occurrenceCreatedAt: Instant? = null,
+
+    /** The occurrence that generated this task. Manual additions and legacy rows have no link. */
+    val sourceTaskId: Int? = null
 )

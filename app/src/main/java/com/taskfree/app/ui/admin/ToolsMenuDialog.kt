@@ -184,7 +184,7 @@ fun ToolsMenuDialog(
                             Prefs.clearEncryptionSecrets(ctx)
                             DatabaseKeyManager.clearCachedKey()
                             AppDatabaseFactory.clearInstance()
-                            listOf("checklists.db", "checklists_temp.db", "checklists_backup.db")
+                            listOf("checklists.db", AppDatabaseFactory.TEMP_DB_NAME, "checklists_backup.db")
                                 .forEach { name ->
                                     ctx.getDatabasePath(name)?.takeIf { it.exists() }?.delete()
                                 }

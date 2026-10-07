@@ -208,3 +208,21 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
     }
 }
 
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Existing creation dates are unknown; leave both columns NULL.
+        db.execSQL("ALTER TABLE `Task` ADD COLUMN `originalCreatedAt` INTEGER")
+        db.execSQL("ALTER TABLE `Task` ADD COLUMN `occurrenceCreatedAt` INTEGER")
+    }
+}
+
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            ALTER TABLE `Task` ADD COLUMN `sourceTaskId` INTEGER
+            REFERENCES `Task`(`id`) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX `index_Task_sourceTaskId` ON `Task` (`sourceTaskId`)")
+    }
+}
+

@@ -3,6 +3,7 @@ package com.taskfree.app.data
 import android.content.Context
 import android.util.Log
 import com.taskfree.app.Prefs
+import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.enc.DatabaseKeyManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,17 @@ object RealDatabaseMigrator {
     val error: StateFlow<String?> = _error
 
     suspend fun migrateToEncrypted(context: Context, phrase: List<String>) {
+        migrateToEncrypted(context, phrase) { source, target ->
+            target.categoryDao().insertAll(source.categoryDao().getAllNow())
+            target.taskDao().insertAll(source.taskDao().getAllNow())
+        }
+    }
+
+    internal suspend fun migrateToEncrypted(
+        context: Context,
+        phrase: List<String>,
+        copyTables: suspend (source: AppDatabase, target: AppDatabase) -> Unit
+    ) {
         withContext(Dispatchers.IO) {
             try {
                 _error.value = null
@@ -44,9 +56,10 @@ object RealDatabaseMigrator {
 
                 // Step 4: Encrypt database or create new encrypted one
                 _progress.value = 40
+                deleteTemporaryDatabase(context)
                 if (dbFile.exists()) {
                     Log.d("RealDatabaseMigrator", "Existing database found, encrypting in-place")
-                    encryptByCopy(context, keyBytes, dbFile)
+                    encryptByCopy(context, keyBytes, dbFile, copyTables)
                 } else {
                     Log.d(
                         "RealDatabaseMigrator",
@@ -71,33 +84,42 @@ object RealDatabaseMigrator {
                 _error.value = "Migration failed: ${e.message}"
 
                 // Cleanup on failure
-                cleanupFailedMigration(context)
+                try {
+                    cleanupFailedMigration(context)
+                } catch (cleanupError: Exception) {
+                    e.addSuppressed(cleanupError)
+                    Log.e("RealDatabaseMigrator", "Cleanup failed", cleanupError)
+                }
                 throw e
             }
         }
     }
 
     private suspend fun encryptByCopy(
-        context: Context, key: ByteArray, srcFile: File
+        context: Context,
+        key: ByteArray,
+        srcFile: File,
+        copyTables: suspend (source: AppDatabase, target: AppDatabase) -> Unit
     ) {
         // 1. build temp encrypted Room DB
         val tmpDb = AppDatabaseFactory.createTempEncryptedDatabase(context, key)
 
-        // 2. open the original DB through Room (plain)
-        Prefs.setEncrypted(context, false)            // ensure plain open
-        val plainDb = AppDatabaseFactory.getDatabase(context)
-
         try {
-            // 3. copy tables
-            tmpDb.categoryDao().insertAll(plainDb.categoryDao().getAllNow())
-            tmpDb.taskDao().insertAll(plainDb.taskDao().getAllNow())
+            // 2. open the original DB through Room (plain)
+            Prefs.setEncrypted(context, false)
+            val plainDb = AppDatabaseFactory.getDatabase(context)
+            try {
+                // 3. copy tables
+                copyTables(plainDb, tmpDb)
+            } finally {
+                AppDatabaseFactory.clearInstance()
+            }
         } finally {
-            plainDb.close()
             tmpDb.close()
         }
 
         // 4. swap files (db + sidecars)
-        val tmpFile = File(srcFile.parent, "checklists_temp.db")
+        val tmpFile = context.getDatabasePath(AppDatabaseFactory.TEMP_DB_NAME)
         val bakFile = File(srcFile.parent, "checklists_backup.db")
         val srcWal = File(srcFile.path + "-wal")
         val srcShm = File(srcFile.path + "-shm")
@@ -114,22 +136,25 @@ object RealDatabaseMigrator {
         bakFile.delete()
     }
 
+    private fun deleteTemporaryDatabase(context: Context) {
+        context.deleteDatabase(AppDatabaseFactory.TEMP_DB_NAME)
+        val tempFile = context.getDatabasePath(AppDatabaseFactory.TEMP_DB_NAME)
+        check(listOf("", "-wal", "-shm", "-journal").none { File(tempFile.path + it).exists() }) {
+            "Temporary encryption database files could not be deleted"
+        }
+    }
+
     private fun cleanupFailedMigration(context: Context) {
         try {
+            deleteTemporaryDatabase(context)
             val dbFile = context.getDatabasePath(DB_NAME)
-            File(File(dbFile.parent, "checklists_temp.db").path + "-wal").delete()
-            File(File(dbFile.parent, "checklists_temp.db").path + "-shm").delete()
             File(File(dbFile.parent, "checklists_backup.db").path + "-wal").delete()
             File(File(dbFile.parent, "checklists_backup.db").path + "-shm").delete()
-
+        } finally {
             // Clear encryption state
             DatabaseKeyManager.clearCachedKey()
             Prefs.setEncrypted(context, false)
-
-            Log.d("RealDatabaseMigrator", "Failed migration cleanup completed")
-
-        } catch (e: Exception) {
-            Log.e("RealDatabaseMigrator", "Cleanup failed", e)
         }
+        Log.d("RealDatabaseMigrator", "Failed migration cleanup completed")
     }
 }

@@ -46,39 +46,34 @@ class TaskRepository(
         }
     }
 
-    suspend fun saveTask(task: Task): Int {
-        var updated = 0
-        database.withTransaction {
-            if (!task.isArchived) {
-                requireActiveCategory(task.categoryId)
-            }
-            updated = database.taskDao().update(task)
-            database.categoryDao().deleteDeletedWithoutTasks()
-        }
-        require(updated > 0) { "Update failed for task id=${task.id}" }
-        return updated
-    }
-
     private suspend fun maxPositionInCategory(categoryId: Int): Int {
         return database.taskDao().getMaxPos(categoryId) ?: -1
     }
 
     suspend fun reindexAllTaskPageOrders() {
-        val categories = database.taskDao().getAllCategoryIds()
-        for (catId in categories) {
-            val orderedTasks = database.taskDao().tasksByCategory(catId)
-            val reindexed = orderedTasks.mapIndexed { index, task ->
-                task.copy(singleCategoryPageOrder = index)
+        database.withTransaction {
+            val dao = database.taskDao()
+            for (catId in dao.getAllCategoryIds()) {
+                dao.tasksByCategory(catId).forEachIndexed { index, task ->
+                    val rows = dao.updateOrder(task.id, index, task.allCategoryPageOrder)
+                    require(rows > 0) { "Task update failed for id=${task.id}" }
+                }
             }
-            database.taskDao().updateMany(reindexed)
         }
     }
 
     suspend fun createTask(input: TaskInput): Int = database.withTransaction {
-        insertLiveTask(input)
+        val createdAt = dates.nowInstant()
+        insertLiveTask(input, originalCreatedAt = createdAt, occurrenceCreatedAt = createdAt)
     }
 
-    private suspend fun insertLiveTask(input: TaskInput): Int {
+    private suspend fun insertLiveTask(
+        input: TaskInput,
+        // Required even when null: a legacy recurrence must keep its unknown original date.
+        originalCreatedAt: Instant?,
+        occurrenceCreatedAt: Instant = dates.nowInstant(),
+        sourceTaskId: Int? = null
+    ): Int {
         require(input.title.isNotBlank()) { "Task title cannot be blank" }
         val trimmedTitle = sanitizeTaskTitle(input.title)
         val baseDate = if (input.recurrence != Recurrence.NONE) {
@@ -98,7 +93,10 @@ class TaskRepository(
             recurrence = input.recurrence,
             status = TaskStatus.TODO,
             isArchived = false,
-            reminderTime = input.reminderTime
+            reminderTime = input.reminderTime,
+            originalCreatedAt = originalCreatedAt,
+            occurrenceCreatedAt = occurrenceCreatedAt,
+            sourceTaskId = sourceTaskId
         )
         if (BuildConfig.DEBUG) {
             Log.d("TaskRepository", "Creating task: $task")
@@ -110,7 +108,9 @@ class TaskRepository(
         Log.d("TaskRepository", "Moving task: $tasks")
         database.withTransaction {
             tasks.forEach { task ->
-                val rows = database.taskDao().update(task)
+                val rows = database.taskDao().updateOrder(
+                    task.id, task.singleCategoryPageOrder, task.allCategoryPageOrder
+                )
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "Repo-reorder",
@@ -122,81 +122,60 @@ class TaskRepository(
         }
     }
 
-    suspend fun archiveTask(task: Task) {
-        if (BuildConfig.DEBUG) {
-            Log.d("TaskRepository", "Archiving task: $task")
-        }
-        val archived = task.copy(isArchived = true)
-        val updatedRows = database.taskDao().update(archived)
-        require(updatedRows > 0) { "Archive failed: no row updated for id=${task.id}" }
+    suspend fun archiveTask(task: Task) = database.withTransaction {
+        val current = requireNotNull(database.taskDao().taskById(task.id))
+        database.taskDao().update(current.copy(isArchived = true))
     }
 
-    suspend fun archiveSingleOccurrence(task: Task): Int? {
-        if (task.recurrence == Recurrence.NONE) {
-            archiveTask(task)
-            return null
+    suspend fun unarchiveTask(taskId: Int) = database.withTransaction {
+        val current = requireNotNull(database.taskDao().taskById(taskId))
+        requireActiveCategory(current.categoryId)
+        database.taskDao().update(current.copy(isArchived = false))
+    }
+
+    suspend fun archiveSingleOccurrence(task: Task): Int? = database.withTransaction {
+        val current = requireNotNull(database.taskDao().taskById(task.id))
+        if (current.isArchived) return@withTransaction null
+        if (current.recurrence == Recurrence.NONE) {
+            database.taskDao().update(current.copy(isArchived = true))
+            return@withTransaction null
         }
-        var nextId: Int? = null
+        val nextId = if (current.status != TaskStatus.DONE) createNextOccurrence(current) else null
+        database.taskDao().update(current.copy(
+            isArchived = true,
+            status = TaskStatus.DONE,
+            completedDate = current.completedDate ?: dates.today()
+        ))
+        nextId
+    }
 
-        database.withTransaction {
-            try {
-                // First spawn the next occurrence
-                val baseDate = task.baseDate
-                    ?: throw IllegalArgumentException("null baseDate but recurrence is not NONE")
+    /** Called inside the same transaction as the completion/archive that creates the successor. */
+    private suspend fun createNextOccurrence(task: Task): Int? {
+        if (task.isArchived || task.recurrence == Recurrence.NONE ||
+            !database.categoryDao().isActive(task.categoryId) ||
+            database.taskDao().findNextInstanceId(task.id) != null
+        ) return null
 
-                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates)
-
-                if (nextDueDate != null && database.categoryDao().isActive(task.categoryId)) {
-                    val existingNextId = database.taskDao().findNextInstanceId(
-                        categoryId = task.categoryId,
-                        text = task.text,
-                        rec = task.recurrence,
-                        dueNext = nextDueDate
-                    )
-
-                    if (existingNextId == null) {
-                        val nextReminder: Instant? = task.reminderTime?.sameLocalTimeOn(nextDueDate)
-                        nextId = insertLiveTask(
-                            TaskInput(
-                                task.text,
-                                nextDueDate,
-                                task.recurrence,
-                                task.categoryId,
-                                nextReminder
-                            )
-                        )
-                        if (BuildConfig.DEBUG) {
-                            Log.d("TaskRepository", "Spawned next recurring task due: $nextDueDate")
-                        }
-                    }
-                }
-
-                // Then mark current task as archived/deleted (soft delete)
-                val updatedTask = task.copy(
-                    isArchived = true, status = TaskStatus.DONE, // Or create a DELETED status
-                    completedDate = dates.today()
-                )
-
-                val updatedRows = database.taskDao().update(updatedTask)
-                if (updatedRows == 0) {
-                    throw IllegalStateException("Failed to archive task with id: ${task.id}")
-                }
-
-            } catch (e: Exception) {
-                Log.e(
-                    "TaskRepository", "Failed to delete single occurrence of task: ${task.id}", e
-                )
-                throw e
-            }
-        }
-        return nextId
+        val baseDate = requireNotNull(task.baseDate) { "Recurring task has no base date" }
+        val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates) ?: return null
+        return insertLiveTask(
+            TaskInput(
+                title = task.text,
+                dueDate = nextDueDate,
+                recurrence = task.recurrence,
+                categoryId = task.categoryId,
+                reminderTime = task.reminderTime?.sameLocalTimeOn(nextDueDate)
+            ),
+            originalCreatedAt = task.originalCreatedAt,
+            sourceTaskId = task.id
+        )
     }
 
     fun observeTasksDueBy(date: LocalDate?, archived: Boolean): Flow<List<TaskWithCategoryInfo>> {
         return database.taskDao().taskListForDate(date, archived)
     }
 
-    suspend fun updateTaskStatus(taskId: Int, newStatus: TaskStatus): UpdateResult {   // <-- CHANGED return type
+    suspend fun updateTaskStatus(taskId: Int, newStatus: TaskStatus): UpdateResult {
         var createdId: Int? = null
         var deletedId: Int? = null
 
@@ -215,59 +194,22 @@ class TaskRepository(
             // update the current task row
             val updated = task.copy(
                 status = newStatus,
-                completedDate = if (nowDone) dates.today() else null
+                completedDate = if (nowDone) task.completedDate ?: dates.today() else null
             )
             database.taskDao().update(updated)
 
-            if (task.recurrence != Recurrence.NONE) {
-                val baseDate = task.baseDate
-                    ?: throw IllegalArgumentException("null baseDate but recurrence is not NONE")
-
-                val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates)
-
-                if (!task.isArchived && categoryActive && nowDone && !wasDone && nextDueDate != null) {
-                    // create the next instance, keeping the SAME local time-of-day as current reminder
-                    val existingNextId = database.taskDao().findNextInstanceId(
-                        categoryId = task.categoryId,
-                        text = task.text,
-                        rec = task.recurrence,
-                        dueNext = nextDueDate
-                    )
-
-                    if (existingNextId == null) {
-                        val nextReminder = task.reminderTime?.sameLocalTimeOn(nextDueDate)
-                        createdId = insertLiveTask(
-                            TaskInput(
-                                title = task.text,
-                                dueDate = nextDueDate,
-                                recurrence = task.recurrence,
-                                categoryId = task.categoryId,
-                                reminderTime = nextReminder
-                            )
-                        )
-                    }
-                }
-
-                if (categoryActive && !nowDone && wasDone && nextDueDate != null) {
-                    // we’re reverting DONE → (TO DO/PENDING/DOING): delete the "next" instance if it exists
-                    // (requires you added TaskDao.findNextInstanceId as shown earlier)
-                    deletedId = database.taskDao().findNextInstanceId(
-                        categoryId = task.categoryId,
-                        text = task.text,
-                        rec = task.recurrence,
-                        dueNext = nextDueDate
-                    )
-                    database.taskDao().deleteNextInstance(
-                        categoryId = task.categoryId,
-                        text = task.text,
-                        rec = task.recurrence,
-                        dueNext = nextDueDate
-                    )
+            if (nowDone && !wasDone) {
+                createdId = createNextOccurrence(task)
+            }
+            if (!task.isArchived && categoryActive && !nowDone && wasDone) {
+                val nextId = database.taskDao().findNextInstanceId(task.id)
+                if (nextId != null && database.taskDao().deleteTodoOccurrence(nextId) > 0) {
+                    deletedId = nextId
                 }
             }
         }
 
-        return UpdateResult(createdId, deletedId)   // <-- CHANGED return
+        return UpdateResult(createdId, deletedId)
     }
 
     suspend fun updateTaskDetails(
@@ -278,24 +220,19 @@ class TaskRepository(
         newCategoryId: Int,
         newReminderTime: Instant?
     ) {
-        val baseDate = if (newRecurrence != Recurrence.NONE) newDueDate else null
-        val updated = task.copy(
-            text = sanitizeTaskTitle(newTitle),
-            due = newDueDate,
-            baseDate = baseDate,
-            categoryId = newCategoryId,
-            recurrence = newRecurrence,
-            reminderTime = newReminderTime
-        )
-        if (BuildConfig.DEBUG) {
-            Log.d("TaskRepository", "Updating task: original $task")
-            Log.d("TaskRepository", "Updating task: update $updated")
-        }
         database.withTransaction {
-            if (!task.isArchived) {
+            val current = requireNotNull(database.taskDao().taskById(task.id))
+            if (!current.isArchived) {
                 requireActiveCategory(newCategoryId)
             }
-            database.taskDao().update(updated)
+            database.taskDao().update(current.copy(
+                text = sanitizeTaskTitle(newTitle),
+                due = newDueDate,
+                baseDate = if (newRecurrence != Recurrence.NONE) newDueDate else null,
+                categoryId = newCategoryId,
+                recurrence = newRecurrence,
+                reminderTime = newReminderTime
+            ))
             database.categoryDao().deleteDeletedWithoutTasks()
         }
     }

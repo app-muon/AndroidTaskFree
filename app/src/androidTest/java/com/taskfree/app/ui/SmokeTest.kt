@@ -3,20 +3,28 @@ package com.taskfree.app.ui
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.taskfree.app.MainActivity
 import com.taskfree.app.R
@@ -33,6 +41,8 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import java.io.File
+import java.time.Instant
 import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
@@ -157,13 +167,66 @@ class SmokeTest {
 
         compose.onNode(taskRow("Water plants")).performClick()
         val setDone = str(R.string.set_as_for_task_status, str(R.string.done_status))
-        waitFor(hasText(setDone))
+        waitFor(isDialog())
+        compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
+            .performScrollToNode(hasText(setDone))
         compose.onNodeWithText(setDone).performClick()
 
         compose.waitUntil(10_000) {
             runBlocking { reset.db().taskDao().taskById(id)?.status } == TaskStatus.DONE
         }
         assertEquals(LocalDate.now(), runBlocking { reset.db().taskDao().taskById(id)!!.completedDate })
+    }
+
+    @Test
+    fun creationDate_isShownInTaskDetails() {
+        val cat = seedCategory()
+        val id = seedTask(cat, "Water plants")
+        val originalCreatedAt = Instant.parse("2025-07-15T12:00:00Z")
+        reset.seed {
+            taskDao().update(taskDao().taskById(id)!!.copy(
+                originalCreatedAt = originalCreatedAt,
+                occurrenceCreatedAt = Instant.parse("2026-10-06T08:00:00Z"),
+                status = TaskStatus.DONE,
+                completedDate = LocalDate.now()
+            ))
+        }
+        launch()
+        waitFor(taskRow("Water plants"))
+        dismissTipIfShown()
+
+        compose.onNode(taskRow("Water plants")).performClick()
+        val label = str(R.string.created_date_label).uppercase() + ":"
+        waitFor(hasText(label))
+        // The formatter has independent fixed-output unit tests; this checks field selection and layout.
+        compose.onNode(hasText("2025", substring = true)).performScrollTo().assertIsDisplayed()
+        val createdBounds = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
+        val completedBounds = compose.onNodeWithText(str(R.string.completed_date_label).uppercase() + ":")
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(createdBounds.top, completedBounds.top, 1f)
+        if (InstrumentationRegistry.getArguments().getString("captureScreenshots") == "true") {
+            val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            try {
+                File(ctx.externalCacheDir, "task-creation-dates.png").outputStream().use {
+                    screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            } finally {
+                screenshot.recycle()
+            }
+        }
+    }
+
+    @Test
+    fun legacyTask_showsCreationDateNotRecorded() {
+        seedTask(seedCategory(), "Legacy task")
+        launch()
+        waitFor(taskRow("Legacy task"))
+        dismissTipIfShown()
+
+        compose.onNode(taskRow("Legacy task")).performClick()
+        val label = str(R.string.created_date_label).uppercase() + ":"
+        waitFor(hasText(label))
+        compose.onNodeWithText(str(R.string.creation_date_not_recorded)).performScrollTo().assertIsDisplayed()
     }
 
     @Test

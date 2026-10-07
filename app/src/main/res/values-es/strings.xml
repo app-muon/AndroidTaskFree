@@ -96,6 +96,8 @@
     <string name="last_weekday">%1$s pasado</string>
     <string name="date_picker">Elegir fecha…</string>
     <string name="completed_date_label">Completada</string>
+    <string name="created_date_label">Creada</string>
+    <string name="creation_date_not_recorded">No registrada</string>
     <string name="completed_no_label">No</string>
     <string name="task_name_when_copy">%1$s (copia)</string>
     <string name="search_tasks_placeholder">Buscar</string>
@@ -231,6 +233,7 @@
     <string name="err_generic_restore">Error al restaurar</string>
     <string name="backup_ok">Copia guardada</string>
     <string name="err_backup_version">Versión no compatible</string>
+    <string name="err_task_occurrence_links">Enlaces de tareas recurrentes no válidos: falta una tarea de origen, tiene varias sucesoras o forma un ciclo.</string>
     <string name="err_cat_empty_title">Categoría sin título</string>
     <string name="err_cat_duplicate_id">ID duplicado</string>
     <string name="err_cat_bad_id">ID inválido</string>

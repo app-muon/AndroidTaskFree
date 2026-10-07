@@ -8,9 +8,6 @@ import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.ConfirmArchive
 import com.taskfree.app.ui.components.ConfirmDeletion
 import com.taskfree.app.ui.components.ConfirmDialog
-import com.taskfree.app.ui.components.DueChoice
-import com.taskfree.app.ui.components.NotificationOption
-import com.taskfree.app.ui.components.fromTask
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
 
@@ -93,19 +90,13 @@ internal fun TaskDialogHost(
             }, onNo = { setDialogs(TaskDialogs.None) })
         }
         is TaskDialogs.ConfirmClone -> {
+            val titleTemplate = stringResource(R.string.task_name_when_copy)
             ConfirmDialog(
                 title = stringResource(R.string.clone_task_action),
                 message = stringResource(R.string.clone_task_confirm_message),
                 yesMessage = stringResource(R.string.clone_yes_dialog_button),
                 onYes = {
-                    val t = dialogs.task.task   // extract Task from TaskWithCategoryInfo
-                    taskVm.add(
-                        t.text + " (copy)",
-                        DueChoice.fromTask(t),
-                        t.recurrence,
-                        t.categoryId,
-                        NotificationOption.fromTask(t)
-                    )
+                    taskVm.clone(dialogs.task.task.id, titleTemplate)
                     setDialogs(TaskDialogs.None)
                 },
                 onNo = { setDialogs(TaskDialogs.None) }

@@ -1,9 +1,11 @@
 // data/database/TaskDaoTest.kt
 package com.taskfree.app.data.database
 
+import android.database.sqlite.SQLiteConstraintException
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.testutil.assertFails
 import com.taskfree.app.testutil.inMemoryDb
 import com.taskfree.app.testutil.insertCategory
 import com.taskfree.app.testutil.insertTask
@@ -156,29 +158,55 @@ class TaskDaoTest {
     }
 
     @Test
-    fun `next-instance lookup matches category, text, recurrence and due`() = runTest {
+    fun `next-instance lookup uses only the generating task id`() = runTest {
         val cat = db.insertCategory()
         val next = today.plusDays(1)
-        val id = db.insertTask(task(cat, "Water plants", due = next, recurrence = Recurrence.DAILY))
+        val parent = db.insertTask(task(cat, "Water plants", due = today, recurrence = Recurrence.DAILY))
+        val other = db.insertTask(task(cat, "Water plants", due = today, recurrence = Recurrence.DAILY))
+        val id = db.insertTask(task(cat, "Renamed", due = next).copy(sourceTaskId = parent))
 
-        assertEquals(id, dao.findNextInstanceId(cat, "Water plants", Recurrence.DAILY, next))
-        assertNull(dao.findNextInstanceId(cat, "Water plants", Recurrence.WEEKLY, next))
-        assertNull(dao.findNextInstanceId(cat, "Water plants", Recurrence.DAILY, today))
+        assertEquals(id, dao.findNextInstanceId(parent))
+        assertNull(dao.findNextInstanceId(other))
     }
 
     @Test
-    fun `deleteNextInstance leaves completed instances alone`() = runTest {
+    fun `inserting a duplicate occurrence link preserves the existing successor and its descendants`() = runTest {
+        val cat = db.insertCategory()
+        val parent = db.insertTask(task(cat, "Parent"))
+        val child = db.insertTask(task(cat, "Child").copy(sourceTaskId = parent))
+        db.insertTask(task(cat, "Grandchild").copy(sourceTaskId = child))
+        val before = dao.getAllNow()
+
+        assertFails<SQLiteConstraintException> {
+            dao.insert(task(cat, "Conflicting child").copy(sourceTaskId = parent))
+        }
+
+        assertEquals(before, dao.getAllNow())
+        assertEquals(child, dao.findNextInstanceId(parent))
+    }
+
+    @Test
+    fun `only a live TODO occurrence without a completion date can be deleted`() = runTest {
         val cat = db.insertCategory()
         val next = today.plusDays(1)
         val open = db.insertTask(task(cat, "x", due = next, recurrence = Recurrence.DAILY))
 
-        dao.deleteNextInstance(cat, "x", Recurrence.DAILY, next)
+        assertEquals(1, dao.deleteTodoOccurrence(open))
         assertNull(dao.taskById(open))
+        assertEquals(0, dao.deleteTodoOccurrence(open))
 
-        val done = db.insertTask(
-            task(cat, "x", due = next, recurrence = Recurrence.DAILY, status = TaskStatus.DONE, completedDate = today)
+        val protected = listOf(
+            task(cat, status = TaskStatus.IN_PROGRESS),
+            task(cat, status = TaskStatus.PENDING),
+            task(cat, status = TaskStatus.DONE),
+            task(cat, status = TaskStatus.DONE, completedDate = today),
+            task(cat, completedDate = today),
+            task(cat, isArchived = true)
         )
-        dao.deleteNextInstance(cat, "x", Recurrence.DAILY, next)
-        assertEquals(done, dao.taskById(done)?.id)
+        for (task in protected) {
+            val id = db.insertTask(task)
+            assertEquals(0, dao.deleteTodoOccurrence(id))
+            assertEquals(task.copy(id = id), dao.taskById(id))
+        }
     }
 }
