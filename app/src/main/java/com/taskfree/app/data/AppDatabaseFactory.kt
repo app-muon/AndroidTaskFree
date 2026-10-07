@@ -12,11 +12,15 @@ import com.taskfree.app.data.database.MIGRATION_13_14
 import com.taskfree.app.data.database.MIGRATION_14_15
 import com.taskfree.app.data.database.MIGRATION_15_16
 import com.taskfree.app.data.database.MIGRATION_16_17
+import com.taskfree.app.data.database.MIGRATION_17_18
+import com.taskfree.app.data.database.MIGRATION_18_19
 import com.taskfree.app.data.database.MIGRATION_FIX_RECURRENCE
 import com.taskfree.app.enc.DatabaseKeyManager
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 object AppDatabaseFactory {
+    internal const val TEMP_DB_NAME = "checklists_temp.db"
+
     @Volatile
     private var INSTANCE: AppDatabase? = null
 
@@ -27,7 +31,9 @@ object AppDatabaseFactory {
         MIGRATION_13_14,
         MIGRATION_14_15,
         MIGRATION_15_16,
-        MIGRATION_16_17
+        MIGRATION_16_17,
+        MIGRATION_17_18,
+        MIGRATION_18_19
     )
 
     fun getDatabase(context: Context): AppDatabase {
@@ -51,7 +57,7 @@ object AppDatabaseFactory {
 
     fun createTempEncryptedDatabase(context: Context, key: ByteArray): AppDatabase {
         return Room.databaseBuilder(
-            context.applicationContext, AppDatabase::class.java, "checklists_temp.db"
+            context.applicationContext, AppDatabase::class.java, TEMP_DB_NAME
         )
             .addMigrations(*migrations)
             .openHelperFactory(SupportOpenHelperFactory(key))
@@ -121,8 +127,11 @@ object AppDatabaseFactory {
 
     fun clearInstance() {
         synchronized(this) {
-            INSTANCE?.close()
-            INSTANCE = null
+            try {
+                INSTANCE?.close()
+            } finally {
+                INSTANCE = null
+            }
         }
     }
 }

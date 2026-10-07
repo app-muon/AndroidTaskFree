@@ -48,19 +48,17 @@ import com.taskfree.app.ui.components.EditCancelRow
 import com.taskfree.app.ui.components.EditableMetaRow
 import com.taskfree.app.ui.components.IconOptionPill
 import com.taskfree.app.ui.components.LabelledOptionPill
-import com.taskfree.app.ui.components.MetaRow
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.RecurrencePill
-import com.taskfree.app.ui.components.TaskFieldHeading
+import com.taskfree.app.ui.components.TaskDatesRow
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.launchTimePicker
 import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.showDatePicker
-import com.taskfree.app.ui.components.specificDateLabel
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.displayName
 import com.taskfree.app.ui.task.components.ArchiveMode
@@ -297,7 +295,7 @@ fun TaskOptionsPanel(
 
         taskSnapshot.isArchived -> emptyList()
 
-        taskSnapshot.recurrence != Recurrence.NONE -> listOf(
+        editState.recurrence != Recurrence.NONE -> listOf(
             ActionItem(
                 label = stringResource(R.string.archive_task_action),
                 icon = Icons.Default.Archive,
@@ -600,18 +598,11 @@ fun TaskOptionsPanel(
                         colors = colors,
                         modifier = Modifier.padding(end = PanelConstants.HORIZONTAL_PADDING)
                     )
-                }/* --- COMPLETION DATE ROW (read-only) --- */
-
-                val content = if (taskSnapshot.completedDate != null) {
-                    specificDateLabel(taskSnapshot.completedDate, context)
-                } else {
-                    stringResource(R.string.completed_no_label)
                 }
-                MetaRow(
-                    headlineContent = {
-                        TaskFieldHeading(stringResource(R.string.completed_date_label).uppercase())
-                    }, supportingContent = { Text(content, style = MaterialTheme.typography.bodyMedium) }, colors = colors
-                )
+
+                /* --- CREATION AND COMPLETION DATES (read-only) --- */
+
+                TaskDatesRow(taskSnapshot)
                 HorizontalDivider(color = Color.Gray)
             }
 

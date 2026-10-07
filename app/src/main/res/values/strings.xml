@@ -98,6 +98,8 @@
     <string name="last_weekday">last %1$s</string>
     <string name="date_picker">Date…</string>
     <string name="completed_date_label">Completed</string>
+    <string name="created_date_label">Created</string>
+    <string name="creation_date_not_recorded">Not recorded</string>
     <string name="completed_no_label">No</string>
     <!-- Used when cloning a task; %1$s is original task name -->
     <string name="task_name_when_copy">%1$s (copy)</string>
@@ -275,6 +277,7 @@ Choose a backup file to restore your tasks. This will replace all existing data 
     <string name="err_generic_restore">Restore failed</string>
     <string name="backup_ok">Backup saved</string>
     <string name="err_backup_version">Unsupported backup version</string>
+    <string name="err_task_occurrence_links">Invalid recurring task links: a source is missing, has multiple successors, or forms a cycle.</string>
     <string name="err_cat_empty_title">A category title is blank</string>
     <string name="err_cat_duplicate_id">Duplicate category IDs</string>
     <string name="err_cat_bad_id">A category ID is not positive</string>

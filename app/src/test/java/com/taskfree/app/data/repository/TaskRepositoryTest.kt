@@ -23,6 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -154,15 +155,17 @@ class TaskRepositoryTest {
     }
 
     @Test
-    fun `an existing next occurrence is reused, not duplicated`() = runTest {
+    fun `an identical manual task is not adopted as the next occurrence`() = runTest {
         val cat = db.insertCategory()
         val id = dailyTask(cat)
-        db.insertTask(task(cat, "Stretch", due = tomorrow, recurrence = Recurrence.DAILY))
+        val manualId = db.insertTask(task(cat, "Stretch", due = tomorrow, recurrence = Recurrence.DAILY))
 
         val result = repo.updateTaskStatus(id, TaskStatus.DONE)
 
-        assertNull(result.nextCreatedId)
-        assertEquals(1, repo.snapshot().count { it.due == tomorrow })
+        assertNotNull(result.nextCreatedId)
+        assertEquals(2, repo.snapshot().count { it.due == tomorrow })
+        assertNull(repo.taskById(manualId)!!.sourceTaskId)
+        assertEquals(id, repo.taskById(result.nextCreatedId!!)!!.sourceTaskId)
     }
 
     @Test
@@ -286,18 +289,52 @@ class TaskRepositoryTest {
     }
 
     @Test
-    fun `saveTask can only unarchive into an active category`() = runTest {
+    fun `unarchiveTask can only unarchive into an active category`() = runTest {
         val cat = db.insertCategory()
         val deleted = db.insertCategory(isDeleted = true)
         val ok = db.insertTask(task(cat, "ok", isArchived = true))
         val stuck = db.insertTask(task(deleted, "stuck", isArchived = true))
 
-        repo.saveTask(repo.taskById(ok)!!.copy(isArchived = false))
+        repo.unarchiveTask(ok)
         assertFalse(repo.taskById(ok)!!.isArchived)
 
         assertFails<IllegalArgumentException> {
-            repo.saveTask(repo.taskById(stuck)!!.copy(isArchived = false))
+            repo.unarchiveTask(stuck)
         }
+    }
+
+    @Test
+    fun `reordering a stale snapshot preserves saved fields and a cleared source link`() = runTest {
+        val parentId = dailyTask(db.insertCategory())
+        val id = repo.updateTaskStatus(parentId, TaskStatus.DONE).nextCreatedId!!
+        val stale = repo.taskById(id)!!
+        val category = db.insertCategory("Other")
+        val newDue = today.plusDays(5)
+        repo.updateTaskDetails(stale, "Edited", newDue, Recurrence.NONE, category, at9(newDue))
+        repo.updateTaskStatus(id, TaskStatus.DONE)
+        repo.archiveTask(stale)
+        repo.deleteTaskPermanently(repo.taskById(parentId)!!)
+        val saved = repo.taskById(id)!!
+        assertNull(saved.sourceTaskId)
+
+        repo.updateTaskOrder(listOf(stale.copy(singleCategoryPageOrder = 7, allCategoryPageOrder = 9)))
+
+        assertEquals(saved.copy(singleCategoryPageOrder = 7, allCategoryPageOrder = 9), repo.taskById(id))
+    }
+
+    @Test
+    fun `reordering rolls back if any task is missing`() = runTest {
+        val id = db.insertTask(task(db.insertCategory()))
+        val saved = repo.taskById(id)!!
+
+        assertFails<IllegalArgumentException> {
+            repo.updateTaskOrder(listOf(
+                saved.copy(singleCategoryPageOrder = 7, allCategoryPageOrder = 9),
+                saved.copy(id = id + 1)
+            ))
+        }
+
+        assertEquals(saved, repo.taskById(id))
     }
 
     @Test
@@ -310,6 +347,56 @@ class TaskRepositoryTest {
         repo.reindexAllTaskPageOrders()
 
         assertEquals(listOf(0, 2, 1), listOf(a, b, c).map { repo.taskById(it)!!.singleCategoryPageOrder })
+    }
+
+    @Test
+    fun `reindex preserves all other fields and cleared links across categories`() = runTest {
+        val firstCategory = db.insertCategory("First")
+        val secondCategory = db.insertCategory("Second")
+        val parent = dailyTask(firstCategory)
+        val child = repo.updateTaskStatus(parent, TaskStatus.DONE).nextCreatedId!!
+        repo.deleteTaskPermanently(repo.taskById(parent)!!)
+        repo.updateTaskDetails(repo.taskById(child)!!, "Saved edit", tomorrow, Recurrence.WEEKLY, firstCategory, at9(tomorrow))
+        repo.updateTaskStatus(child, TaskStatus.IN_PROGRESS)
+        dao.updateOrder(child, 8, 42)
+        db.insertTask(task(firstCategory, "Archived", singleOrder = 3, allOrder = 18,
+            status = TaskStatus.DONE, completedDate = today, isArchived = true))
+        db.insertTask(task(secondCategory, "Pending", singleOrder = 9, allOrder = 7,
+            status = TaskStatus.PENDING).copy(
+            originalCreatedAt = Instant.parse("2025-01-02T03:04:05.123Z"),
+            occurrenceCreatedAt = Instant.parse("2026-01-02T03:04:05.456Z")
+        ))
+        db.insertTask(task(secondCategory, "Earlier", singleOrder = 2, allOrder = 31))
+        val before = repo.snapshot()
+        assertNull(repo.taskById(child)!!.sourceTaskId)
+
+        repo.reindexAllTaskPageOrders()
+
+        for (tasks in before.groupBy { it.categoryId }.values) {
+            tasks.sortedBy { it.singleCategoryPageOrder }.forEachIndexed { index, task ->
+                assertEquals(task.copy(singleCategoryPageOrder = index), repo.taskById(task.id))
+            }
+        }
+    }
+
+    @Test
+    fun `reindex rolls back all categories when an order update affects no row`() = runTest {
+        val first = db.insertCategory("First")
+        val second = db.insertCategory("Second")
+        db.insertTask(task(first, singleOrder = 7))
+        db.insertTask(task(second, singleOrder = 9))
+        val categories = dao.getAllCategoryIds()
+        val skippedId = dao.tasksByCategory(categories.last()).single().id
+        val before = repo.snapshot()
+        // Simulate a skipped write after the earlier category has already been reindexed.
+        db.openHelper.writableDatabase.execSQL("""
+            CREATE TRIGGER skip_order_update BEFORE UPDATE ON Task
+            WHEN OLD.id = $skippedId BEGIN SELECT RAISE(IGNORE); END
+        """.trimIndent())
+
+        assertFails<IllegalArgumentException> { repo.reindexAllTaskPageOrders() }
+
+        assertEquals(before, repo.snapshot())
     }
 
     /* ---------- deleting / replacing ---------- */

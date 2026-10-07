@@ -164,11 +164,27 @@ class TaskViewModel(
     ) = launchIO {
         // Persist the user's intent (even if it's past/blocked)
         val intendedReminder = notify.toInstant(due.date)
-        val id = repo.createTask(TaskInput(text, due.date, rec, categoryId, intendedReminder))
+        createAndSchedule(TaskInput(text, due.date, rec, categoryId, intendedReminder), notify)
+    }
+
+    fun clone(taskId: Int, titleTemplate: String) = launchIO {
+        val current = repo.taskById(taskId) ?: return@launchIO
+        val notify = NotificationOption.fromTask(current)
+        createAndSchedule(
+            TaskInput(
+                titleTemplate.format(current.text), current.due, current.recurrence,
+                current.categoryId, notify.toInstant(current.due)
+            ),
+            notify
+        )
+    }
+
+    private suspend fun createAndSchedule(input: TaskInput, notify: NotificationOption) {
+        val id = repo.createTask(input)
 
         // Evaluate scheduling policy using the created task snapshot
-        val task = repo.taskById(id) ?: return@launchIO
-        when (val result = task.resolveReminderInstant(notify, due.date)) {
+        val task = repo.taskById(id) ?: return
+        when (val result = task.resolveReminderInstant(notify, task.due)) {
             is ReminderResult.Scheduled -> {
                 NotificationScheduler.schedule(appContext, id, result.instant)
             }
@@ -307,12 +323,13 @@ class TaskViewModel(
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
+        val current = repo.taskById(task.id) ?: return@launchIO
         // Always cancel this task’s alarm when archiving
-        NotificationScheduler.cancel(appContext, task.id, task.reminderTime)
+        NotificationScheduler.cancel(appContext, current.id, current.reminderTime)
 
         when (mode) {
             ArchiveMode.Single -> {
-                val nextId = repo.archiveSingleOccurrence(task)
+                val nextId = repo.archiveSingleOccurrence(current)
                 // If a next instance was created, schedule it if eligible
                 nextId?.let { id ->
                     val next = repo.taskById(id) ?: return@let
@@ -335,14 +352,14 @@ class TaskViewModel(
                 }
             }
 
-            ArchiveMode.Series -> repo.archiveTask(task)
+            ArchiveMode.Series -> repo.archiveTask(current)
         }
     }
 
 
     fun unArchive(task: Task) = launchIO {
         // Persist unarchive
-        repo.saveTask(task.copy(isArchived = false))
+        repo.unarchiveTask(task.id)
 
         // Re-read and evaluate scheduling
         val updated = repo.taskById(task.id) ?: return@launchIO

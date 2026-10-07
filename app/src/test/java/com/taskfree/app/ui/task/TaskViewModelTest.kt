@@ -44,9 +44,11 @@ import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowAlarmManager
 import org.robolectric.shadows.ShadowToast
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.TimeZone
 
 /**
  * Note: TaskViewModel.init starts an endless once-a-minute loop on viewModelScope,
@@ -129,6 +131,54 @@ class TaskViewModelTest {
     /* ---------- reminders ---------- */
 
     @Test
+    fun `clone reads saved edits and starts fresh dates with the localized name`() = vmTest {
+        vm.add("Stretch", DueChoice.Other(realToday), Recurrence.DAILY, cat, NotificationOption.None).join()
+        val source = repo.snapshot().single()
+        val originalCreatedAt = source.originalCreatedAt
+        clock.advance(Duration.ofHours(1))
+
+        vm.applyEdits(source.id, TaskViewModel.TaskEdits(title = FieldEdit.Set("Estirar"))).join()
+        vm.clone(source.id, "%1\$s (copia)").join()
+
+        val clone = repo.snapshot().single { it.id != source.id }
+        assertEquals("Estirar (copia)", clone.text)
+        assertNull(clone.sourceTaskId)
+        assertEquals(clock.instant(), clone.originalCreatedAt)
+        assertEquals(clock.instant(), clone.occurrenceCreatedAt)
+        assertEquals(originalCreatedAt, repo.taskById(source.id)!!.originalCreatedAt)
+    }
+
+    @Test
+    fun `cloning after a timezone day change saves the same reminder as the alarm`() = vmTest {
+        val originalZone = TimeZone.getDefault()
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+            val due = realToday.plusDays(10)
+            vm.add(
+                "Call", DueChoice.Other(due), Recurrence.NONE, cat,
+                NotificationOption.Other(LocalTime.of(0, 30))
+            ).join()
+            val source = repo.snapshot().single()
+            val originalReminder = source.reminderTime!!
+
+            TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Honolulu"))
+            assertEquals(due.minusDays(1), originalReminder.atZone(ZoneId.systemDefault()).toLocalDate())
+            vm.clone(source.id, "%1\$s (copy)").join()
+
+            val clone = repo.snapshot().single { it.id != source.id }
+            val expectedReminder = due.atTime(14, 30).atZone(ZoneId.systemDefault()).toInstant()
+            val alarm = alarms.scheduledAlarms.single {
+                shadowOf(it.operation).savedIntent.getIntExtra(AlarmReceiver.EXTRA_TASK_ID, -1) == clone.id
+            }
+            assertEquals(expectedReminder, clone.reminderTime)
+            assertEquals(clone.reminderTime!!.toEpochMilli(), alarm.triggerAtMs)
+            assertEquals(originalReminder, repo.taskById(source.id)!!.reminderTime)
+        } finally {
+            TimeZone.setDefault(originalZone)
+        }
+    }
+
+    @Test
     fun `adding a task with a future reminder schedules an alarm`() = vmTest {
         val due = realToday.plusDays(10)
 
@@ -175,6 +225,31 @@ class TaskViewModelTest {
         assertEquals(listOf(id), repo.snapshot().map { it.id })
         assertEquals(listOf(id), alarmTaskIds())
         assertEquals(localAt(due, 9).toEpochMilli(), alarms.scheduledAlarms.single().triggerAtMs)
+    }
+
+    @Test
+    fun `reopening the parent preserves a started successors scheduled alarm`() = vmTest {
+        val due = realToday.plusDays(3)
+        val id = addDaily(due)
+        vm.updateStatus(id, TaskStatus.DONE).join()
+        val nextId = repo.snapshot().single { it.sourceTaskId == id }.id
+        vm.updateStatus(nextId, TaskStatus.IN_PROGRESS).join()
+        val saved = repo.taskById(nextId)!!
+        val scheduled = alarms.scheduledAlarms.single()
+
+        vm.updateStatus(id, TaskStatus.TODO).join()
+
+        assertEquals(saved, repo.taskById(nextId))
+        assertEquals(setOf(id, nextId), alarmTaskIds().toSet())
+        assertTrue(alarms.scheduledAlarms.contains(scheduled))
+        assertEquals(saved.reminderTime!!.toEpochMilli(), scheduled.triggerAtMs)
+
+        vm.updateStatus(id, TaskStatus.DONE).join()
+
+        assertEquals(saved, repo.taskById(nextId))
+        assertEquals(2, repo.snapshot().size)
+        assertEquals(listOf(nextId), alarmTaskIds())
+        assertEquals(scheduled, alarms.scheduledAlarms.single())
     }
 
     @Test

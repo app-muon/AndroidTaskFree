@@ -26,6 +26,7 @@ class ResetAppStateRule : ExternalResource() {
     override fun before() {
         AppDatabaseFactory.clearInstance()
         ctx.deleteDatabase(DB_NAME)
+        ctx.deleteDatabase(AppDatabaseFactory.TEMP_DB_NAME)
         Prefs.clearEncryption(ctx)
         DatabaseKeyManager.clearCachedKey()
         ctx.getSharedPreferences("task_prefs", Context.MODE_PRIVATE).edit().clear().commit()
@@ -39,6 +40,10 @@ class ResetAppStateRule : ExternalResource() {
 
     override fun after() {
         AppDatabaseFactory.clearInstance()
+        ctx.deleteDatabase(DB_NAME)
+        ctx.deleteDatabase(AppDatabaseFactory.TEMP_DB_NAME)
+        Prefs.clearEncryption(ctx)
+        DatabaseKeyManager.clearCachedKey()
     }
 
     /** Writes rows into the app's real database before the activity is launched. */

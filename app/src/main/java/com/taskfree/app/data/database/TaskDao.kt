@@ -68,32 +68,33 @@ interface TaskDao {
     @Query("UPDATE Task SET isArchived = 1 WHERE categoryId = :categoryId")
     suspend fun archiveTasksInCategory(categoryId: Int): Int
 
-    @Update
-    suspend fun updateMany(tasks: List<Task>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(task: Task): Long
 
     @Update
     suspend fun update(task: Task): Int
 
+    @Query("""
+        UPDATE Task
+        SET singleCategoryPageOrder = :singleCategoryPageOrder,
+            allCategoryPageOrder = :allCategoryPageOrder
+        WHERE id = :id
+    """)
+    suspend fun updateOrder(id: Int, singleCategoryPageOrder: Int, allCategoryPageOrder: Int): Int
+
     @Delete
     suspend fun delete(task: Task)
 
-    // ❺ Remove completed recurring “next instance”
     @Query(
         """
 DELETE FROM Task
-WHERE categoryId = :categoryId
-  AND text   = :text
-  AND recurrence = :rec
-  AND due    = :dueNext
+WHERE id = :id
   AND completedDate IS NULL
+  AND status = 'TODO'
+  AND isArchived = 0
 """
     )
-    suspend fun deleteNextInstance(
-        categoryId: Int, text: String, rec: Recurrence, dueNext: LocalDate
-    )
+    suspend fun deleteTodoOccurrence(id: Int): Int
 
     @Query("SELECT * FROM Task WHERE categoryId = :catId ORDER BY singleCategoryPageOrder")
     suspend fun tasksByCategory(catId: Int): List<Task>
@@ -175,14 +176,7 @@ WHERE categoryId = :categoryId
     suspend fun deleteById(id: Int): Int
 
     @Query("""
-SELECT id FROM task
-WHERE categoryId = :categoryId AND text = :text AND recurrence = :rec AND due = :dueNext
-LIMIT 1
+SELECT id FROM task WHERE sourceTaskId = :sourceTaskId
 """)
-    suspend fun findNextInstanceId(
-        categoryId: Int,
-        text: String,
-        rec: Recurrence,
-        dueNext: LocalDate
-    ): Int?
+    suspend fun findNextInstanceId(sourceTaskId: Int): Int?
 }

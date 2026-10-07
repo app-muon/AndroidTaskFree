@@ -12,6 +12,7 @@ import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.repository.BackupManager.BackupValidationException
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.testutil.assertFails
 import com.taskfree.app.testutil.datesAt
@@ -29,6 +30,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -80,6 +82,9 @@ class BackupManagerTest {
             task(
                 home, "Water plants", due = today, recurrence = Recurrence.WEEKLY,
                 reminderTime = Instant.parse("2026-10-06T08:00:00Z"), singleOrder = 0, allOrder = 1
+            ).copy(
+                originalCreatedAt = Instant.parse("2026-01-02T08:15:30.123Z"),
+                occurrenceCreatedAt = Instant.parse("2026-10-05T18:45:12.456Z")
             )
         )
         db.insertTask(
@@ -121,6 +126,8 @@ class BackupManagerTest {
         assertEquals("true", cats.single { it["title"]!!.jsonPrimitive.content == "Gone" }["isDeleted"]!!.jsonPrimitive.content)
         val task = root["tasks"]!!.jsonArray.first().jsonObject
         assertEquals("2026-10-06", task["due"]!!.jsonPrimitive.content)
+        assertEquals("2026-01-02T08:15:30.123Z", task["originalCreatedAt"]!!.jsonPrimitive.content)
+        assertEquals("2026-10-05T18:45:12.456Z", task["occurrenceCreatedAt"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -138,6 +145,11 @@ class BackupManagerTest {
         assertEquals(Recurrence.WEEKLY, tasks[1].recurrence)
         assertEquals(LocalDate.of(2026, 1, 14), tasks[1].completedDate)
         assertTrue(tasks[1].isArchived)
+        tasks.forEach {
+            assertNull(it.originalCreatedAt)
+            assertNull(it.occurrenceCreatedAt)
+            assertNull(it.sourceTaskId)
+        }
     }
 
     @Test
@@ -176,6 +188,48 @@ class BackupManagerTest {
         BackupManager.import(ctx, uriFor(ok), taskRepo)
 
         assertEquals(1, taskRepo.snapshot().size)
+    }
+
+    @Test
+    fun `backup preserves occurrence links even when the child precedes its parent`() = runTest {
+        val category = db.insertCategory()
+        val id = taskRepo.createTask(TaskInput("Water plants", today, Recurrence.DAILY, category))
+        val nextId = taskRepo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
+        val exported = json.decodeFromString(Backup.serializer(), BackupManager.buildJson(catRepo, taskRepo).decodeToString())
+        val reordered = exported.copy(tasks = exported.tasks.sortedByDescending { it.id })
+
+        for (backup in listOf(exported, reordered)) {
+            BackupManager.import(ctx, uriFor(backup), taskRepo)
+            assertEquals(exported.tasks.sortedBy { it.id }, taskRepo.snapshot().sortedBy { it.id })
+            assertEquals(exported.categories, catRepo.snapshot())
+            assertEquals(id, taskRepo.taskById(nextId)!!.sourceTaskId)
+        }
+        val laterRepo = TaskRepository(db, datesAt(today.plusDays(2)))
+        assertEquals(nextId, laterRepo.updateTaskStatus(id, TaskStatus.TODO).nextDeletedId)
+        assertNull(laterRepo.taskById(nextId))
+    }
+
+    @Test
+    fun `invalid occurrence links reject a backup without replacing existing data`() = runTest {
+        seed()
+        val before = taskRepo.snapshot()
+        val categoriesBefore = catRepo.snapshot()
+        val parent = task(1, "parent", id = 10)
+        val child = task(1, "child", id = 11).copy(sourceTaskId = 10)
+        val invalidSets = listOf(
+            listOf(parent, child.copy(sourceTaskId = 999)),
+            listOf(parent.copy(sourceTaskId = 11), child),
+            listOf(parent.copy(sourceTaskId = 10)),
+            listOf(parent, child, child.copy(id = 12))
+        )
+        for (tasks in invalidSets) {
+            val error = assertFails<BackupValidationException> {
+                BackupManager.import(ctx, uriFor(backup(listOf(home), tasks)), taskRepo)
+            }
+            assertEquals(R.string.err_task_occurrence_links, error.resId)
+            assertEquals(before, taskRepo.snapshot())
+            assertEquals(categoriesBefore, catRepo.snapshot())
+        }
     }
 
     @Test

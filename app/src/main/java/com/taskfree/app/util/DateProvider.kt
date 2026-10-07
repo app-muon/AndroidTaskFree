@@ -3,6 +3,7 @@ package com.taskfree.app.util
 
 import androidx.annotation.VisibleForTesting
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.TextStyle
@@ -17,6 +18,9 @@ class DateProvider(private val clock: Clock = Clock.systemDefaultZone()) {
     fun today(): LocalDate = LocalDate.now(clock)
 
     fun now(): LocalDateTime = LocalDateTime.now(clock)
+
+    /** Millisecond precision matches persisted Instant values. */
+    fun nowInstant(): Instant = Instant.ofEpochMilli(clock.millis())
 
     // Convenience methods
     fun todayPlusDays(days: Long): LocalDate = today().plusDays(days)

@@ -88,6 +88,23 @@ object BackupManager {
                     R.string.err_task_live_deleted_category, it.id, it.categoryId
                 )
         }
+
+        val byId = b.tasks.associateBy { it.id }
+        val sources = b.tasks.mapNotNull { it.sourceTaskId }
+        requireUnique(sources) { BackupValidationException(R.string.err_task_occurrence_links) }
+        if (sources.any { it !in byId })
+            throw BackupValidationException(R.string.err_task_occurrence_links)
+        val checked = mutableSetOf<Int>()
+        for (task in b.tasks) {
+            val path = mutableSetOf<Int>()
+            var currentId: Int? = task.id
+            while (currentId != null && currentId !in checked) {
+                if (!path.add(currentId))
+                    throw BackupValidationException(R.string.err_task_occurrence_links)
+                currentId = byId.getValue(currentId).sourceTaskId
+            }
+            checked.addAll(path)
+        }
     }
 
     private inline fun requireUnique(list: List<Int>, error: () -> BackupValidationException) {
