@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -145,6 +146,9 @@ fun CategoryDropDown(
     }
 }
 
+/** Test tag for the date filter; its label ("Today") also appears on task rows due today. */
+const val DATE_FILTER_TAG = "dateFilter"
+
 @Composable
 fun DateDropDown(
     selectedDueChoice: DueChoice, onDueSelected: (DueChoice) -> Unit,
@@ -156,7 +160,7 @@ fun DateDropDown(
     // Compute highlight: true if not "today"
     val highlight = selectedDueChoice.date != AppDateProvider.current.today()
 
-    Box(modifier = Modifier.clickable { expanded = true }) {
+    Box(modifier = Modifier.testTag(DATE_FILTER_TAG).clickable { expanded = true }) {
         LabelledOptionPill(
             label = selectedDueChoice.resultLabel(), selected = true,
             highlight = highlight, big = true

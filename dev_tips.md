@@ -121,10 +121,13 @@ Focused JVM checks:
   re-check, unknown outcome, flags in `runtime_state.xml`).
 - emulator-5582 (API 28): `EncryptedDatabaseTest` 6/6 (including a corrupt plaintext
   file kept on disk and a wrong SQLCipher key leaving the database readable) and
-  `EncryptionRetryTest` 24/24 passed. `SmokeTest` passed 12/13; the failing
-  `toolsArchiving_cancelThenConfirmRefreshesWithoutReopeningMenu` taps text "Today",
-  which also matches the seeded task row due today. It fails the same way on its
-  own and is unrelated to these fixes.
+  `EncryptionRetryTest` 24/24 passed. `SmokeTest` passed 13/13 twice after three
+  test fixes: the archive test now opens the date filter by `DATE_FILTER_TAG`
+  (its "Today" label also matched a task row due today); the Tools event toast is
+  shown on the main thread (the Compose test dispatcher resumed the collector on
+  the IO sender thread); and the cleanup-warning test waits for the startup job to
+  finish before tapping Retry, because `retryRecovery` ignores taps while startup
+  is still restoring reminders after READY.
 - Reboot check passed: after seeding a reminder 15 minutes ahead, launching once and
   rebooting without opening the app, `dumpsys alarm` showed the same REMINDER alarm
   and no RESTORE_REMINDERS follow-up. Not repeated on device: pending encryption
