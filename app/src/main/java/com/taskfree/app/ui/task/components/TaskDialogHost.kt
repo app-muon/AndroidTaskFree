@@ -81,7 +81,9 @@ internal fun TaskDialogHost(
 
         is TaskDialogs.ConfirmArchive -> {
             ConfirmArchive(
-                title = "Confirm archive", message = when (dialogs.mode) {
+                title = stringResource(if (dialogs.mode == ArchiveMode.Series)
+                    R.string.menu_archive_series_action_confirmation else R.string.menu_archive_task_action_confirmation),
+                message = when (dialogs.mode) {
                 ArchiveMode.Single -> stringResource(R.string.are_you_sure_you_want_to_archive_task)
                 ArchiveMode.Series -> stringResource(R.string.are_you_sure_you_want_to_archive_series)
             }, onYes = {

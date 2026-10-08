@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -39,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
-import com.taskfree.app.debugToast
 import com.taskfree.app.ui.components.AppCheckbox
 import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.dialogMaxHeight
@@ -65,7 +63,6 @@ fun EncryptPhraseScreen(
 ) {
     var chk1 by remember { mutableStateOf(false) }
     var chk2 by remember { mutableStateOf(false) }
-    val ctx = LocalContext.current
     Dialog(
         onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -146,7 +143,7 @@ fun EncryptPhraseScreen(
                     Spacer(Modifier.width(8.dp))
                     TextButton(
                         enabled = chk1 && chk2,
-                        onClick = { debugToast(ctx, "Phrase confirmed"); onConfirmed() },
+                        onClick = onConfirmed,
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = colorResource(R.color.dark_red)
                         )
@@ -197,17 +194,4 @@ fun EncryptProgress(progress: Int) {
             }
         }
     }
-}
-
-/* 4 ▸ success */
-@Composable
-fun EncryptSuccess(onDone: () -> Unit) {
-    ConfirmDialog(
-        title = stringResource(R.string.data_encrypted),
-        message = stringResource(R.string.keep_your_8_word_phrase_safe),
-        yesMessage = stringResource(R.string.got_it_confirmation),
-        yesColour = colorResource(R.color.dialog_button_text_colour),
-        onYes = onDone,
-        onNo = onDone
-    )
 }

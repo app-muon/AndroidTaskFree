@@ -97,6 +97,115 @@ temporary database, WAL, SHM and journal removal.
 
 ## Validation results
 
+### Archive and encryption recovery changes (2026-10-07)
+
+Both Tools archive commands require `status = DONE`, a non-null completion date
+strictly before the injected `today`, and `isArchived = false`. Repeats-only also
+requires `recurrence != NONE`; having a source link never makes a one-off eligible.
+The count comes from SQLite's affected rows and is shown in a short English/Spanish
+toast, including zero. Each result is consumed once even when consecutive counts
+match. Cancelling the confirmation does nothing. Failed operations show a localized
+message and do not request a refresh; coroutine cancellation remains cancellation.
+The menu styling, date/timezone behavior and category-specific archive action are
+unchanged.
+
+**Archive series** archives the selected occurrence and its explicitly linked later
+occurrences, including descendants beyond already-archived intermediates. The
+transaction changes only `isArchived`; reminders for newly archived rows are
+cancelled after it commits. Earlier occurrences and unrelated matching tasks are
+preserved. Cycles cannot cause endless traversal. Historical unlinked occurrences
+remain separate: titles and dates are not evidence of a relationship. New successors
+of legacy parents still receive links. Archiving an already-Done occurrence still
+does not create a successor, including when an earlier successor was unlinked or
+intentionally deleted. Existing regression tests for these rules remain in place.
+
+Backup validation now rejects task IDs and source IDs less than or equal to zero
+with a dedicated localized error containing the offending ID, before replacing any
+data. IDs are never renumbered. The JSON format and Room schema remain unchanged.
+
+Encryption migration and all factory database opens share one gate. Migration uses
+private builders so copying and verification cannot recursively trigger recovery.
+The atomic, versioned journal `no_backup/encryption-migration.journal` records only
+the stage and whether an original database existed. It contains no key or phrase.
+The original database moves to `no_backup/encryption-rollback.db` only after all
+task/category fields (including occurrence links) match the encrypted copy, both
+databases have successfully checkpointed, and their handles have closed. Required
+renames are checked and an unresolved rollback copy is never overwritten.
+
+After installation, the encrypted database is reopened, checked for integrity, and
+compared again. The matching phrase, key, phrase hash and encrypted flag use checked
+synchronous preference commits. Only then is `COMMITTED` recorded. Cleanup failure
+after this point keeps encrypted mode and the committed journal for a later cleanup
+attempt. An initially empty installation follows the same verified process.
+
+Before commitment, failure or cancellation restores the original and plaintext
+preferences, removes the stored/cached migration key, and keeps the phrase for retry.
+If restoring the original fails, the installed copy is retained separately as
+`no_backup/encryption-uncommitted.db`, with its sidecars. Recovery errors are added
+as suppressed exceptions without replacing the original failure. Restart recovery
+uses the durable stage and file locations, so it can resume interrupted renames or
+preference commits. A corrupt journal, missing original, unresolved copy or file
+conflict blocks normal database creation and further migration. An older
+`databases/checklists_backup.db` is restored with its sidecars only if the main file
+is missing; conflicting main/backup files are both preserved.
+
+The encryption wizard displays localized failure feedback. Once rollback succeeds,
+it offers retry or restart to rebuild closed database references. Incomplete recovery
+offers recovery retry and blocks task access, including at startup. Key derivation,
+SQLCipher format, Room version and backup transport have not changed.
+
+Startup captures one encryption mode and uses a process-owned job. A receiver can
+start readiness checks, but pending encryption and legacy-conflict previews wait
+for a foreground activity. Migration then survives activity recreation and Home.
+Encrypted-plus-pending startup verifies the installed database and synchronously
+clears obsolete request/attempt markers before restarting. Automatic restarts have
+a durable 10-second guard; suppression lasts until process exit and explicit Restart
+remains available. Successful verification clears stale BLOCKED feedback silently.
+
+Each transition into STARTED waits for database readiness before reindexing on IO,
+using the current database and excluding overlapping reindex jobs. Recovery Skip
+uses the gated, checked reset, including sidecars; dismissing the prompt never skips.
+Reminder receivers retry temporary unavailability after 1, 5 and 15 minutes, then
+show a generic localized notice with no task data. States requiring user action
+show that notice immediately. Foreground readiness clears it; expired reminders
+are not replayed. Both queries exclude DONE tasks, and only the migrator restores
+future alarms after startup.
+
+`PRAGMA wal_checkpoint(TRUNCATE)` checks both the busy result and the completed frame
+count; pending WAL data is never removed during the swap. See
+[SQLite checkpoint semantics](https://www.sqlite.org/c3ref/wal_checkpoint_v2.html).
+
+Added/updated coverage includes the full archive recurrence/status/date matrix,
+exact snapshots and affected counts, event consumption/error/cancellation, series
+transaction rollback and reminder cancellation, invalid backup IDs, restart recovery
+at every stage, orphan/conflicting backups, injected checkpoint/rename/commit/reopen/
+rollback/cleanup failures, empty installs, and concurrent opening during migration.
+
+**Execution status:** resource XML parsing, resource-name uniqueness and
+`git diff --check` pass. Compilation, JVM tests, emulator tests and new UI screenshots
+are pending: the configured Gradle distribution was unavailable locally, and its
+download was not completed. No dependency or build configuration was changed.
+Earlier screenshots below describe the previous date-display work, not validation
+of this change.
+
+When the configured build tools are available locally, run:
+
+```powershell
+.\gradlew.bat --offline :app:testDebugUnitTest `
+  --tests com.taskfree.app.data.database.TaskDaoTest `
+  --tests com.taskfree.app.data.repository.TaskRepositoryTest `
+  --tests com.taskfree.app.data.repository.RecurringOccurrenceTest `
+  --tests com.taskfree.app.data.repository.TaskCreationDatesTest `
+  --tests com.taskfree.app.data.repository.BackupManagerTest `
+  --tests com.taskfree.app.ui.admin.ToolsViewModelTest `
+  --tests com.taskfree.app.ui.task.TaskViewModelTest `
+  --tests com.taskfree.app.data.EncryptionRecoveryTest `
+  :app:assembleDebug :app:compileDebugAndroidTestKotlin
+```
+
+The wrapper distribution itself must already be installed even with `--offline`.
+See the additional ADB recovery and screenshot steps in [dev_tips.md](../dev_tips.md).
+
 Safe reindexing, status-based undo and encryption retries (2026-10-07):
 
 - All 81 focused JVM tests passed across `TaskRepositoryTest`,

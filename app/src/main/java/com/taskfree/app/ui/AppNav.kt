@@ -29,14 +29,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.taskfree.app.Prefs
 import com.taskfree.app.R
-import com.taskfree.app.enc.DatabaseKeyManager
 import com.taskfree.app.ui.category.CategoryListScreen
 import com.taskfree.app.ui.category.CategoryViewModel
 import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.DueChoice
-import com.taskfree.app.ui.enc.MnemonicManager
 import com.taskfree.app.ui.task.TaskSearchScreen
 import com.taskfree.app.ui.theme.TextScaleController
 import com.taskfree.app.ui.theme.TextScaleOption
@@ -49,38 +46,11 @@ fun AppNav() {
     var navigationError by remember { mutableStateOf<String?>(null) }
     val app = LocalContext.current.applicationContext as Application
 
-    Log.d("AppNav", "Starting AppNav")
+    if (!com.taskfree.app.ui.enc.EncryptionStartup()) return
 
     LaunchedEffect(Unit) { TextScaleController.ensureLoaded(app) }
     val textScale by TextScaleController.option.collectAsState()
     val scaleFactor = if (textScale == TextScaleOption.SYSTEM_ONLY) 1f else textScale.multiplier
-
-    var needsKey by remember {
-        mutableStateOf(Prefs.isEncrypted(app) && !MnemonicManager.hasKey(app))
-    }
-
-    // ── DB locked? Show recovery flow and stop here ───────────────
-    if (needsKey) {
-        KeyRecoveryFlow(onFinished = { needsKey = false })
-        return
-    } else if (Prefs.isEncrypted(app)) {
-        Log.d("AppNav", "DB encrypted - initializing key")
-
-        // Initialize cached key if we have stored key but no cached key
-        LaunchedEffect(Unit) {
-            if (Prefs.isEncrypted(app) && DatabaseKeyManager.getCachedKey() == null) {
-                Log.d("AppNav", "Caching stored key")
-                val storedKey = DatabaseKeyManager.loadDerivedKey(app)
-                if (storedKey != null) {
-                    DatabaseKeyManager.cacheKey(storedKey)
-                    Log.d("AppNav", "Key cached successfully")
-                } else {
-                    Log.e("AppNav", "No stored key found!")
-                }
-            }
-        }
-    }
-    Log.d("AppNav", "DB ready – launching main UI")
     MaterialTheme(
         colorScheme = MaterialTheme.colorScheme,
         shapes = MaterialTheme.shapes,

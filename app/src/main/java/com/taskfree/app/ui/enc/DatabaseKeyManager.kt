@@ -49,14 +49,5 @@ object DatabaseKeyManager {
         Prefs.saveDerivedKey(context, key)
     }
 
-    fun logCurrentKey() {
-        val cached = getCachedKey()
-        if (cached != null) {
-            val keyBase64 = android.util.Base64.encodeToString(cached, android.util.Base64.NO_WRAP)
-            android.util.Log.d("DatabaseKeyManager", "Cached key (Base64): $keyBase64")
-            android.util.Log.d("DatabaseKeyManager", "Cached key length: ${cached.size} bytes")
-        } else {
-            android.util.Log.d("DatabaseKeyManager", "No cached key found")
-        }
-    }
+
 }

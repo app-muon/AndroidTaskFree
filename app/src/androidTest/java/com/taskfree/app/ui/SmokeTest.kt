@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -29,9 +30,23 @@ import androidx.test.rule.GrantPermissionRule
 import com.taskfree.app.MainActivity
 import com.taskfree.app.R
 import com.taskfree.app.ResetAppStateRule
+import com.taskfree.app.Prefs
+import com.taskfree.app.data.AppDatabaseFactory
+import com.taskfree.app.data.RealDatabaseMigrator
+import com.taskfree.app.data.MigrationHooks
+import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.ui.enc.fetchWords
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import androidx.lifecycle.Lifecycle
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.ui.components.TOOLS_MENU_TAG
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import com.taskfree.app.ui.task.components.SEARCH_TOGGLE_TAG
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -245,5 +260,294 @@ class SmokeTest {
 
         waitForGone(taskRow("Email Bob"))
         waitFor(taskRow("Buy milk"))
+    }
+
+    private fun openToolsAction(@StringRes action: Int) {
+        compose.onNodeWithTag(TOOLS_MENU_TAG).performClick()
+        waitFor(isDialog())
+        compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
+            .performScrollToNode(hasText(str(action)))
+        compose.onNodeWithText(str(action)).performClick()
+    }
+
+    @Test
+    fun toolsArchiving_cancelThenConfirmRefreshesWithoutReopeningMenu() {
+        val cat = seedCategory()
+        seedTask(cat, "Keep visible")
+        val repeat = seedTask(cat, "Old repeat", 1)
+        val once = seedTask(cat, "Old one-off", 2)
+        reset.seed {
+            taskDao().update(taskDao().taskById(repeat)!!.copy(
+                status = TaskStatus.DONE, completedDate = LocalDate.now().minusDays(1),
+                recurrence = Recurrence.DAILY, baseDate = LocalDate.now()))
+            taskDao().update(taskDao().taskById(once)!!.copy(
+                status = TaskStatus.DONE, completedDate = LocalDate.now().minusDays(1)))
+        }
+        launch()
+        waitFor(taskRow("Keep visible"))
+        dismissTipIfShown()
+        compose.onNodeWithText(str(R.string.today)).performClick()
+        compose.onNodeWithText(str(R.string.all_dates)).performClick()
+        waitFor(taskRow("Old repeat"))
+
+        openToolsAction(R.string.archive_old_completed_repeats)
+        waitFor(hasText(str(R.string.confirm_archive_repeats_msg)))
+        captureArchiveScreenshot("archive-repeats-confirmation")
+        compose.onNodeWithText(str(R.string.cancel_no_dialog_button)).performClick()
+        assertFalse(runBlocking { reset.db().taskDao().taskById(repeat)!!.isArchived })
+        waitFor(taskRow("Old repeat"))
+
+        openToolsAction(R.string.archive_old_completed_repeats)
+        compose.onNodeWithText(str(R.string.archive_task_yes_dialog_button)).performClick()
+        waitForGone(taskRow("Old repeat"))
+        waitFor(taskRow("Old one-off"))
+        openToolsAction(R.string.archive_old_completed)
+        compose.onNodeWithText(str(R.string.archive_task_yes_dialog_button)).performClick()
+        waitForGone(taskRow("Old one-off"))
+        waitFor(taskRow("Keep visible"))
+        assertTrue(runBlocking { reset.db().taskDao().taskById(repeat)!!.isArchived })
+        assertTrue(runBlocking { reset.db().taskDao().taskById(once)!!.isArchived })
+    }
+
+    @Test
+    fun archiveSeries_confirmationAndRefreshIncludeOnlyLinkedLaterOccurrences() {
+        val cat = seedCategory()
+        val earlier = seedTask(cat, "Earlier")
+        val selected = seedTask(cat, "Selected occurrence", 1)
+        val middle = seedTask(cat, "Archived intermediate", 2)
+        val later = seedTask(cat, "Edited later occurrence", 3)
+        seedTask(cat, "Unrelated", 4)
+        reset.seed {
+            taskDao().update(taskDao().taskById(selected)!!.copy(sourceTaskId = earlier,
+                recurrence = Recurrence.DAILY, baseDate = LocalDate.now()))
+            taskDao().update(taskDao().taskById(middle)!!.copy(sourceTaskId = selected, isArchived = true))
+            taskDao().update(taskDao().taskById(later)!!.copy(sourceTaskId = middle))
+        }
+        launch()
+        waitFor(taskRow("Selected occurrence"))
+        dismissTipIfShown()
+        compose.onNode(taskRow("Selected occurrence")).performClick()
+        waitFor(isDialog())
+        compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
+            .performScrollToNode(hasText(str(R.string.archive_series_action)))
+        compose.onNodeWithText(str(R.string.archive_series_action)).performClick()
+        waitFor(hasText(str(R.string.are_you_sure_you_want_to_archive_series)))
+        captureArchiveScreenshot("archive-series-confirmation")
+        compose.onNodeWithText(str(R.string.archive_task_yes_dialog_button)).performClick()
+        waitForGone(taskRow("Selected occurrence"))
+        waitForGone(taskRow("Edited later occurrence"))
+        waitFor(taskRow("Earlier"))
+        waitFor(taskRow("Unrelated"))
+    }
+
+    @Test
+    fun legacyConflictRequiresExplicitSelectionAndLabelsUnreadableCopyUnavailable() {
+        seedTask(seedCategory(), "Preserved task")
+        val legacy = ctx.getDatabasePath("checklists_backup.db")
+        legacy.writeText("conflicting backup")
+        launch()
+        waitFor(hasText(str(R.string.encryption_conflict_message)))
+        compose.onNodeWithText(str(R.string.encryption_copy_unavailable), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(str(R.string.encryption_use_selected)).assertIsNotEnabled()
+        waitForGone(taskRow("Preserved task"))
+        captureArchiveScreenshot("encryption-legacy-selection")
+        assertEquals("conflicting backup", legacy.readText())
+        compose.onNodeWithText(str(R.string.encryption_main_copy), substring = true).performClick()
+        compose.onNodeWithText(str(R.string.encryption_use_selected)).performClick()
+        waitFor(taskRow("Preserved task"))
+        assertFalse(legacy.exists())
+    }
+
+    @Test
+    fun encryptionAndReminderRegressionWalkthrough() {
+        seedTask(seedCategory(), "Preserved during rotation")
+        Prefs.requestEncryption(ctx, fetchWords().take(8))
+        val checkpoint = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val checkpoints = AtomicInteger()
+        val restarts = AtomicInteger()
+        RealDatabaseMigrator.restart = { restarts.incrementAndGet() }
+        RealDatabaseMigrator.hooks = object : MigrationHooks() {
+            override fun checkpoint(db: AppDatabase) {
+                if (checkpoints.incrementAndGet() == 1) {
+                    checkpoint.countDown()
+                    check(release.await(30, TimeUnit.SECONDS))
+                }
+                super.checkpoint(db)
+            }
+        }
+        try {
+            launch()
+            assertTrue(checkpoint.await(10, TimeUnit.SECONDS))
+            scenario!!.recreate()
+            waitFor(hasText(str(R.string.encrypting_header)))
+            assertTrue(runCatching { AppDatabaseFactory.getDatabase(ctx) }.isFailure)
+            scenario!!.moveToState(Lifecycle.State.CREATED)
+            release.countDown()
+            runBlocking { RealDatabaseMigrator.start(ctx).join() }
+            assertEquals(0, restarts.get())
+            assertEquals(3, checkpoints.get())
+            scenario!!.moveToState(Lifecycle.State.RESUMED)
+            waitFor(hasText(str(R.string.encryption_restart_message)))
+            compose.waitUntil { restarts.get() == 1 }
+            captureArchiveScreenshot("encryption-restart-en")
+            assertTrue(runCatching { AppDatabaseFactory.getDatabase(ctx) }.isFailure)
+        } finally { release.countDown() }
+
+        // Simulate the requested process restart without killing the instrumentation runner.
+        scenario!!.close()
+        reset.newProcess()
+        RealDatabaseMigrator.hooks = MigrationHooks()
+        launch()
+        waitFor(taskRow("Preserved during rotation"))
+        dismissTipIfShown()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        var taskId = -1
+        scenario!!.onActivity { taskId = it.taskId }
+        automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
+        compose.waitUntil(10_000) { scenario!!.state == Lifecycle.State.CREATED }
+        ctx.getSystemService(android.app.ActivityManager::class.java).appTasks
+            .first { it.taskInfo.id == taskId }.moveToFront()
+        compose.waitUntil(10_000) { scenario!!.state == Lifecycle.State.RESUMED }
+        waitFor(taskRow("Preserved during rotation"))
+
+        scenario!!.close()
+        reset.newProcess()
+        val journal = File(ctx.noBackupFilesDir, "encryption-migration.journal")
+        journal.writeText("invalid")
+        // Access restrictions must take precedence over an older cleanup warning.
+        Prefs.finishEncryptionAttempt(ctx, Prefs.EncryptionOutcome.CLEANUP_WARNING)
+        launch()
+        waitFor(hasText(str(R.string.encryption_recovery_blocked)))
+        runBlocking { com.taskfree.app.notifications.AlarmReceiver().deliver(ctx, 1) }
+        assertTrue(Prefs.reminderNoticePosted(ctx))
+        val notice = ctx.getSystemService(android.app.NotificationManager::class.java).activeNotifications
+            .single { it.tag == "reminder-access" }.notification
+        assertEquals(str(R.string.reminder_open_app), notice.extras.getCharSequence(android.app.Notification.EXTRA_TEXT))
+        fun shell(command: String) = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            automation.executeShellCommand(command)).use { it.readBytes() }
+        shell("cmd statusbar expand-notifications")
+        Thread.sleep(700) // System UI animations run outside the Compose test clock.
+        captureArchiveScreenshot("reminder-access-en")
+        shell("cmd statusbar collapse")
+        Thread.sleep(700)
+        automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        waitForGone(hasText(str(R.string.encryption_recovery_blocked)))
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+        waitFor(hasText(str(R.string.encryption_recovery_blocked)))
+        compose.onNodeWithText(str(R.string.retry_recovery)).performClick()
+        waitFor(hasText(str(R.string.encryption_recovery_blocked)))
+        assertEquals("invalid", journal.readText())
+        check(journal.delete()) // Repair the intentionally malformed test journal.
+        compose.onNodeWithText(str(R.string.retry_recovery)).performClick()
+        waitFor(taskRow("Preserved during rotation"))
+        compose.waitUntil { !Prefs.reminderNoticePosted(ctx) }
+
+        // Back/outside dismissal must never run Skip, including after a failed reset.
+        scenario!!.close()
+        reset.newProcess()
+        Prefs.clearEncryptionSecrets(ctx)
+        launch()
+        waitFor(hasText(str(R.string.restore_found_body)))
+        automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        automation.executeShellCommand("input tap 100 200").close()
+        waitFor(hasText(str(R.string.restore_found_body)))
+        assertTrue(ctx.getDatabasePath("checklists.db").exists())
+        RealDatabaseMigrator.hooks = object : MigrationHooks() {
+            override fun delete(file: File) { throw java.io.IOException("reset unavailable") }
+        }
+        compose.onNodeWithText(str(R.string.skip)).performClick()
+        waitFor(hasText(str(R.string.encryption_reset_failed), substring = true))
+        captureArchiveScreenshot("encryption-reset-failed-en")
+        RealDatabaseMigrator.hooks = MigrationHooks()
+        compose.onNodeWithText(str(R.string.skip)).performClick()
+        compose.waitUntil { RealDatabaseMigrator.startup.value == com.taskfree.app.data.DatabaseStartup.READY }
+        assertFalse(Prefs.isEncrypted(ctx))
+    }
+
+    @Test
+    fun rollbackFeedbackSurvivesBackgroundRecoveryAndDismissalDoesNotRestart() {
+        seedTask(seedCategory(), "Recovered task")
+        Prefs.requestEncryption(ctx, fetchWords().take(8))
+        Prefs.startEncryptionAttempt(ctx) { _, editor -> editor.commit() }
+        // Receiver startup waits for the activity before recovering a pending request.
+        runBlocking { RealDatabaseMigrator.startupDatabase(ctx) }
+        val restarts = AtomicInteger()
+        RealDatabaseMigrator.restart = { restarts.incrementAndGet() }
+        launch()
+        waitFor(hasText(str(R.string.encryption_rolled_back)))
+        captureArchiveScreenshot("encryption-rolled-back")
+        InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
+            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        waitForGone(hasText(str(R.string.encryption_rolled_back)))
+        assertEquals(0, restarts.get())
+        assertEquals(Prefs.EncryptionOutcome.ROLLED_BACK, Prefs.encryptionOutcome(ctx))
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+        waitFor(hasText(str(R.string.encryption_rolled_back)))
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("input tap 100 200").close()
+        waitForGone(hasText(str(R.string.encryption_rolled_back)))
+        assertEquals(0, restarts.get())
+        assertEquals(Prefs.EncryptionOutcome.ROLLED_BACK, Prefs.encryptionOutcome(ctx))
+        compose.onNodeWithText(str(R.string.encryption_failed_title)).performClick()
+        waitFor(hasText(str(R.string.encryption_rolled_back)))
+        compose.onNodeWithText(str(R.string.retry_encryption)).performClick()
+        assertEquals(1, restarts.get())
+        assertTrue(Prefs.encryptionPending(ctx))
+        assertEquals(null, Prefs.encryptionOutcome(ctx))
+    }
+
+    @Test
+    fun blockedRecoveryOffersRetryAndPreservesJournal() {
+        seedTask(seedCategory(), "Preserved task")
+        val journal = File(ctx.noBackupFilesDir, "encryption-migration.journal")
+        journal.writeText("invalid")
+        launch()
+        waitFor(hasText(str(R.string.encryption_recovery_blocked)))
+        captureArchiveScreenshot("encryption-recovery-blocked")
+        compose.onNodeWithText(str(R.string.retry_recovery)).performClick()
+        waitFor(hasText(str(R.string.encryption_recovery_blocked)))
+        assertEquals("invalid", journal.readText())
+        waitForGone(taskRow("Preserved task"))
+    }
+
+    @Test
+    fun cleanupWarningAllowsTasksAndOffersRetry() {
+        seedTask(seedCategory(), "Encrypted task")
+        val failing = object : MigrationHooks() {
+            override fun delete(file: File) {
+                if (file.name == "encryption-rollback.db") throw java.io.IOException("cleanup")
+                super.delete(file)
+            }
+        }
+        runBlocking { RealDatabaseMigrator.migrateToEncrypted(ctx, fetchWords().take(8), failing) }
+        reset.newProcess()
+        RealDatabaseMigrator.hooks = failing
+        launch()
+        waitFor(hasText(str(R.string.encryption_cleanup_warning)))
+        captureArchiveScreenshot("encryption-cleanup-warning")
+        compose.onNodeWithText(str(R.string.retry_cleanup)).assertIsDisplayed()
+        RealDatabaseMigrator.hooks = MigrationHooks()
+        compose.onNodeWithText(str(R.string.retry_cleanup)).performClick()
+        waitForGone(hasText(str(R.string.encryption_cleanup_warning)))
+        waitFor(taskRow("Encrypted task"))
+        assertFalse(File(ctx.noBackupFilesDir, "encryption-rollback.db").exists())
+    }
+
+    private fun captureArchiveScreenshot(name: String) {
+        if (InstrumentationRegistry.getArguments().getString("captureScreenshots") != "true") return
+        compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        Thread.sleep(400) // Let the platform dialog/window animation finish before capture.
+        val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        try {
+            File(ctx.externalCacheDir, "$name.png").outputStream().use {
+                screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+        } finally {
+            screenshot.recycle()
+        }
     }
 }

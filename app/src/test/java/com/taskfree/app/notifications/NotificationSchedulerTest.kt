@@ -120,4 +120,16 @@ class NotificationSchedulerTest {
 
         assertEquals(app.getString(R.string.notification_in_past), latestToast())
     }
+
+    @Test
+    fun `unavailable database retry is silent and replaces the same pending intent`() {
+        NotificationScheduler.scheduleSilently(app, 5, future)
+        val original = alarms.scheduledAlarms.single().operation
+        val now = Instant.now()
+        repeat(3) { NotificationScheduler.retryWhenAvailable(app, 5, 0, now) }
+        val retry = alarms.scheduledAlarms.single()
+        assertEquals(original, retry.operation)
+        assertEquals(now.plusSeconds(60).toEpochMilli(), retry.triggerAtMs)
+        assertNull(latestToast())
+    }
 }

@@ -2,11 +2,11 @@
 package com.taskfree.app.ui.admin
 
 data class ToolsUiState(
-    val showArchived: Boolean = false,
-    val lastEvent   : ToolsEvent? = null        // one-shot info for snackbars etc.
+    val showArchived: Boolean = false
 )
 
 sealed interface ToolsEvent {
-    object Archived : ToolsEvent
+    data class Archived(val count: Int) : ToolsEvent
     object Deleted  : ToolsEvent
+    object Failed : ToolsEvent
 }

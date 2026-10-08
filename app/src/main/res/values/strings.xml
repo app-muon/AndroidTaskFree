@@ -58,8 +58,7 @@
     <string name="menu_archive_task_action_confirmation">Archive task?</string>
     <string name="menu_archive_series_action_confirmation">Archive series?</string>
     <string name="are_you_sure_you_want_to_archive_task">Are you sure you want to archive this task?</string>
-    <string name="are_you_sure_you_want_to_archive_series">Are you sure you want to archive this series of tasks?</string>
-    <string name="this_will_archive_the_task_and_prevent_future_recurring_tasks_from_being_created">This will archive the task and prevent future recurring tasks from being created.</string>
+    <string name="are_you_sure_you_want_to_archive_series">Archive this occurrence and its linked later occurrences?</string>
 
     <!--   Archive Menu-->
     <!-- Title for tools menu -->
@@ -68,11 +67,14 @@
     <string name="privacy_policy_title">Privacy policy</string>
     <string name="privacy_policy_body">TaskFree is local-only. It does not use ads, analytics, accounts, developer servers, or internet access.\n\nThe main exception is Android/Google app-data backup if enabled on your device. TaskFree does not operate or receive those backups.\n\nFull privacy policy: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContact: muonappdevelopment@gmail.com</string>
     <string name="archive_old_completed">Archive old completed tasks</string>
+    <string name="archive_old_completed_repeats">Archive old completed repeats</string>
     <string name="permanently_delete_tasks">Permanently delete archived tasks</string>
     <string name="toggle_view_archived">View archived tasks</string>
     <string name="toggle_view_unarchived">View unarchived tasks</string>
     <string name="confirm_archived_completed_title">Archive completed tasks?</string>
     <string name="confirm_archive_old_completed_msg">This will archive all tasks completed before today</string>
+    <string name="confirm_archive_repeats_title">Archive completed repeats?</string>
+    <string name="confirm_archive_repeats_msg">This will archive all repeating-task occurrences completed before today. One-off tasks are not affected.</string>
     <string name="confirm_archive_category_completed_msg">This will archive all completed tasks in this category</string>
     <string name="confirm_permanently_delete_title">Permanently delete archived tasks?</string>
 
@@ -298,4 +300,32 @@ Choose a backup file to restore your tasks. This will replace all existing data 
     <string name="text_size_preview_body">Body preview</string>
     <string name="text_size_preview_label">Label preview</string>
     <string name="reset_to_default">Reset to default</string>
+    <plurals name="archived_task_count">
+        <item quantity="one">Archived %d task</item>
+        <item quantity="other">Archived %d tasks</item>
+    </plurals>
+    <string name="bulk_action_failed">Could not complete this action. Please try again.</string>
+    <string name="err_task_bad_id">Invalid task ID: %1$d. Task IDs must be greater than zero.</string>
+    <string name="encryption_failed_title">Encryption needs attention</string>
+    <string name="encryption_rolled_back">Encryption failed. Your original database has been restored and your recovery phrase kept. Retry encryption or restart to continue using your tasks.</string>
+    <string name="encryption_recovery_blocked">Database recovery could not finish. Your database files have been preserved. Task access is blocked until recovery succeeds. Retry recovery. If this continues, contact support.</string>
+    <string name="retry_encryption">Retry encryption</string>
+    <string name="retry_recovery">Retry recovery</string>
+    <string name="restart_app">Restart app</string>
+    <string name="encryption_request_failed">The encryption request could not be saved. Your database has not been changed. Please try again.</string>
+    <string name="encryption_restart_title">Restart required</string>
+    <string name="encryption_restart_message">TaskFree needs to restart to finish the encryption change. If automatic restart is paused or did not work, tap Restart app.</string>
+    <string name="encryption_action_failed">Your choice could not be saved. Please try again.</string>
+    <string name="encryption_reset_failed">TaskFree could not finish removing the restored data. Tap Skip to retry.</string>
+    <string name="reminder_open_app">Open TaskFree to see your reminders</string>
+    <string name="encryption_cleanup_title">An unencrypted copy remains</string>
+    <string name="encryption_cleanup_warning">Your selected database is ready, but an extra recovery copy could not be removed. That copy may contain unencrypted tasks. You can continue using TaskFree and retry cleanup.</string>
+    <string name="retry_cleanup">Retry cleanup</string>
+    <string name="encryption_conflict_title">Choose a database to keep</string>
+    <string name="encryption_conflict_message">Two databases were found. Choose which one to use. Both originals are kept until the selected copy has been checked and installed. After that, the unselected copy will be removed. This cannot be undone.</string>
+    <string name="encryption_main_copy">Main database</string>
+    <string name="encryption_backup_copy">Legacy backup</string>
+    <string name="encryption_copy_unavailable">Unavailable: could not inspect this copy</string>
+    <string name="encryption_copy_counts">Tasks: %1$d · Categories: %2$d</string>
+    <string name="encryption_use_selected">Use selected copy</string>
 </resources>

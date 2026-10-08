@@ -324,12 +324,10 @@ class TaskViewModel(
 
     fun archive(task: Task, mode: ArchiveMode) = launchIO {
         val current = repo.taskById(task.id) ?: return@launchIO
-        // Always cancel this task’s alarm when archiving
-        NotificationScheduler.cancel(appContext, current.id, current.reminderTime)
-
         when (mode) {
             ArchiveMode.Single -> {
                 val nextId = repo.archiveSingleOccurrence(current)
+                NotificationScheduler.cancel(appContext, current.id, current.reminderTime)
                 // If a next instance was created, schedule it if eligible
                 nextId?.let { id ->
                     val next = repo.taskById(id) ?: return@let
@@ -352,7 +350,9 @@ class TaskViewModel(
                 }
             }
 
-            ArchiveMode.Series -> repo.archiveTask(current)
+            ArchiveMode.Series -> repo.archiveSeries(current.id).forEach { archived ->
+                NotificationScheduler.cancel(appContext, archived.id, archived.reminderTime)
+            }
         }
     }
 

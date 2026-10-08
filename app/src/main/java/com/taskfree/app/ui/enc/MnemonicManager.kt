@@ -64,7 +64,7 @@ object MnemonicManager {
         Log.d("MnemonicManager", "Phrase restored and key cached")
     }
 
-    private fun hashPhrase(phrase: List<String>): String {
+    internal fun hashPhrase(phrase: List<String>): String {
         val combined = phrase.joinToString("|").lowercase()
         return MessageDigest.getInstance("SHA-256")
             .digest(combined.toByteArray())

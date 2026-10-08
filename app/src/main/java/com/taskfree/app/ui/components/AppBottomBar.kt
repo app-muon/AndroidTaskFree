@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.taskfree.app.R
+
+const val TOOLS_MENU_TAG = "tools_menu"
 
 @Composable
 fun AppBottomBar(
@@ -105,7 +108,7 @@ fun AppBottomBar(
                 containerColor = Color.Transparent,
                 contentColor = tabIconInactive,
                 width = 40.dp,
-                modifier = Modifier.padding(start = 12.dp)
+                modifier = Modifier.padding(start = 12.dp).testTag(TOOLS_MENU_TAG)
             )
 
             // NAV CAPSULE (center)

@@ -41,8 +41,9 @@ class CreationDatesEncryptionTest {
         }
         val before = BackupManager.buildJson(CategoryRepository(reset.db()), TaskRepository(reset.db()))
 
+        reset.newProcess()
         RealDatabaseMigrator.migrateToEncrypted(context, fetchWords().take(8))
-        AppDatabaseFactory.clearInstance()
+        reset.newProcess()
 
         val encrypted = reset.db()
         assertEquals(expected, encrypted.taskDao().taskById(expected.id))

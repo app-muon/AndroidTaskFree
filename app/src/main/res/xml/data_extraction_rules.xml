@@ -2,5 +2,9 @@
 <data-extraction-rules allowBackup="true">
     <cloud-backup>
         <exclude domain="sharedpref" path="encryption_secret.xml"/>
+        <exclude domain="sharedpref" path="runtime_state.xml"/>
     </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="runtime_state.xml"/>
+    </device-transfer>
 </data-extraction-rules>

@@ -1,56 +1,25 @@
-// KeyRecoveryFlow.kt
-
 package com.taskfree.app.ui
 
-import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import com.taskfree.app.Prefs
-import com.taskfree.app.data.AppDatabaseFactory
-import com.taskfree.app.enc.DatabaseKeyManager
+import androidx.compose.ui.res.stringResource
+import com.taskfree.app.R
+import com.taskfree.app.data.RealDatabaseMigrator
 import com.taskfree.app.ui.enc.PhraseEntry
 import com.taskfree.app.ui.enc.RestorePrompt
 
 @Composable
 fun KeyRecoveryFlow(onFinished: () -> Unit) {
     val ctx = LocalContext.current
-    var step by rememberSaveable { mutableStateOf(Step.PROMPT) }
-
-    when (step) {
-        Step.PROMPT -> RestorePrompt(
-            onRestore = { step = Step.ENTRY },
-            onSkip = {
-                wipeEncryptedData(ctx)   // 🔸 clear everything & empty DB
-                onFinished()             // ⬅️ AppNav will now render normally
-            }
-        )
-
-        Step.ENTRY -> PhraseEntry(
-            onCancel = { step = Step.PROMPT },
-            onSuccess = {
-                AppDatabaseFactory.clearInstance()
-                onFinished()
-            }
-        )
-
-        Step.DONE -> Unit      // unused now
-    }
+    var enterPhrase by rememberSaveable { mutableStateOf(false) }
+    val failed by RealDatabaseMigrator.actionFailed.collectAsState()
+    if (enterPhrase) PhraseEntry(
+        onCancel = { enterPhrase = false },
+        onSuccess = onFinished
+    ) else RestorePrompt(
+        onRestore = { enterPhrase = true },
+        onSkip = { RealDatabaseMigrator.skipRestoredDatabase(ctx) },
+        error = if (failed) stringResource(R.string.encryption_reset_failed) else null
+    )
 }
-
-private fun wipeEncryptedData(ctx: Context) {
-    // 1. delete the encrypted DB file
-    ctx.getDatabasePath("checklists.db").delete()
-
-    // 2. clear all encryption-related prefs and cached key
-    Prefs.clearEncryption(ctx)          // removes "encrypted" flag + hash
-    Prefs.clearEncryptionSecrets(ctx)   // removes derived key + salt + words
-    DatabaseKeyManager.clearCachedKey()
-
-    // 3. drop any open Room instance
-    AppDatabaseFactory.clearInstance()
-}
-private enum class Step { PROMPT, ENTRY, DONE }

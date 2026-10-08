@@ -13,6 +13,7 @@ import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.notifications.AlarmReceiver
+import com.taskfree.app.notifications.NotificationScheduler
 import com.taskfree.app.testutil.MainDispatcherRule
 import com.taskfree.app.testutil.MutableClock
 import com.taskfree.app.testutil.clockAt
@@ -22,6 +23,7 @@ import com.taskfree.app.testutil.insertTask
 import com.taskfree.app.testutil.task
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
+import com.taskfree.app.ui.task.components.ArchiveMode
 import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -126,6 +128,42 @@ class TaskViewModelTest {
     private suspend fun addDaily(due: LocalDate): Int {
         vm.add("Stretch", DueChoice.Other(due), Recurrence.DAILY, cat, NotificationOption.Morning).join()
         return repo.snapshot().single().id
+    }
+
+    @Test
+    fun `archiving a series cancels only newly archived linked reminders`() = vmTest {
+        val due = realToday.plusDays(3)
+        val time = localAt(due, 9)
+        val previous = db.insertTask(task(cat, "Previous", due = due, reminderTime = time))
+        val selected = db.insertTask(task(cat, "Selected", due = due, reminderTime = time).copy(sourceTaskId = previous))
+        val middle = db.insertTask(task(cat, "Archived", isArchived = true).copy(sourceTaskId = selected))
+        val edited = db.insertTask(task(cat, "Edited", due = due, reminderTime = time).copy(sourceTaskId = middle))
+        val unrelated = db.insertTask(task(cat, "Selected", due = due, reminderTime = time))
+        listOf(previous, selected, edited, unrelated).forEach { NotificationScheduler.schedule(app, it, time) }
+        val before = repo.snapshot().associateBy { it.id }
+
+        vm.archive(repo.taskById(selected)!!, ArchiveMode.Series).join()
+
+        assertEquals(setOf(previous, unrelated), alarmTaskIds().toSet())
+        assertEquals(before.mapValues { (id, task) ->
+            if (id in listOf(selected, edited)) task.copy(isArchived = true) else task
+        }, repo.snapshot().associateBy { it.id })
+    }
+
+    @Test
+    fun `failed series transaction does not cancel reminders`() = vmTest {
+        val due = realToday.plusDays(3)
+        val time = localAt(due, 9)
+        val selected = db.insertTask(task(cat, reminderTime = time))
+        val child = db.insertTask(task(cat, reminderTime = time).copy(sourceTaskId = selected))
+        listOf(selected, child).forEach { NotificationScheduler.schedule(app, it, time) }
+        val before = repo.snapshot()
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_series BEFORE UPDATE ON Task WHEN NEW.id = $child BEGIN SELECT RAISE(ABORT, 'injected'); END")
+
+        vm.archive(repo.taskById(selected)!!, ArchiveMode.Series).join()
+
+        assertEquals(setOf(selected, child), alarmTaskIds().toSet())
+        assertEquals(before, repo.snapshot())
     }
 
     /* ---------- reminders ---------- */

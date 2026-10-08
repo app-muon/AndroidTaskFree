@@ -58,8 +58,7 @@
     <string name="menu_archive_task_action_confirmation">¿Archivar tarea?</string>
     <string name="menu_archive_series_action_confirmation">¿Archivar serie?</string>
     <string name="are_you_sure_you_want_to_archive_task">¿Seguro que quieres archivar esta tarea?</string>
-    <string name="are_you_sure_you_want_to_archive_series">¿Seguro que quieres archivar esta serie de tareas?</string>
-    <string name="this_will_archive_the_task_and_prevent_future_recurring_tasks_from_being_created">Esto archivará la tarea y evitará que se creen tareas recurrentes futuras.</string>
+    <string name="are_you_sure_you_want_to_archive_series">¿Archivar esta ocurrencia y sus ocurrencias posteriores vinculadas?</string>
 
     <!-- Menú de herramientas -->
     <string name="tools_menu_name">Herramientas</string>
@@ -67,11 +66,14 @@
     <string name="privacy_policy_title">Pol&#237;tica de privacidad</string>
     <string name="privacy_policy_body">TaskFree es una aplicaci&#243;n local. No usa anuncios, anal&#237;ticas, cuentas, servidores del desarrollador ni acceso a internet.\n\nLa excepci&#243;n principal es la copia de seguridad de datos de Android/Google si est&#225; activada en tu dispositivo. TaskFree no opera ni recibe esas copias.\n\nPol&#237;tica de privacidad completa: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContacto: muonappdevelopment@gmail.com</string>
     <string name="archive_old_completed">Archivar completadas</string>
+    <string name="archive_old_completed_repeats">Archivar repeticiones completadas</string>
     <string name="permanently_delete_tasks">Eliminar archivadas</string>
     <string name="toggle_view_archived">Ver archivadas</string>
     <string name="toggle_view_unarchived">Ver activas</string>
     <string name="confirm_archived_completed_title">¿Archivar completadas?</string>
     <string name="confirm_archive_old_completed_msg">Esto archivará todas las tareas completadas antes de hoy.</string>
+    <string name="confirm_archive_repeats_title">¿Archivar repeticiones completadas?</string>
+    <string name="confirm_archive_repeats_msg">Esto archivará todas las repeticiones completadas antes de hoy. Las tareas sin repetición no se verán afectadas.</string>
     <string name="confirm_archive_category_completed_msg">Esto archivará todas las tareas completadas en esta categoría.</string>
     <string name="confirm_permanently_delete_title">¿Eliminar tareas archivadas permanentemente?</string>
 
@@ -255,4 +257,32 @@
     <string name="text_size_preview_body">Texto</string>
     <string name="text_size_preview_label">Etiqueta</string>
     <string name="reset_to_default">Restablecer</string>
+    <plurals name="archived_task_count">
+        <item quantity="one">Se ha archivado %d tarea</item>
+        <item quantity="other">Se han archivado %d tareas</item>
+    </plurals>
+    <string name="bulk_action_failed">No se ha podido completar la acción. Inténtalo de nuevo.</string>
+    <string name="err_task_bad_id">ID de tarea no válido: %1$d. Los ID deben ser mayores que cero.</string>
+    <string name="encryption_failed_title">El cifrado necesita atención</string>
+    <string name="encryption_rolled_back">El cifrado ha fallado. Se ha restaurado la base de datos original y conservado tu frase de recuperación. Reintenta el cifrado o reinicia para seguir usando tus tareas.</string>
+    <string name="encryption_recovery_blocked">No se ha podido completar la recuperación. Se han conservado los archivos de la base de datos. El acceso a las tareas está bloqueado hasta que se complete la recuperación. Reinténtalo. Si el problema continúa, contacta con soporte.</string>
+    <string name="retry_encryption">Reintentar cifrado</string>
+    <string name="retry_recovery">Reintentar recuperación</string>
+    <string name="restart_app">Reiniciar aplicación</string>
+    <string name="encryption_request_failed">No se pudo guardar la solicitud de cifrado. Tu base de datos no ha cambiado. Inténtalo de nuevo.</string>
+    <string name="encryption_restart_title">Es necesario reiniciar</string>
+    <string name="encryption_restart_message">TaskFree necesita reiniciarse para completar el cambio de cifrado. Si el reinicio automático está en pausa o no ha funcionado, pulsa Reiniciar aplicación.</string>
+    <string name="encryption_action_failed">No se ha podido guardar tu elección. Inténtalo de nuevo.</string>
+    <string name="encryption_reset_failed">TaskFree no ha podido terminar de eliminar los datos restaurados. Pulsa Omitir para reintentarlo.</string>
+    <string name="reminder_open_app">Abre TaskFree para ver tus recordatorios</string>
+    <string name="encryption_cleanup_title">Queda una copia sin cifrar</string>
+    <string name="encryption_cleanup_warning">La base de datos seleccionada está lista, pero no se pudo eliminar una copia de recuperación adicional. Esa copia puede contener tareas sin cifrar. Puedes seguir usando TaskFree y reintentar la limpieza.</string>
+    <string name="retry_cleanup">Reintentar limpieza</string>
+    <string name="encryption_conflict_title">Elige qué base de datos conservar</string>
+    <string name="encryption_conflict_message">Se encontraron dos bases de datos. Elige cuál usar. Ambos originales se conservan hasta comprobar e instalar la copia seleccionada. Después se eliminará la copia no seleccionada. Esta acción no se puede deshacer.</string>
+    <string name="encryption_main_copy">Base de datos principal</string>
+    <string name="encryption_backup_copy">Copia de seguridad antigua</string>
+    <string name="encryption_copy_unavailable">No disponible: no se pudo examinar esta copia</string>
+    <string name="encryption_copy_counts">Tareas: %1$d · Categorías: %2$d</string>
+    <string name="encryption_use_selected">Usar copia seleccionada</string>
 </resources>

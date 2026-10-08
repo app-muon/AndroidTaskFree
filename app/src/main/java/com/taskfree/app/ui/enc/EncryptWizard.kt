@@ -20,9 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,69 +36,36 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.Prefs
 import com.taskfree.app.R
-import com.taskfree.app.data.AppDatabaseFactory
 import com.taskfree.app.data.RealDatabaseMigrator
+import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.dialogMaxHeight
 import com.taskfree.app.ui.components.dialogResponsiveWidth
-import com.taskfree.app.util.restartApp
 
-/* ────────────────────────────────────────────────────────────────────────── *//* 1.  EncryptWizard – a modal overlay that runs the fake-encryption flow    *//* ────────────────────────────────────────────────────────────────────────── */
-
+/** Phrase confirmation only requests a fresh process; this composition never owns migration. */
 @Composable
 fun EncryptWizard(onClose: () -> Unit) {
     val ctx = LocalContext.current
-    var step by rememberSaveable { mutableStateOf(WizardStep.INFO) }
-
-    val progress by RealDatabaseMigrator.progress.collectAsState()
-    /* ── if the user bails out before the migrator finishes, wipe any orphaned data ── */
-    DisposableEffect(Unit) {
-        onDispose {
-            if (!Prefs.isEncrypted(ctx)) {
-                // Encryption never completed, but keep phrase for retry
-                Log.d("EncryptWizard", "Encryption incomplete - phrase preserved for retry")
-            }
-        }
-    }
-
-    when (step) {
-        WizardStep.INFO -> EncryptInfo(
-            onContinue = { step = WizardStep.PHRASE }, onCancel = onClose
+    var showPhrase by rememberSaveable { mutableStateOf(false) }
+    var failed by rememberSaveable { mutableStateOf(false) }
+    if (failed) {
+        ConfirmDialog(
+            title = stringResource(R.string.encryption_failed_title),
+            message = stringResource(R.string.encryption_request_failed),
+            yesMessage = stringResource(R.string.got_it_confirmation),
+            noMessage = "",
+            onYes = { failed = false }, onNo = {}, onDismiss = { failed = false }
         )
-
-        WizardStep.PHRASE -> {
-            val words = remember { MnemonicManager.getOrCreatePhrase(ctx) }
-            EncryptPhraseScreen(
-                words = words, onConfirmed = { step = WizardStep.PROGRESS }, onCancel = onClose
-            )
-        }
-
-        WizardStep.PROGRESS -> {
-            // Start real encryption process
-            LaunchedEffect(Unit) {
-                try {
-                    val words = Prefs.loadPhrase(ctx) ?: return@LaunchedEffect
-                    RealDatabaseMigrator.migrateToEncrypted(ctx, words)
-
-                } catch (e: Exception) {
-                    Log.e("EncryptWizard", "Encryption failed", e)
-                }
+    } else if (showPhrase) {
+        val words = remember { MnemonicManager.getOrCreatePhrase(ctx) }
+        EncryptPhraseScreen(words, onConfirmed = {
+            try { failed = !RealDatabaseMigrator.requestEncryption(ctx, words) }
+            catch (e: Exception) {
+                Log.e("EncryptWizard", "Could not request encryption", e)
+                failed = true
             }
-
-            EncryptProgress(progress)
-            if (progress == 100) {
-                LaunchedEffect(Unit) {
-                    // Clear existing database instance to force recreation with encryption
-                    AppDatabaseFactory.clearInstance()
-                }
-                step = WizardStep.SUCCESS
-            }
-        }
-
-        WizardStep.SUCCESS -> EncryptSuccess(onDone = { ctx.restartApp() })
-    }
+        }, onCancel = onClose)
+    } else EncryptInfo(onContinue = { showPhrase = true }, onCancel = onClose)
 }
-
-private enum class WizardStep { INFO, PHRASE, PROGRESS, SUCCESS }
 
 /* ────────────────────────────────────────────────────────────────────────── *//* 2.  ViewPhraseDialog – shows the saved 12-word phrase (debug build only)  *//* ────────────────────────────────────────────────────────────────────────── */
 

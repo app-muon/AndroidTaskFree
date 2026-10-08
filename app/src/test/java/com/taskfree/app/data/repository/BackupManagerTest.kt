@@ -246,4 +246,24 @@ class BackupManagerTest {
 
         assertEquals(before, taskRepo.snapshot())
     }
+
+    @Test
+    fun `nonpositive task ids and links report the offending id before replacing data`() = runTest {
+        seed()
+        val beforeTasks = taskRepo.snapshot()
+        val beforeCategories = catRepo.snapshot()
+        for (invalidId in listOf(0, -1, Int.MIN_VALUE)) {
+            val invalid = task(1, "Invalid", id = invalidId)
+            val linked = task(1, "References invalid ID", id = 100).copy(sourceTaskId = invalidId)
+            for (tasks in listOf(listOf(invalid), listOf(linked, invalid), listOf(linked))) {
+                val error = assertFails<BackupValidationException> {
+                    BackupManager.import(ctx, uriFor(backup(listOf(home), tasks)), taskRepo)
+                }
+                assertEquals(R.string.err_task_bad_id, error.resId)
+                assertArrayEquals(arrayOf<Any>(invalidId), error.args)
+                assertEquals(beforeTasks, taskRepo.snapshot())
+                assertEquals(beforeCategories, catRepo.snapshot())
+            }
+        }
+    }
 }
