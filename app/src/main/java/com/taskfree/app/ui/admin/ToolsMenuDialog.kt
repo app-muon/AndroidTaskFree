@@ -79,7 +79,8 @@ fun ToolsMenuDialog(
     val scope = rememberCoroutineScope()
     // This host stays composed while its menu and confirmation are closed.
     LaunchedEffect(vm, ctx) {
-        vm.events.collect { event ->
+        // Events are sent from IO; Toast needs a Looper thread whatever dispatcher runs this effect.
+        withContext(Dispatchers.Main) { vm.events.collect { event ->
             val message = when (event) {
                 is ToolsEvent.Archived -> ctx.resources.getQuantityString(
                     R.plurals.archived_task_count, event.count, event.count
@@ -88,7 +89,7 @@ fun ToolsMenuDialog(
                 ToolsEvent.Deleted -> null
             }
             message?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
-        }
+        } }
     }
     val saveLauncher = rememberLauncherForActivityResult(
         CreateDocument("application/json")

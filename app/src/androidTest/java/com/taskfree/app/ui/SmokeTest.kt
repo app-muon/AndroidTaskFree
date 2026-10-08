@@ -47,6 +47,7 @@ import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.TOOLS_MENU_TAG
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import com.taskfree.app.ui.task.components.DATE_FILTER_TAG
 import com.taskfree.app.ui.task.components.SEARCH_TOGGLE_TAG
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -286,7 +287,7 @@ class SmokeTest {
         launch()
         waitFor(taskRow("Keep visible"))
         dismissTipIfShown()
-        compose.onNodeWithText(str(R.string.today)).performClick()
+        compose.onNodeWithTag(DATE_FILTER_TAG).performClick()
         compose.onNodeWithText(str(R.string.all_dates)).performClick()
         waitFor(taskRow("Old repeat"))
 
@@ -527,6 +528,8 @@ class SmokeTest {
         RealDatabaseMigrator.hooks = failing
         launch()
         waitFor(hasText(str(R.string.encryption_cleanup_warning)))
+        // Startup keeps restoring reminders after READY; a retry tapped before it ends is ignored.
+        runBlocking { RealDatabaseMigrator.start(ctx).join() }
         captureArchiveScreenshot("encryption-cleanup-warning")
         compose.onNodeWithText(str(R.string.retry_cleanup)).assertIsDisplayed()
         RealDatabaseMigrator.hooks = MigrationHooks()
