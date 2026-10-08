@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +53,9 @@ import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.restartApp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -74,6 +77,19 @@ fun ToolsMenuDialog(
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
     val scope = rememberCoroutineScope()
+    // This host stays composed while its menu and confirmation are closed.
+    LaunchedEffect(vm, ctx) {
+        vm.events.collect { event ->
+            val message = when (event) {
+                is ToolsEvent.Archived -> ctx.resources.getQuantityString(
+                    R.plurals.archived_task_count, event.count, event.count
+                )
+                ToolsEvent.Failed -> ctx.getString(R.string.bulk_action_failed)
+                ToolsEvent.Deleted -> null
+            }
+            message?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
+        }
+    }
     val saveLauncher = rememberLauncherForActivityResult(
         CreateDocument("application/json")
     ) { uri ->
@@ -180,15 +196,20 @@ fun ToolsMenuDialog(
                         label = "Reset encryption (debug)",
                         icon = Icons.Default.Refresh,
                         onClick = {
-                            Prefs.clearEncryption(ctx)
-                            Prefs.clearEncryptionSecrets(ctx)
-                            DatabaseKeyManager.clearCachedKey()
-                            AppDatabaseFactory.clearInstance()
-                            listOf("checklists.db", AppDatabaseFactory.TEMP_DB_NAME, "checklists_backup.db")
-                                .forEach { name ->
-                                    ctx.getDatabasePath(name)?.takeIf { it.exists() }?.delete()
+                            val appContext = ctx.applicationContext
+                            scope.launch {
+                                // Blocking gate and file work stays off the main thread.
+                                val reset = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        com.taskfree.app.data.RealDatabaseMigrator.resetEncryption(appContext)
+                                    }
                                 }
-                            debugToast(ctx, "Encryption reset completely and data deleted")
+                                reset.onSuccess { com.taskfree.app.data.RealDatabaseMigrator.requestRestart(appContext) }
+                                    .onFailure {
+                                        android.util.Log.e("ToolsMenuDialog", "Debug encryption reset failed", it)
+                                        Toast.makeText(appContext, "Reset failed: ${it.message}", Toast.LENGTH_LONG).show()
+                                    }
+                            }
                             onDismiss()
                         })
                 } else null, ActionItem(
@@ -204,6 +225,13 @@ fun ToolsMenuDialog(
                     iconTint = colors.darkRed,
                     onClick = {
                         pending = PendingAction.ARCHIVE
+                        onDismiss()
+                    }), ActionItem(
+                    label = stringResource(R.string.archive_old_completed_repeats),
+                    icon = Icons.Default.Archive,
+                    iconTint = colors.darkRed,
+                    onClick = {
+                        pending = PendingAction.ARCHIVE_REPEATS
                         onDismiss()
                     }), ActionItem(
                     label = stringResource(R.string.permanently_delete_tasks),
@@ -273,6 +301,17 @@ fun ToolsMenuDialog(
                 onNo = { pending = null })
         }
 
+        if (action == PendingAction.ARCHIVE_REPEATS) {
+            ConfirmArchive(
+                title = stringResource(R.string.confirm_archive_repeats_title),
+                message = stringResource(R.string.confirm_archive_repeats_msg),
+                onYes = {
+                    vm.archiveOldCompletedRepeats()
+                    pending = null
+                },
+                onNo = { pending = null })
+        }
+
         if (action == PendingAction.PERMANENTLY_DELETE) {
             ConfirmDeletion(
                 title = stringResource(R.string.confirm_permanently_delete_title),
@@ -298,4 +337,4 @@ fun ToolsMenuDialog(
     }
 }
 
-private enum class PendingAction { ARCHIVE, PERMANENTLY_DELETE, RESTORE }
+private enum class PendingAction { ARCHIVE, ARCHIVE_REPEATS, PERMANENTLY_DELETE, RESTORE }

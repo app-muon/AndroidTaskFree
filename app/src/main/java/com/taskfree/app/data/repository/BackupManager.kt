@@ -75,6 +75,10 @@ object BackupManager {
             .toSet()
 
         val taskIds = b.tasks.map { it.id }
+        // Validate IDs before links: Room treats zero as an auto-generated ID.
+        (taskIds + b.tasks.mapNotNull { it.sourceTaskId }).firstOrNull { it <= 0 }?.let {
+            throw BackupValidationException(R.string.err_task_bad_id, it)
+        }
         requireUnique(taskIds) { BackupValidationException(R.string.err_task_duplicate_id) }
         b.tasks.forEach {
             if (it.text.isBlank())

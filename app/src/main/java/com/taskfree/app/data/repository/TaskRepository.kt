@@ -127,6 +127,24 @@ class TaskRepository(
         database.taskDao().update(current.copy(isArchived = true))
     }
 
+    /** Only explicit forward links define a series; legacy unlinked occurrences stay separate. */
+    suspend fun archiveSeries(taskId: Int): List<Task> = database.withTransaction {
+        val dao = database.taskDao()
+        val visited = mutableSetOf<Int>()
+        val archived = mutableListOf<Task>()
+        var id: Int? = taskId
+        while (id != null && visited.add(id)) {
+            val current = dao.taskById(id) ?: break
+            if (!current.isArchived) {
+                val updated = current.copy(isArchived = true)
+                dao.update(updated)
+                archived.add(updated)
+            }
+            id = dao.findNextInstanceId(current.id)
+        }
+        archived
+    }
+
     suspend fun unarchiveTask(taskId: Int) = database.withTransaction {
         val current = requireNotNull(database.taskDao().taskById(taskId))
         requireActiveCategory(current.categoryId)
@@ -237,13 +255,16 @@ class TaskRepository(
         }
     }
 
-    suspend fun archiveTasksCompletedBeforeToday() {
+    suspend fun archiveTasksCompletedBeforeToday(): Int {
         val today = dates.today()
         if (BuildConfig.DEBUG) {
             Log.d("TaskRepository", "deleting tasks completed before: $today")
         }
-        database.taskDao().archiveOldCompletedTasks(today)
+        return database.taskDao().archiveOldCompletedTasks(today)
     }
+
+    suspend fun archiveRecurringCompletedBeforeToday(): Int =
+        database.taskDao().archiveOldCompletedRecurring(dates.today())
 
     suspend fun archiveCompletedInCategory(catId: Int) {
         database.taskDao().archiveCompletedInCategory(catId)

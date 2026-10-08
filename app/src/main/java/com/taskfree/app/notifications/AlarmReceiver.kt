@@ -9,11 +9,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.taskfree.app.MainActivity
 import com.taskfree.app.R
-import com.taskfree.app.data.AppDatabaseFactory
+import com.taskfree.app.data.RealDatabaseMigrator
+import com.taskfree.app.data.ReceiverDatabase
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.labelResId
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import java.time.Instant
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -24,9 +27,39 @@ class AlarmReceiver : BroadcastReceiver() {
         if (taskId == -1) return                         // safety-net
 
         /* ─── 1 ▸ fetch task + category in one query (suspending, so wrap) ─── */
-        val dao = AppDatabaseFactory.getDatabase(context).taskDao()
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try { deliver(context.applicationContext, taskId, intent.getIntExtra(EXTRA_RETRY_COUNT, 0)) }
+            catch (e: Exception) {
+                android.util.Log.e("AlarmReceiver", "Reminder delivery failed", e)
+            } finally { pending.finish() }
+        }
+    }
 
-        val row = runBlocking(Dispatchers.IO) { dao.taskWithCatById(taskId) } ?: return
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    internal suspend fun deliver(context: Context, taskId: Int, retryCount: Int = 0) {
+        val row = try {
+            when (val access = RealDatabaseMigrator.startupDatabase(context)) {
+                is ReceiverDatabase.Ready -> access.database.taskDao().taskWithCatById(taskId) ?: return
+                ReceiverDatabase.RetryLater -> {
+                    NotificationScheduler.retryWhenAvailable(context, taskId, retryCount)
+                    return
+                }
+                ReceiverDatabase.NeedsUserAction -> {
+                    ReminderAccessNotice.post(context)
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AlarmReceiver", "Reminder deferred until database is available", e)
+            NotificationScheduler.retryWhenAvailable(context, taskId, retryCount)
+            return
+        }
+        val reminder = row.reminderTime ?: return
+        if (reminder > Instant.now()) {
+            NotificationScheduler.scheduleSilently(context, taskId, reminder)
+            return
+        }
 
         /* ─── 2 ▸ craft title + body ─── */
         val title = "Reminder: ${row.text}"
@@ -59,5 +92,6 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION = "com.taskfree.app.REMINDER"
         const val EXTRA_TASK_ID = "task_id"
+        const val EXTRA_RETRY_COUNT = "retry_count"
     }
 }

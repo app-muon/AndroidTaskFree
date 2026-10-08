@@ -35,10 +35,11 @@ fun ConfirmDialog(
     noColour: Color = colorResource(R.color.dialog_button_text_colour),
     yesColour: Color = colorResource(R.color.dark_red),
     onYes: () -> Unit,
-    onNo: () -> Unit
+    onNo: () -> Unit,
+    onDismiss: () -> Unit = onNo
 ) {
     Dialog(
-        onDismissRequest = onNo, properties = DialogProperties(usePlatformDefaultWidth = false)
+        onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Card(
             Modifier

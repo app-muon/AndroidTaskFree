@@ -18,24 +18,25 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.taskfree.app.data.RealDatabaseMigrator
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.notifications.AlarmReceiver
 import com.taskfree.app.ui.AppNav
-import com.taskfree.app.ui.enc.MnemonicManager
+import kotlinx.coroutines.flow.first
 import com.taskfree.app.ui.onboarding.LocalTipManager
 import com.taskfree.app.ui.onboarding.TipManager
 import com.taskfree.app.util.db
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class MainActivity : FragmentActivity() {
 
-    private val repoOrNull by lazy {
-        if (Prefs.isEncrypted(this) && !MnemonicManager.hasKey(this)) {
-            null
-        } else {
-            TaskRepository(application.db)
-        }
-    }
 
     // Permission launcher
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -52,6 +53,18 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestNotificationPermission()
+        RealDatabaseMigrator.start(applicationContext)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                RealDatabaseMigrator.startup.first { it == com.taskfree.app.data.DatabaseStartup.READY }
+                try {
+                    reindexGate.withLock {
+                        withContext(Dispatchers.IO) { TaskRepository(application.db).reindexAllTaskPageOrders() }
+                    }
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { android.util.Log.e("MainActivity", "Reindex failed", e) }
+            }
+        }
 
         setContent {
             val tipManager = remember { TipManager(applicationContext) }
@@ -80,17 +93,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-
-        repoOrNull?.let { repo ->
-            lifecycleScope.launch {
-                runCatching { repo.reindexAllTaskPageOrders() }
-                    .onFailure { android.util.Log.e("MainActivity", "reindex failed", it) }
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        RealDatabaseMigrator.onForeground(applicationContext)
     }
+
+    override fun onStop() {
+        RealDatabaseMigrator.onBackground()
+        super.onStop()
+    }
+
     companion object {
+        private val reindexGate = Mutex()
         fun pendingIntent(ctx: Context, taskId: Int): PendingIntent = PendingIntent.getActivity(
             ctx, (12345 + taskId), Intent(ctx, MainActivity::class.java).apply {
                 putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)

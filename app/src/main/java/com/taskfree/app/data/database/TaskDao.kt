@@ -104,11 +104,25 @@ WHERE id = :id
         UPDATE Task
         SET isArchived = 1
         WHERE completedDate < :today
+          AND status = 'DONE'
           AND completedDate IS NOT NULL
           AND isArchived = 0
     """
     )
-    suspend fun archiveOldCompletedTasks(today: LocalDate)
+    suspend fun archiveOldCompletedTasks(today: LocalDate): Int
+
+    @Query(
+        """
+        UPDATE Task
+        SET isArchived = 1
+        WHERE recurrence != 'NONE'
+          AND status = 'DONE'
+          AND completedDate IS NOT NULL
+          AND completedDate < :today
+          AND isArchived = 0
+    """
+    )
+    suspend fun archiveOldCompletedRecurring(today: LocalDate): Int
 
     /** Archive every completed (status = DONE) task inside one category */
     @Query(
@@ -131,6 +145,7 @@ WHERE id = :id
         FROM Task
         JOIN Category ON Category.id = Task.categoryId
         WHERE Task.reminderTime > :from
+          AND Task.status != 'DONE'
           AND Task.isArchived = 0
           AND Category.isDeleted = 0
         """
@@ -141,11 +156,12 @@ WHERE id = :id
 
     @Query(
         """
-        SELECT Task.id, Task.text, Task.due, Task.recurrence,
+        SELECT Task.id, Task.text, Task.due, Task.recurrence, Task.reminderTime,
                Category.title AS catTitle, Category.color AS catColor
         FROM Task
         JOIN Category ON Category.id = Task.categoryId
         WHERE Task.id = :id
+          AND Task.status != 'DONE'
           AND Task.isArchived = 0
           AND Category.isDeleted = 0
         """
@@ -157,6 +173,7 @@ WHERE id = :id
         val text: String,
         val due: LocalDate?,
         val recurrence: Recurrence,
+        val reminderTime: Instant?,
         val catTitle: String,
         val catColor: Long
     )

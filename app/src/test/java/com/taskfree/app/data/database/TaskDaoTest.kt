@@ -127,20 +127,108 @@ class TaskDaoTest {
     }
 
     @Test
-    fun `upcoming reminders exclude past, archived and deleted-category tasks`() = runTest {
+    fun `archiveOldCompletedRecurring changes only old completed repeats and preserves successors`() = runTest {
+        val cat = db.insertCategory()
+        val yesterday = today.minusDays(1)
+        val eligibleIds = mutableSetOf<Int>()
+        for (recurrence in Recurrence.entries.filter { it != Recurrence.NONE }) {
+            val legacy = task(
+                cat, "Legacy $recurrence", due = yesterday, recurrence = recurrence,
+                status = TaskStatus.DONE, completedDate = yesterday,
+                reminderTime = Instant.parse("2026-10-05T09:00:00Z"),
+                singleOrder = recurrence.ordinal, allOrder = recurrence.ordinal + 10
+            )
+            val legacyId = db.insertTask(legacy)
+            eligibleIds += legacyId
+            val linkedId = db.insertTask(legacy.copy(
+                text = "Linked $recurrence",
+                originalCreatedAt = Instant.parse("2025-01-02T03:04:05Z"),
+                occurrenceCreatedAt = Instant.parse("2026-10-04T03:04:05Z"),
+                sourceTaskId = legacyId
+            ))
+            eligibleIds += linkedId
+            db.insertTask(task(
+                cat, "Successor $recurrence", due = today.plusDays(1), recurrence = recurrence
+            ).copy(sourceTaskId = linkedId))
+
+            val protected = listOf(
+                legacy.copy(text = "One-off", recurrence = Recurrence.NONE, baseDate = null),
+                legacy.copy(text = "Incomplete", status = TaskStatus.TODO, completedDate = null),
+                legacy.copy(text = "Old Todo", status = TaskStatus.TODO),
+                legacy.copy(text = "Old Pending", status = TaskStatus.PENDING),
+                legacy.copy(text = "Old In progress", status = TaskStatus.IN_PROGRESS),
+                legacy.copy(text = "No completion date", completedDate = null),
+                legacy.copy(text = "Completed today", completedDate = today),
+                legacy.copy(text = "Completed in future", completedDate = today.plusDays(1)),
+                legacy.copy(text = "Already archived", isArchived = true)
+            )
+            for (task in protected) db.insertTask(task)
+        }
+        val before = dao.getAllNow().associateBy { it.id }
+        val expected = before.mapValues { (id, task) ->
+            if (id in eligibleIds) task.copy(isArchived = true) else task
+        }
+
+        assertEquals(eligibleIds.size, dao.archiveOldCompletedRecurring(today))
+        assertEquals(expected, dao.getAllNow().associateBy { it.id })
+        assertEquals(0, dao.archiveOldCompletedRecurring(today))
+        assertEquals(expected, dao.getAllNow().associateBy { it.id })
+    }
+
+    @Test
+    fun `both archive queries require Done and an old completion without changing other fields`() = runTest {
+        for (repeatsOnly in listOf(false, true)) {
+            dao.deleteAll()
+            val cat = db.insertCategory()
+            for (recurrence in Recurrence.entries) {
+                for (status in TaskStatus.entries) {
+                    for (completed in listOf(null, today.minusDays(1), today, today.plusDays(1))) {
+                        for (archived in listOf(false, true)) {
+                            val parent = db.insertTask(task(cat, "Legacy", due = today.minusDays(4),
+                                recurrence = recurrence, status = status, completedDate = completed,
+                                isArchived = archived, reminderTime = Instant.parse("2026-10-04T12:00:00Z")))
+                            db.insertTask(dao.taskById(parent)!!.copy(id = 0, sourceTaskId = parent,
+                                originalCreatedAt = Instant.parse("2025-01-01T12:00:00Z"),
+                                occurrenceCreatedAt = Instant.parse("2026-10-01T12:00:00Z")))
+                        }
+                    }
+                }
+            }
+            val before = dao.getAllNow().associateBy { it.id }
+            val expected = before.mapValues { (_, task) ->
+                if (task.status == TaskStatus.DONE && task.completedDate?.isBefore(today) == true &&
+                    (!repeatsOnly || task.recurrence != Recurrence.NONE)) task.copy(isArchived = true) else task
+            }
+            val count = expected.count { (id, task) -> task != before[id] }
+            suspend fun archive() = if (repeatsOnly) dao.archiveOldCompletedRecurring(today)
+                else dao.archiveOldCompletedTasks(today)
+            assertEquals(count, archive())
+            assertEquals(expected, dao.getAllNow().associateBy { it.id })
+            assertEquals(0, archive())
+            assertEquals(expected, dao.getAllNow().associateBy { it.id })
+        }
+    }
+
+    @Test
+    fun reminderQueriesExcludeCompletedTasks() = runTest {
         val now = Instant.parse("2026-10-06T12:00:00Z")
         val later = now.plusSeconds(3600)
         val active = db.insertCategory("active")
         val deleted = db.insertCategory("deleted", isDeleted = true)
         val wanted = db.insertTask(task(active, "wanted", reminderTime = later))
+        val inProgress = db.insertTask(task(active, "in progress", reminderTime = later, status = TaskStatus.IN_PROGRESS))
+        val completed = db.insertTask(task(active, "completed", reminderTime = later, status = TaskStatus.DONE))
         db.insertTask(task(active, "past", reminderTime = now.minusSeconds(60)))
         db.insertTask(task(active, "archived", reminderTime = later, isArchived = true))
         db.insertTask(task(deleted, "deleted cat", reminderTime = later))
 
         assertEquals(
-            listOf(TaskDao.IdTimeTuple(wanted, later)),
-            dao.upcomingReminders(now)
+            listOf(TaskDao.IdTimeTuple(wanted, later), TaskDao.IdTimeTuple(inProgress, later)),
+            dao.upcomingReminders(now).sortedBy { it.id }
         )
+        assertEquals("wanted", dao.taskWithCatById(wanted)!!.text)
+        assertEquals("in progress", dao.taskWithCatById(inProgress)!!.text)
+        assertNull(dao.taskWithCatById(completed))
     }
 
     @Test

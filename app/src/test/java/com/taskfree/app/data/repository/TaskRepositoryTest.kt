@@ -8,11 +8,13 @@ import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.testutil.assertFails
+import com.taskfree.app.testutil.clockAt
 import com.taskfree.app.testutil.datesAt
 import com.taskfree.app.testutil.inMemoryDb
 import com.taskfree.app.testutil.insertCategory
 import com.taskfree.app.testutil.insertTask
 import com.taskfree.app.testutil.task
+import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -238,10 +240,86 @@ class TaskRepositoryTest {
         val old = db.insertTask(task(cat, "old", status = TaskStatus.DONE, completedDate = today.minusDays(1)))
         val fresh = db.insertTask(task(cat, "fresh", status = TaskStatus.DONE, completedDate = today))
 
-        repo.archiveTasksCompletedBeforeToday()
+        assertEquals(1, repo.archiveTasksCompletedBeforeToday())
 
         assertTrue(repo.taskById(old)!!.isArchived)
         assertFalse(repo.taskById(fresh)!!.isArchived)
+        assertEquals(0, repo.archiveTasksCompletedBeforeToday())
+    }
+
+    @Test
+    fun `series archiving starts in the middle and follows edited successors through archived rows`() = runTest {
+        val cat = db.insertCategory()
+        val earlier = db.insertTask(task(cat, "Same", due = today, recurrence = Recurrence.DAILY))
+        val selected = db.insertTask(task(cat, "Same", due = tomorrow, recurrence = Recurrence.DAILY,
+            status = TaskStatus.PENDING).copy(sourceTaskId = earlier))
+        val middle = db.insertTask(task(cat, "Already archived", isArchived = true).copy(sourceTaskId = selected))
+        val edited = db.insertTask(task(cat, "Edited one-off", status = TaskStatus.DONE,
+            completedDate = today, reminderTime = Instant.parse("2026-10-10T12:00:00Z"))
+            .copy(sourceTaskId = middle, originalCreatedAt = Instant.parse("2020-01-01T00:00:00Z"),
+                occurrenceCreatedAt = Instant.parse("2026-10-01T00:00:00Z")))
+        db.insertTask(task(cat, "Same", due = tomorrow, recurrence = Recurrence.DAILY))
+        val before = repo.snapshot().associateBy { it.id }
+        val expectedNew = listOf(selected, edited).map { before.getValue(it).copy(isArchived = true) }
+
+        assertEquals(expectedNew, repo.archiveSeries(selected))
+        val expected = before + expectedNew.associateBy { it.id }
+        assertEquals(expected, repo.snapshot().associateBy { it.id })
+        assertEquals(emptyList<com.taskfree.app.data.entities.Task>(), repo.archiveSeries(selected))
+        assertEquals(expected, repo.snapshot().associateBy { it.id })
+    }
+
+    @Test
+    fun `series traversal terminates on a cycle`() = runTest {
+        val cat = db.insertCategory()
+        val a = db.insertTask(task(cat))
+        val b = db.insertTask(task(cat).copy(sourceTaskId = a))
+        db.taskDao().update(repo.taskById(a)!!.copy(sourceTaskId = b))
+        assertEquals(listOf(a, b), repo.archiveSeries(a).map { it.id })
+        assertEquals(0, repo.archiveSeries(a).size)
+    }
+
+    @Test
+    fun `series update failure rolls back every occurrence`() = runTest {
+        val cat = db.insertCategory()
+        val a = db.insertTask(task(cat))
+        val b = db.insertTask(task(cat).copy(sourceTaskId = a))
+        val before = repo.snapshot()
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_series BEFORE UPDATE ON Task WHEN NEW.id = $b BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        assertFails<android.database.sqlite.SQLiteException> { repo.archiveSeries(a) }
+        assertEquals(before, repo.snapshot())
+    }
+
+    @Test
+    fun `archiveRecurringCompletedBeforeToday reads the injected date at each call and returns the count`() = runTest {
+        val cutoff = LocalDate.of(2040, 2, 28)
+        val clock = clockAt(cutoff.minusDays(1))
+        val repository = TaskRepository(db, DateProvider(clock))
+        val cat = db.insertCategory()
+        val older = db.insertTask(task(
+            cat, "Older", recurrence = Recurrence.DAILY, status = TaskStatus.DONE,
+            completedDate = cutoff.minusDays(2)
+        ))
+        val yesterday = db.insertTask(task(
+            cat, "Yesterday", recurrence = Recurrence.WEEKLY, status = TaskStatus.DONE,
+            completedDate = cutoff.minusDays(1)
+        ))
+        val fresh = db.insertTask(task(
+            cat, "Fresh", recurrence = Recurrence.MONTHLY, status = TaskStatus.DONE,
+            completedDate = cutoff
+        ))
+        clock.setDate(cutoff)
+
+        assertEquals(2, repository.archiveRecurringCompletedBeforeToday())
+        assertTrue(repository.taskById(older)!!.isArchived)
+        assertTrue(repository.taskById(yesterday)!!.isArchived)
+        assertFalse(repository.taskById(fresh)!!.isArchived)
+
+        clock.setDate(cutoff.plusDays(1))
+
+        assertEquals(1, repository.archiveRecurringCompletedBeforeToday())
+        assertTrue(repository.taskById(fresh)!!.isArchived)
+        assertEquals(0, repository.archiveRecurringCompletedBeforeToday())
     }
 
     @Test

@@ -3,12 +3,16 @@ package com.taskfree.app.ui.admin
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskfree.app.data.repository.BackupManager
 import com.taskfree.app.data.repository.CategoryRepository
 import com.taskfree.app.data.repository.TaskRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,20 +36,34 @@ class ToolsViewModel(
     )
     val refresh = _refresh.asSharedFlow()
 
+    private val _events = Channel<ToolsEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
+
     /* ---------- toggles ---------- */
     fun toggleShowArchived() = _ui.update { it.copy(showArchived = !it.showArchived) }
 
     /* ---------- bulk actions ----- */
     fun archiveOldCompleted() =
-        runOp { taskRepo.archiveTasksCompletedBeforeToday(); ToolsEvent.Archived }
+        runOp { ToolsEvent.Archived(taskRepo.archiveTasksCompletedBeforeToday()) }
+
+    fun archiveOldCompletedRepeats() =
+        runOp { ToolsEvent.Archived(taskRepo.archiveRecurringCompletedBeforeToday()) }
 
     fun deleteArchived() = runOp { taskRepo.deleteAllArchivedTasks(); ToolsEvent.Deleted }
 
     /* helper */
     private fun runOp(block: suspend () -> ToolsEvent) =
         viewModelScope.launch(io) {
-            val event = block()
-            _ui.update { it.copy(lastEvent = event) }
+            val event = try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("ToolsViewModel", "Bulk action failed", e)
+                _events.send(ToolsEvent.Failed)
+                return@launch
+            }
+            _events.send(event)
             _refresh.emit(Unit)
         }
 

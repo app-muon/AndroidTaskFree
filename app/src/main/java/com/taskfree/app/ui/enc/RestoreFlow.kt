@@ -45,17 +45,18 @@ import com.taskfree.app.ui.components.dialogResponsiveWidth
 
 @Composable
 fun RestorePrompt(
-    onRestore: () -> Unit, onSkip: () -> Unit
+    onRestore: () -> Unit, onSkip: () -> Unit, error: String? = null
 ) {
     ConfirmDialog(
         title = stringResource(R.string.restore_found_title),
-        message = stringResource(R.string.restore_found_body),
+        message = stringResource(R.string.restore_found_body) + (error?.let { "\n\n$it" } ?: ""),
         yesMessage = stringResource(R.string.restore),
         noMessage = stringResource(R.string.skip),
         noColour = colorResource(R.color.bright_red),
         yesColour = colorResource(R.color.dialog_button_text_colour),
         onYes = onRestore,
-        onNo = onSkip
+        onNo = onSkip,
+        onDismiss = {}
     )
 }
 
