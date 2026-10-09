@@ -255,6 +255,10 @@ fun TaskListContent(
                 val emptyMessage = when {
                     listState.searchQuery.isBlank() -> noTaskMessage
                     // Search is limited by the date filter; say so, and how to widen it
+                    listState.dueChoice is DueChoice.None -> stringResource(
+                        R.string.no_search_matches_no_due_date,
+                        stringResource(R.string.all_dates)
+                    )
                     listState.dueChoice !is DueChoice.All -> stringResource(
                         R.string.no_search_matches_due_by,
                         listState.dueChoice.resultLabel(),
