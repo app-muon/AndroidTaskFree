@@ -81,6 +81,7 @@
     <!--Task display default_messages-->
     <string name="no_tasks_match_your_filters">No tasks match your filters</string>
     <string name="no_search_matches_due_by">No matches due by %1$s.\nTo also search tasks due later or with no due date, choose “%2$s”.</string>
+    <string name="no_search_matches_no_due_date">No matches with no due date.\nTo also search tasks with a due date, choose “%1$s”.</string>
     <string name="no_tasks_to_display_default_message">No tasks to display</string>
     <string name="no_archived_tasks_to_display_default_message">No archived tasks to display</string>
 

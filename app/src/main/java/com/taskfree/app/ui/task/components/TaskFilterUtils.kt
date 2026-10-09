@@ -3,6 +3,7 @@ package com.taskfree.app.ui.task.components
 
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.SortMode
 import java.time.LocalDate
 
@@ -13,6 +14,8 @@ object TaskFilterUtils {
     ): List<TaskWithCategoryInfo> {
         return tasks.asSequence()
             .filter { state.selectedCategoryId == null || it.task.categoryId == state.selectedCategoryId }
+            // "None" loads every task (no cut-off date), so keep just the undated ones here
+            .filter { state.dueChoice !is DueChoice.None || it.task.due == null }
             .filter { it.task.status in visibleStatuses }.filter { task ->
                 val matchesSearch = state.searchQuery.isBlank() || task.task.text.contains(
                     state.searchQuery,

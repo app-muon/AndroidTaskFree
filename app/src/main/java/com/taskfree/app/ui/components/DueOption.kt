@@ -64,7 +64,7 @@ sealed class DueChoice {
         }
 
         fun allChoices(): List<DueChoice> = listOf(None, Today, Tomorrow, Plus2, Other(null))
-        fun allFilters(): List<DueChoice> = listOf(All, Today, Tomorrow, Plus2, Other(null))
+        fun allFilters(): List<DueChoice> = listOf(All, None, Today, Tomorrow, Plus2, Other(null))
     }
 }/*──────────────────────────── 2 ▌BEHAVIOUR ──────────────────────────────*/
 

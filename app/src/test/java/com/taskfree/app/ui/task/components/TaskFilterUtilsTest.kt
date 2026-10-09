@@ -7,6 +7,7 @@ import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.testutil.datesAt
 import com.taskfree.app.testutil.task
+import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.SortMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -56,6 +57,17 @@ class TaskFilterUtilsTest {
     fun `blank search matches everything`() {
         val state = TaskListState(searchText = "   ")
         assertEquals(4, TaskFilterUtils.filterTasks(rows, state, allStatuses).size)
+    }
+
+    @Test
+    fun `None date filter keeps only undated tasks`() {
+        val input = listOf(
+            row(task(id = 1, categoryId = 1, text = "undated")),
+            row(task(id = 2, categoryId = 1, text = "dated", due = LocalDate.of(2026, 10, 1))),
+        )
+        val state = TaskListState(dueChoice = DueChoice.None)
+        assertEquals(listOf(1), TaskFilterUtils.filterTasks(input, state, allStatuses).ids())
+        assertEquals(listOf(1, 2), TaskFilterUtils.filterTasks(input, TaskListState(), allStatuses).ids())
     }
 
     @Test
