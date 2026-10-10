@@ -18,6 +18,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 - Requires no permissions (only if you want notifications).  
 - Option to encrypt Google backups, so your data stays private if you change or restore your phone.  
 - Manual backup and restore for full control.  
+- Optional automatic backup file, encrypted with your recovery phrase and kept on your phone for a sync app to upload.  
 
 ### Task management
 - Add due dates, make tasks recurrent, and trigger notifications.  

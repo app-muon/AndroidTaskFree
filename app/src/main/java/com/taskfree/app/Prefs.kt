@@ -171,6 +171,20 @@ object Prefs {
 
     fun loadPhraseHash(c: Context): String? = c.flags().getString(KEY_PHRASE_HASH, null)
 
+    /**
+     * Keeps the phrase that unlocked a restored backup file, so later backups use the phrase the
+     * user already has. Only for a phone with no phrase and no encrypted database. Committed,
+     * because the app restarts straight after a restore.
+     */
+    internal fun keepRestoredPhrase(c: Context, phrase: List<String>) {
+        if (isEncrypted(c) || loadPhrase(c) != null) return
+        check(c.secret().edit().putString(KEY_PHRASE, phrase.joinToString(" ")).commit()) {
+            "Could not keep recovery phrase"
+        }
+        check(c.flags().edit().putString(KEY_PHRASE_HASH,
+            com.taskfree.app.ui.enc.MnemonicManager.hashPhrase(phrase)).commit()) { "Could not keep phrase hash" }
+    }
+
     internal fun commitMigrationPhrase(
         c: Context, phrase: List<String>, commit: (String, SharedPreferences.Editor) -> Boolean
     ) {

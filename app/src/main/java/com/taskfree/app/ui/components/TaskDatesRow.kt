@@ -28,6 +28,10 @@ fun formatTaskDate(date: LocalDate, locale: Locale): String =
 fun formatCreationDate(instant: Instant, locale: Locale, zone: ZoneId): String =
     formatTaskDate(instant.atZone(zone).toLocalDate(), locale)
 
+fun formatDateTime(instant: Instant, locale: Locale, zone: ZoneId): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale)
+        .format(instant.atZone(zone))
+
 /** Two equally sized date fields keep both dates on the same row. */
 @Composable
 fun TaskDatesRow(task: Task) {

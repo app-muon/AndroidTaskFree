@@ -3,9 +3,6 @@ package com.taskfree.app.ui.admin
 
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +18,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,7 +39,6 @@ import com.taskfree.app.BuildConfig
 import com.taskfree.app.Prefs
 import com.taskfree.app.R
 import com.taskfree.app.data.AppDatabaseFactory
-import com.taskfree.app.data.repository.BackupManager
 import com.taskfree.app.data.repository.CompletedRepeatsPreview
 import com.taskfree.app.debugToast
 import com.taskfree.app.enc.DatabaseKeyManager
@@ -54,13 +49,10 @@ import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.theme.providePanelColors
-import com.taskfree.app.util.restartApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun ToolsMenuDialog(
@@ -77,6 +69,7 @@ fun ToolsMenuDialog(
     var showContact by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showTextSize by rememberSaveable { mutableStateOf(false) }
+    var showBackup by rememberSaveable { mutableStateOf(false) }
     val colors = providePanelColors()
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
@@ -94,41 +87,6 @@ fun ToolsMenuDialog(
             }
             message?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
         } }
-    }
-    val saveLauncher = rememberLauncherForActivityResult(
-        CreateDocument("application/json")
-    ) { uri ->
-        if (uri != null) scope.launch {
-            runCatching { vm.buildBackup() }.onSuccess { bytes ->
-                ctx.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                Toast.makeText(ctx, R.string.backup_ok, Toast.LENGTH_LONG).show()
-            }.onFailure { e ->
-                Toast.makeText(
-                    ctx,
-                    e.message ?: ctx.getString(R.string.backup_save_failed),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
-
-    /* — Open launcher — */
-    val openLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) scope.launch {
-            runCatching { vm.importBackup(ctx, uri) }.onSuccess {
-
-                Toast.makeText(ctx, R.string.restore_ok, Toast.LENGTH_LONG).show()
-                ctx.restartApp()
-
-            }.onFailure { e ->
-                val msg = if (e is BackupManager.BackupValidationException)
-                    ctx.getString(e.resId, *e.args)
-                else ctx.getString(R.string.err_generic_restore)
-                Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
-            }
-        }
     }
     if (show) {
         PanelActionList(
@@ -183,18 +141,10 @@ fun ToolsMenuDialog(
                     }
                 ),
                 ActionItem(
-                    label = stringResource(R.string.backup_to_file),
+                    labelContent = { BackupMenuLabel() },
                     icon = Icons.Outlined.Backup,
                     onClick = {
-                        val name = "taskapp_backup_" + LocalDateTime.now()
-                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm")) + ".json"
-                        saveLauncher.launch(name)
-                        onDismiss()
-                    }), ActionItem(
-                    label = stringResource(R.string.restore_from_file),
-                    icon = Icons.Outlined.Restore,
-                    onClick = {
-                        pending = PendingAction.RESTORE
+                        showBackup = true
                         onDismiss()
                     }), if (BuildConfig.DEBUG) {
                     ActionItem(
@@ -302,6 +252,8 @@ fun ToolsMenuDialog(
         TextSizeDialog(onClose = { showTextSize = false })
     }
 
+    BackupFileDialog(vm, show = showBackup, onDismiss = { showBackup = false })
+
     repeatsPreview?.let { preview ->
         ArchiveRepeatsDialog(
             preview = preview,
@@ -337,19 +289,7 @@ fun ToolsMenuDialog(
                 },
                 onNo = { pending = null })
         }
-        if (action == PendingAction.RESTORE) {
-            ConfirmDialog(
-                title = stringResource(R.string.confirm_restore_title),
-                message = stringResource(R.string.confirm_restore_msg),
-                yesMessage = stringResource(R.string.restore_yes_dialog_button),
-                onYes = {
-                    openLauncher.launch(arrayOf("application/json"))
-                    pending = null
-                },
-                onNo = { pending = null }
-            )
-        }
     }
 }
 
-private enum class PendingAction { ARCHIVE, PERMANENTLY_DELETE, RESTORE }
+private enum class PendingAction { ARCHIVE, PERMANENTLY_DELETE }

@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Finishes a backup-file save after the user leaves the app -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -37,6 +39,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".data.backup.BackupSaveService"
+            android:exported="false"
+            android:foregroundServiceType="shortService"/>
 
         <receiver
             android:name=".notifications.AlarmReceiver"

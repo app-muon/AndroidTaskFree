@@ -1,11 +1,10 @@
 // ui/admin/ToolsViewModel.kt
 package com.taskfree.app.ui.admin
 
-import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.taskfree.app.data.repository.Backup
 import com.taskfree.app.data.repository.BackupManager
 import com.taskfree.app.data.repository.CategoryRepository
 import com.taskfree.app.data.repository.CompletedRepeatsPreview
@@ -80,6 +79,5 @@ class ToolsViewModel(
     suspend fun buildBackup(): ByteArray =
         BackupManager.buildJson(catRepo, taskRepo)
 
-    suspend fun importBackup(ctx: Context, uri: Uri) =
-        BackupManager.import(ctx, uri, taskRepo)
+    suspend fun restoreBackup(backup: Backup) = BackupManager.restore(backup, taskRepo)
 }

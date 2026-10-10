@@ -26,11 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -42,6 +42,7 @@ import com.taskfree.app.debugToast
 import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.dialogMaxHeight
 import com.taskfree.app.ui.components.dialogResponsiveWidth
+import kotlinx.coroutines.launch
 
 @Composable
 fun RestorePrompt(
@@ -61,12 +62,15 @@ fun RestorePrompt(
 }
 
 /* --------------------------------------------------------------------- *//* 2. PhraseEntry – 8-word input & validation                            *//* --------------------------------------------------------------------- */
+/** [onSubmit] receives the entered words and returns false to show [errorText]. */
 @Composable
 fun PhraseEntry(
-    onSuccess: () -> Unit,
+    title: String,
+    errorText: String,
+    onSubmit: suspend (List<String>) -> Boolean,
     onCancel: () -> Unit
 ) {
-    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     val inputs = remember { mutableStateListOf(*Array(8) { "" }) }
     var showError by remember { mutableStateOf(false) }
     var isValidating by remember { mutableStateOf(false) }
@@ -88,7 +92,7 @@ fun PhraseEntry(
 
             /* header strip */
             Text(
-                text = stringResource(R.string.enter_phrase_title),
+                text = title,
                 color = Color.White,
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier
@@ -123,7 +127,7 @@ fun PhraseEntry(
 
                 if (showError) {
                     Text(
-                        text = stringResource(R.string.phrase_incorrect),
+                        text = errorText,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -168,19 +172,13 @@ fun PhraseEntry(
                         enabled = inputs.all { it.isNotBlank() } && !isValidating,
                         onClick = {
                             val entered = inputs.map { it.trim().lowercase() }
-
-                            // Validate the phrase by trying to use it as a key
                             isValidating = true
                             showError = false
-
-                            if (validatePhraseAndRestoreDatabase(ctx, entered)) {
-                                // Save the phrase for future use
-                                Prefs.savePhrase(ctx, entered)
-                                debugToast(ctx, "Phrase validated and database restored")
-                                onSuccess()
-                            } else {
-                                isValidating = false
-                                showError = true
+                            scope.launch {
+                                if (!onSubmit(entered)) {
+                                    isValidating = false
+                                    showError = true
+                                }
                             }
                         },
                         colors = ButtonDefaults.textButtonColors(
@@ -193,6 +191,15 @@ fun PhraseEntry(
             }
         }
     }
+}
+
+/** Restores the database key when [phrase] matches the stored hash. */
+internal fun recoverDatabaseKey(context: Context, phrase: List<String>): Boolean {
+    if (!validatePhraseAndRestoreDatabase(context, phrase)) return false
+    // Save the phrase for future use
+    Prefs.savePhrase(context, phrase)
+    debugToast(context, "Phrase validated and database restored")
+    return true
 }
 
 /**

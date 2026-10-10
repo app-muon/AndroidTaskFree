@@ -273,6 +273,32 @@ class SmokeTest {
     }
 
     @Test
+    fun toolsBackupFile_showsOffThenOpensPanelWithSetupRestoreAndExport() {
+        val cat = seedCategory()
+        seedTask(cat, "Keep visible")
+        launch()
+        waitFor(taskRow("Keep visible"))
+        dismissTipIfShown()
+
+        compose.onNodeWithTag(TOOLS_MENU_TAG).performClick()
+        waitFor(isDialog())
+        val dialogList = hasScrollToNodeAction() and hasAnyAncestor(isDialog())
+        compose.onNode(dialogList).performScrollToNode(hasText(str(R.string.backup_file_title)))
+        compose.onNodeWithText(str(R.string.backup_off)).assertIsDisplayed()
+        compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
+
+        waitFor(hasText(str(R.string.backup_file_intro)))
+        for (action in listOf(R.string.backup_set_up, R.string.restore_from_file, R.string.backup_export_unencrypted)) {
+            compose.onNode(dialogList).performScrollToNode(hasText(str(action)))
+            compose.onNodeWithText(str(action)).assertIsDisplayed()
+        }
+        compose.onNodeWithText(str(R.string.backup_export_unencrypted)).performClick()
+        waitFor(hasText(str(R.string.backup_export_warning)))
+        compose.onNodeWithText(str(R.string.cancel_no_dialog_button)).performClick()
+        waitForGone(hasText(str(R.string.backup_export_warning)))
+    }
+
+    @Test
     fun toolsArchiving_cancelThenConfirmRefreshesWithoutReopeningMenu() {
         val cat = seedCategory()
         seedTask(cat, "Keep visible")

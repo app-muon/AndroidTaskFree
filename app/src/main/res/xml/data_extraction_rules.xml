@@ -3,8 +3,10 @@
     <cloud-backup>
         <exclude domain="sharedpref" path="encryption_secret.xml"/>
         <exclude domain="sharedpref" path="runtime_state.xml"/>
+        <exclude domain="sharedpref" path="local_backup.xml"/>
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="runtime_state.xml"/>
+        <exclude domain="sharedpref" path="local_backup.xml"/>
     </device-transfer>
 </data-extraction-rules>
