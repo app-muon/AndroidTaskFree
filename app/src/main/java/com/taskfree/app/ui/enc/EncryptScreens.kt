@@ -59,7 +59,10 @@ fun EncryptInfo(onContinue: () -> Unit, onCancel: () -> Unit) {
 /* 2 ▸ phrase display */
 @Composable
 fun EncryptPhraseScreen(
-    words: List<String>, onConfirmed: () -> Unit, onCancel: () -> Unit
+    words: List<String>,
+    onConfirmed: () -> Unit,
+    onCancel: () -> Unit,
+    confirmLabel: String = stringResource(R.string.encrypt_yes_dialog_button)
 ) {
     var chk1 by remember { mutableStateOf(false) }
     var chk2 by remember { mutableStateOf(false) }
@@ -147,7 +150,7 @@ fun EncryptPhraseScreen(
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = colorResource(R.color.dark_red)
                         )
-                    ) { Text(stringResource(R.string.encrypt_yes_dialog_button)) }
+                    ) { Text(confirmLabel) }
                 }
             }
         }

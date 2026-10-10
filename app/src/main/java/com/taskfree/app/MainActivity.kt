@@ -21,6 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.taskfree.app.data.RealDatabaseMigrator
+import com.taskfree.app.data.backup.AutoBackup
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.notifications.AlarmReceiver
 import com.taskfree.app.ui.AppNav
@@ -63,6 +64,7 @@ class MainActivity : FragmentActivity() {
                     }
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { android.util.Log.e("MainActivity", "Reindex failed", e) }
+                AutoBackup.onForeground(applicationContext)
             }
         }
 
@@ -96,6 +98,12 @@ class MainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         RealDatabaseMigrator.onForeground(applicationContext)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Still visible here, which a save that needs the foreground service requires.
+        AutoBackup.onLeaving(applicationContext)
     }
 
     override fun onStop() {

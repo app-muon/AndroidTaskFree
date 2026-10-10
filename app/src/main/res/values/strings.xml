@@ -271,17 +271,62 @@ When you set up a new phone, enter your 8-word recovery phrase to unlock the dat
     <string name="data_encrypted">Data encrypted</string>
 
     <!--Options to back up the data-->
-    <string name="backup_to_file">Back up to file</string>
+    <string name="backup_file_title">Backup file</string>
+    <string name="backup_file_intro">Keep an encrypted copy of your tasks in a file on this phone. TaskFree updates it a minute after you make changes and when you leave the app. Your recovery phrase unlocks it.\n\nChoose a folder in phone storage, such as Downloads. To copy the file off the phone, point a sync app (for example Autosync for Dropbox) at that folder.</string>
+    <string name="backup_off">Off</string>
+    <string name="backup_saving">Saving…</string>
+    <string name="backup_saved_at">Saved %1$s</string>
+    <string name="backup_not_saved_yet">Not saved yet</string>
+    <string name="backup_failed_tap_to_fix">Backup failed – tap to fix</string>
+    <string name="backup_phone_storage">Phone storage</string>
+    <string name="backup_not_phone_storage">Not in phone storage</string>
+    <string name="backup_error_no_access">TaskFree can no longer write to this file. Choose it again.</string>
+    <string name="backup_error_phrase">The recovery phrase on this phone has changed. Review it to keep backing up.</string>
+    <string name="backup_error_failed">Last attempt failed (%1$s)</string>
+    <string name="backup_set_up">Set up automatic backup</string>
+    <string name="backup_now">Back up now</string>
+    <string name="backup_change_file">Change file</string>
+    <string name="backup_choose_again">Choose file again</string>
+    <string name="backup_review_phrase">Review recovery phrase</string>
+    <string name="backup_turn_off">Turn off automatic backup</string>
+    <string name="backup_turn_off_msg">TaskFree will stop updating the backup file. The file stays where it is.</string>
+    <string name="backup_turn_off_yes">Turn off</string>
+    <string name="backup_continue">Continue</string>
+    <string name="backup_cloud_title">Not in phone storage</string>
+    <string name="backup_cloud_msg">Files kept by cloud apps such as Dropbox can fail to save while that app is idle. A file in phone storage, uploaded by a sync app, is more reliable.</string>
+    <string name="backup_use_anyway">Use anyway</string>
+    <string name="backup_file_not_usable">TaskFree can’t keep access to this file. Choose another location.</string>
+    <string name="backup_no_phrase_title">No recovery phrase</string>
+    <string name="backup_no_phrase_msg">This phone doesn’t have the recovery phrase for your encrypted data, so TaskFree can’t encrypt a backup file.</string>
+    <string name="backup_export_unencrypted">Export unencrypted copy</string>
+    <string name="backup_export_warning">This file isn’t encrypted. Anyone who can open it can read your tasks.</string>
+    <string name="backup_export_yes">Export</string>
+    <string name="backup_channel_name">Backups</string>
+    <string name="backup_saving_notification">Saving backup…</string>
+    <plurals name="backup_category_count">
+        <item quantity="one">%d category</item>
+        <item quantity="other">%d categories</item>
+    </plurals>
+    <plurals name="backup_task_count">
+        <item quantity="one">%d task</item>
+        <item quantity="other">%d tasks</item>
+    </plurals>
     <string name="restore_from_file">Restore from file</string>
     <string name="restore_ok">Restore successful</string>
-    <string name="restore_yes_dialog_button">Select file</string>
-    <string name="confirm_restore_title">Confirm Restore</string>
-    <string name="confirm_restore_msg">
-Choose a backup file to restore your tasks. This will replace all existing data in this app.
-</string>
+    <string name="restore_phrase_title">Enter the backup’s phrase</string>
+    <string name="restore_phrase_wrong">This phrase doesn’t unlock this backup.</string>
+    <string name="restore_confirm_title">Replace everything?</string>
+    <string name="restore_saved_at">Backup saved %1$s</string>
+    <string name="restore_unencrypted_note">This file isn’t encrypted.</string>
+    <string name="restore_replace_warning">All tasks and categories on this phone will be replaced.</string>
+    <string name="restore_replace">Replace</string>
     <string name="err_generic_restore">Restore failed</string>
     <string name="backup_ok">Backup saved</string>
     <string name="err_backup_version">Unsupported backup version</string>
+    <string name="err_not_a_backup">This isn’t a TaskFree backup file.</string>
+    <string name="err_backup_damaged">This backup is damaged or incomplete. If it’s still syncing, try again shortly.</string>
+    <string name="err_backup_incomplete">This backup file is incomplete. If it’s still syncing, try again shortly.</string>
+    <string name="err_backup_too_large">This file is too large to be a TaskFree backup.</string>
     <string name="err_task_occurrence_links">Invalid recurring task links: a source is missing, has multiple successors, or forms a cycle.</string>
     <string name="err_cat_empty_title">A category title is blank</string>
     <string name="err_cat_duplicate_id">Duplicate category IDs</string>

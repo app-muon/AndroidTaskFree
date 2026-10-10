@@ -16,7 +16,7 @@ import org.junit.rules.ExternalResource
 
 /**
  * Gives every instrumented test a fresh, unencrypted app: empty database, no encryption
- * flags, default status filter, and all onboarding tips marked as seen so overlays only
+ * flags, automatic backup off, default status filter, and all onboarding tips marked as seen so overlays only
  * appear where the app forces them (empty category / task lists).
  *
  * Note: this wipes the app's data on the device under test.
@@ -34,6 +34,7 @@ class ResetAppStateRule : ExternalResource() {
         RealDatabaseMigrator.restart = { error("Tests must inject restart requests, never kill the runner") }
         ctx.getSharedPreferences("runtime_state", Context.MODE_PRIVATE).edit().clear().commit()
         ctx.getSharedPreferences("task_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        ctx.getSharedPreferences("local_backup", Context.MODE_PRIVATE).edit().clear().commit()
         TaskStatusFilter.resetForTesting()
         runBlocking {
             val tips = TipPreferences(ctx)

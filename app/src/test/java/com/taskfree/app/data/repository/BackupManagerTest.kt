@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.BuildConfig
 import com.taskfree.app.R
+import com.taskfree.app.data.backup.BackupCrypto
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
@@ -21,7 +22,6 @@ import com.taskfree.app.testutil.insertCategory
 import com.taskfree.app.testutil.insertTask
 import com.taskfree.app.testutil.task
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -70,6 +70,14 @@ class BackupManagerTest {
     private fun uriFor(backup: Backup): Uri =
         uriFor(json.encodeToString(Backup.serializer(), backup).toByteArray())
 
+    private suspend fun importFile(uri: Uri, repo: TaskRepository) =
+        BackupManager.restore((BackupManager.read(ctx, uri) as BackupSource.Plain).backup, repo)
+
+    private val phrase = listOf("apple", "brick", "cloud", "delta", "eagle", "flame", "grape", "house")
+
+    private suspend fun readError(bytes: ByteArray): Int =
+        assertFails<BackupValidationException> { BackupManager.read(ctx, uriFor(bytes)) }.resId
+
     private fun backup(categories: List<Category>, tasks: List<Task>, version: String = "1.0") =
         Backup(version = version, app_version = "test", exported_at = "now", categories = categories, tasks = tasks)
 
@@ -105,7 +113,7 @@ class BackupManagerTest {
 
         val target = inMemoryDb()
         try {
-            BackupManager.import(ctx, uriFor(bytes), TaskRepository(target, datesAt(today)))
+            importFile(uriFor(bytes), TaskRepository(target, datesAt(today)))
 
             assertEquals(expectedCats, target.categoryDao().getAllNow().sortedBy { it.id })
             assertEquals(expectedTasks, target.taskDao().getAllNow().sortedBy { it.id })
@@ -134,7 +142,7 @@ class BackupManagerTest {
     fun `older backups without isDeleted import and ignore unknown keys`() = runTest {
         val bytes = javaClass.getResourceAsStream("/backups/v1_0_no_isDeleted.json")!!.readBytes()
 
-        BackupManager.import(ctx, uriFor(bytes), taskRepo)
+        importFile(uriFor(bytes), taskRepo)
 
         val cat = catRepo.snapshot().single()
         assertEquals("Home", cat.title)
@@ -167,7 +175,7 @@ class BackupManagerTest {
         )
 
         cases.forEach { (bad, expectedRes) ->
-            val e = assertFails<BackupValidationException> { BackupManager.import(ctx, uriFor(bad), taskRepo) }
+            val e = assertFails<BackupValidationException> { importFile(uriFor(bad), taskRepo) }
             assertEquals(ctx.resources.getResourceEntryName(expectedRes), ctx.resources.getResourceEntryName(e.resId))
         }
     }
@@ -176,7 +184,7 @@ class BackupManagerTest {
     fun `validation errors carry the offending ids`() = runTest {
         val bad = backup(listOf(home), listOf(task(1, "orphan", id = 7).copy(categoryId = 9)))
 
-        val e = assertFails<BackupValidationException> { BackupManager.import(ctx, uriFor(bad), taskRepo) }
+        val e = assertFails<BackupValidationException> { importFile(uriFor(bad), taskRepo) }
 
         assertArrayEquals(arrayOf<Any>(7, 9), e.args)
     }
@@ -185,7 +193,7 @@ class BackupManagerTest {
     fun `archived tasks may live in deleted categories`() = runTest {
         val ok = backup(listOf(home.copy(isDeleted = true)), listOf(task(1, "old", id = 1, isArchived = true)))
 
-        BackupManager.import(ctx, uriFor(ok), taskRepo)
+        importFile(uriFor(ok), taskRepo)
 
         assertEquals(1, taskRepo.snapshot().size)
     }
@@ -199,7 +207,7 @@ class BackupManagerTest {
         val reordered = exported.copy(tasks = exported.tasks.sortedByDescending { it.id })
 
         for (backup in listOf(exported, reordered)) {
-            BackupManager.import(ctx, uriFor(backup), taskRepo)
+            importFile(uriFor(backup), taskRepo)
             assertEquals(exported.tasks.sortedBy { it.id }, taskRepo.snapshot().sortedBy { it.id })
             assertEquals(exported.categories, catRepo.snapshot())
             assertEquals(id, taskRepo.taskById(nextId)!!.sourceTaskId)
@@ -224,7 +232,7 @@ class BackupManagerTest {
         )
         for (tasks in invalidSets) {
             val error = assertFails<BackupValidationException> {
-                BackupManager.import(ctx, uriFor(backup(listOf(home), tasks)), taskRepo)
+                importFile(uriFor(backup(listOf(home), tasks)), taskRepo)
             }
             assertEquals(R.string.err_task_occurrence_links, error.resId)
             assertEquals(before, taskRepo.snapshot())
@@ -238,13 +246,53 @@ class BackupManagerTest {
         val before = taskRepo.snapshot()
 
         assertFails<BackupValidationException> {
-            BackupManager.import(ctx, uriFor(backup(emptyList(), emptyList(), version = "0.9")), taskRepo)
+            importFile(uriFor(backup(emptyList(), emptyList(), version = "0.9")), taskRepo)
         }
-        assertFails<SerializationException> {
-            BackupManager.import(ctx, uriFor("{ not json".toByteArray()), taskRepo)
+        val damaged = assertFails<BackupValidationException> {
+            importFile(uriFor("{ not json".toByteArray()), taskRepo)
         }
+        assertEquals(R.string.err_backup_damaged, damaged.resId)
 
         assertEquals(before, taskRepo.snapshot())
+    }
+
+    @Test
+    fun `an encrypted backup unlocks only with its phrase and restores identical data`() = runTest {
+        seed()
+        val expected = BackupManager.snapshot(catRepo, taskRepo)
+        val key = BackupCrypto.deriveKey(phrase, iterations = 1_000)
+        val file = BackupCrypto.encrypt(BackupManager.encode(expected), key)
+
+        val source = BackupManager.read(ctx, uriFor(file)) as BackupSource.Encrypted
+        assertNull(BackupManager.unlock(source, phrase.reversed()))
+        val target = inMemoryDb()
+        try {
+            BackupManager.restore(BackupManager.unlock(source, phrase)!!, TaskRepository(target, datesAt(today)))
+
+            assertEquals(expected.categories, target.categoryDao().getAllNow().sortedBy { it.id })
+            assertEquals(expected.tasks, target.taskDao().getAllNow().sortedBy { it.id })
+        } finally {
+            target.close()
+        }
+    }
+
+    @Test
+    fun `plain backups may start with a byte order mark and whitespace`() = runTest {
+        val text = json.encodeToString(Backup.serializer(), backup(listOf(home), listOf(task(1, "ok", id = 1))))
+
+        val source = BackupManager.read(ctx, uriFor("${Char(0xFEFF)} \n$text".toByteArray()))
+
+        assertEquals("ok", (source as BackupSource.Plain).backup.tasks.single().text)
+    }
+
+    @Test
+    fun `files that are not complete backups are rejected before restoring`() = runTest {
+        val encrypted = BackupCrypto.encrypt("{}".toByteArray(), BackupCrypto.deriveKey(phrase, iterations = 1_000))
+
+        assertEquals(R.string.err_not_a_backup, readError("hello".toByteArray()))
+        assertEquals(R.string.err_not_a_backup, readError(ByteArray(0)))
+        assertEquals(R.string.err_backup_incomplete, readError(encrypted.copyOf(encrypted.size - 1)))
+        assertEquals(R.string.err_backup_too_large, readError(ByteArray(BackupManager.MAX_FILE_BYTES + 1) { ' '.code.toByte() }))
     }
 
     @Test
@@ -257,7 +305,7 @@ class BackupManagerTest {
             val linked = task(1, "References invalid ID", id = 100).copy(sourceTaskId = invalidId)
             for (tasks in listOf(listOf(invalid), listOf(linked, invalid), listOf(linked))) {
                 val error = assertFails<BackupValidationException> {
-                    BackupManager.import(ctx, uriFor(backup(listOf(home), tasks)), taskRepo)
+                    importFile(uriFor(backup(listOf(home), tasks)), taskRepo)
                 }
                 assertEquals(R.string.err_task_bad_id, error.resId)
                 assertArrayEquals(arrayOf<Any>(invalidId), error.args)

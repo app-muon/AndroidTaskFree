@@ -13,3 +13,9 @@ data class Backup(
     val categories: List<Category>,
     val tasks: List<Task>
 )
+
+/** A backup file as read from disk: a plain one is already parsed; an encrypted one needs its phrase. */
+sealed interface BackupSource {
+    data class Plain(val backup: Backup) : BackupSource
+    class Encrypted internal constructor(internal val bytes: ByteArray) : BackupSource
+}
