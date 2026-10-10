@@ -98,6 +98,28 @@ class ToolsViewModelTest {
     }
 
     @Test
+    fun `completed repeats preview lists what archiving with its date then archives`() = runTest {
+        val cat = db.insertCategory("Home")
+        repeat(2) {
+            db.insertTask(task(
+                cat, "Water plants", recurrence = Recurrence.DAILY, status = TaskStatus.DONE,
+                completedDate = today.minusDays(1L + it)
+            ))
+        }
+        db.insertTask(task(cat, "One-off", status = TaskStatus.DONE, completedDate = today.minusDays(1)))
+
+        val preview = vm.completedRepeatsPreview()
+        assertEquals(today, preview.asOf)
+        assertEquals(listOf("Water plants" to 2), preview.groups.map { it.text to it.count })
+        assertEquals("Home", preview.groups.single().catTitle)
+
+        vm.archiveOldCompletedRepeats(asOf = preview.asOf).join()
+
+        assertEquals(ToolsEvent.Archived(preview.total), vm.events.first())
+        assertEquals(0, vm.completedRepeatsPreview().total)
+    }
+
+    @Test
     fun `deleting archived tasks reports and refreshes`() = runTest {
         val cat = db.insertCategory()
         val keep = db.insertTask(task(cat, "keep"))

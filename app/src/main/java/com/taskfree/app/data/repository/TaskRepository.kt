@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import com.taskfree.app.BuildConfig
 import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.data.database.TaskDao
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
@@ -20,6 +21,14 @@ import java.time.Instant
 import java.time.LocalDate
 
 data class UpdateResult(val nextCreatedId: Int? = null, val nextDeletedId: Int? = null)
+
+/** Repeating occurrences completed before [asOf], grouped for the archive confirmation. */
+data class CompletedRepeatsPreview(
+    val asOf: LocalDate,
+    val groups: List<TaskDao.CompletedRepeatCount>
+) {
+    val total: Int get() = groups.sumOf { it.count }
+}
 
 class TaskRepository(
     private val database: AppDatabase, private val dates: DateProvider = AppDateProvider.current
@@ -264,7 +273,16 @@ class TaskRepository(
     }
 
     suspend fun archiveRecurringCompletedBeforeToday(): Int =
-        database.taskDao().archiveOldCompletedRecurring(dates.today())
+        archiveRecurringCompletedBefore(dates.today())
+
+    /** Uses the preview's date, so a confirmation left open past midnight archives what it showed. */
+    suspend fun archiveRecurringCompletedBefore(date: LocalDate): Int =
+        database.taskDao().archiveOldCompletedRecurring(date)
+
+    suspend fun previewRecurringCompletedBeforeToday(): CompletedRepeatsPreview {
+        val today = dates.today()
+        return CompletedRepeatsPreview(today, database.taskDao().oldCompletedRecurringCounts(today))
+    }
 
     suspend fun archiveCompletedInCategory(catId: Int) {
         database.taskDao().archiveCompletedInCategory(catId)

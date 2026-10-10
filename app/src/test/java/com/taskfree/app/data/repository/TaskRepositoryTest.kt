@@ -323,6 +323,31 @@ class TaskRepositoryTest {
     }
 
     @Test
+    fun `archiving with a preview's date after midnight archives only what the preview listed`() = runTest {
+        val clock = clockAt(today)
+        val repository = TaskRepository(db, DateProvider(clock))
+        val cat = db.insertCategory()
+        val listed = db.insertTask(task(
+            cat, "Listed", recurrence = Recurrence.DAILY, status = TaskStatus.DONE,
+            completedDate = today.minusDays(1)
+        ))
+        val doneToday = db.insertTask(task(
+            cat, "Done today", recurrence = Recurrence.DAILY, status = TaskStatus.DONE,
+            completedDate = today
+        ))
+
+        val preview = repository.previewRecurringCompletedBeforeToday()
+        clock.setDate(tomorrow)
+
+        assertEquals(today, preview.asOf)
+        assertEquals(listOf("Listed"), preview.groups.map { it.text })
+        assertEquals(1, preview.total)
+        assertEquals(1, repository.archiveRecurringCompletedBefore(preview.asOf))
+        assertTrue(repository.taskById(listed)!!.isArchived)
+        assertFalse(repository.taskById(doneToday)!!.isArchived)
+    }
+
+    @Test
     fun `archiveCompletedInCategory leaves other categories alone`() = runTest {
         val a = db.insertCategory("a")
         val b = db.insertCategory("b")

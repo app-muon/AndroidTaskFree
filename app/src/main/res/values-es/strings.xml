@@ -74,6 +74,8 @@
     <string name="confirm_archive_old_completed_msg">Esto archivará todas las tareas completadas antes de hoy.</string>
     <string name="confirm_archive_repeats_title">¿Archivar repeticiones completadas?</string>
     <string name="confirm_archive_repeats_msg">Esto archivará todas las repeticiones completadas antes de hoy. Las tareas sin repetición no se verán afectadas.</string>
+    <string name="archive_repeats_total">Total</string>
+    <string name="archive_repeats_none">No hay repeticiones completadas antes de hoy, así que no hay nada que archivar.</string>
     <string name="confirm_archive_category_completed_msg">Esto archivará todas las tareas completadas en esta categoría.</string>
     <string name="confirm_permanently_delete_title">¿Eliminar tareas archivadas permanentemente?</string>
 

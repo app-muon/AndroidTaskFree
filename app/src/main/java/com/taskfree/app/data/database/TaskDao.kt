@@ -124,6 +124,32 @@ WHERE id = :id
     )
     suspend fun archiveOldCompletedRecurring(today: LocalDate): Int
 
+    /** What [archiveOldCompletedRecurring] would archive, grouped by task text and category. */
+    @Query(
+        """
+        SELECT Task.text AS text, Task.categoryId AS categoryId,
+               Category.title AS catTitle, Category.color AS catColor, COUNT(*) AS count
+        FROM Task
+        JOIN Category ON Category.id = Task.categoryId
+        WHERE Task.recurrence != 'NONE'
+          AND Task.status = 'DONE'
+          AND Task.completedDate IS NOT NULL
+          AND Task.completedDate < :today
+          AND Task.isArchived = 0
+        GROUP BY Task.text, Task.categoryId
+        ORDER BY Task.text COLLATE NOCASE, Category.title COLLATE NOCASE
+    """
+    )
+    suspend fun oldCompletedRecurringCounts(today: LocalDate): List<CompletedRepeatCount>
+
+    data class CompletedRepeatCount(
+        val text: String,
+        val categoryId: Int,
+        val catTitle: String,
+        val catColor: Long,
+        val count: Int
+    )
+
     /** Archive every completed (status = DONE) task inside one category */
     @Query(
         """

@@ -1,6 +1,7 @@
 // Scrollbars.kt
 package com.taskfree.app.ui.components
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -47,6 +48,38 @@ fun Modifier.thinVerticalScrollbar(
     drawRoundRect(
         color = color,
         topLeft = Offset(size.width - barWidth, thumbTop),
+        size = Size(barWidth, thumbHeightPx),
+        cornerRadius = CornerRadius(barWidth, barWidth)
+    )
+}
+
+/**
+ * The same thin scrollbar for a plain [ScrollState]. Apply it before `verticalScroll`
+ * so it draws over the visible area rather than scrolling with the content.
+ */
+fun Modifier.thinVerticalScrollbar(
+    scrollState: ScrollState,
+    thickness: Dp = 2.dp,
+    minHeight: Dp = 16.dp,
+    endInset: Dp = 0.dp,
+    color: Color = Color.LightGray.copy(alpha = .6f)
+): Modifier = drawWithContent {
+
+    drawContent()
+
+    // maxValue is Int.MAX_VALUE until the first layout, and 0 when everything fits
+    val maxScroll = scrollState.maxValue
+    if (maxScroll <= 0 || maxScroll == Int.MAX_VALUE) return@drawWithContent
+
+    val viewport = size.height
+    val thumbHeightPx = (viewport * viewport / (viewport + maxScroll))
+        .coerceAtLeast(minHeight.toPx())
+    val thumbTop = (viewport - thumbHeightPx) * (scrollState.value.toFloat() / maxScroll)
+    val barWidth = thickness.toPx()
+
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width - barWidth - endInset.toPx(), thumbTop),
         size = Size(barWidth, thumbHeightPx),
         cornerRadius = CornerRadius(barWidth, barWidth)
     )

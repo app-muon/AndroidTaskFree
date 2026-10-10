@@ -4,12 +4,15 @@ package com.taskfree.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,7 +39,8 @@ fun ConfirmDialog(
     yesColour: Color = colorResource(R.color.dark_red),
     onYes: () -> Unit,
     onNo: () -> Unit,
-    onDismiss: () -> Unit = onNo
+    onDismiss: () -> Unit = onNo,
+    content: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Dialog(
         onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -63,13 +67,24 @@ fun ConfirmDialog(
                     style = MaterialTheme.typography.headlineSmall
                 )
 
-                // Message
-                AutoLinkedText(
-                    raw = message,
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorResource(R.color.surface_colour)
-                )
+                // Message and optional content scroll between the fixed header and buttons
+                val scrollState = rememberScrollState()
+                Column(
+                    Modifier
+                        .weight(1f, fill = false)
+                        .thinVerticalScrollbar(
+                            scrollState, thickness = 3.dp, endInset = 8.dp, color = Color.Gray
+                        )
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp, top = 20.dp)
+                ) {
+                    AutoLinkedText(
+                        raw = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorResource(R.color.surface_colour)
+                    )
+                    content?.invoke(this)
+                }
 
                 // Buttons
                 Row(
@@ -118,13 +133,18 @@ fun ConfirmDeletion(
 
 @Composable
 fun ConfirmArchive(
-    title: String, message: String, onYes: () -> Unit, onNo: () -> Unit
+    title: String,
+    message: String,
+    onYes: () -> Unit,
+    onNo: () -> Unit,
+    content: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     ConfirmDialog(
         title = title,
         message = message,
         yesMessage = stringResource(R.string.archive_task_yes_dialog_button),
         onYes = onYes,
-        onNo = onNo
+        onNo = onNo,
+        content = content
     )
 }
