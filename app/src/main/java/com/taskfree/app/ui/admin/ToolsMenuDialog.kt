@@ -1,6 +1,7 @@
 // ToolsMenuDialog.kt
 package com.taskfree.app.ui.admin
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,6 +44,7 @@ import com.taskfree.app.Prefs
 import com.taskfree.app.R
 import com.taskfree.app.data.AppDatabaseFactory
 import com.taskfree.app.data.repository.BackupManager
+import com.taskfree.app.data.repository.CompletedRepeatsPreview
 import com.taskfree.app.debugToast
 import com.taskfree.app.enc.DatabaseKeyManager
 import com.taskfree.app.ui.components.ActionItem
@@ -53,6 +55,7 @@ import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.restartApp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,6 +73,7 @@ fun ToolsMenuDialog(
 ) {
     val isOn = vm.uiState.collectAsState().value.showArchived
     var pending by remember { mutableStateOf<PendingAction?>(null) }
+    var repeatsPreview by remember { mutableStateOf<CompletedRepeatsPreview?>(null) }
     var showContact by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showTextSize by rememberSaveable { mutableStateOf(false) }
@@ -232,8 +236,18 @@ fun ToolsMenuDialog(
                     icon = Icons.Default.Archive,
                     iconTint = colors.darkRed,
                     onClick = {
-                        pending = PendingAction.ARCHIVE_REPEATS
                         onDismiss()
+                        scope.launch {
+                            repeatsPreview = try {
+                                vm.completedRepeatsPreview()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Log.e("ToolsMenuDialog", "Loading completed repeats failed", e)
+                                Toast.makeText(ctx, R.string.bulk_action_failed, Toast.LENGTH_SHORT).show()
+                                null
+                            }
+                        }
                     }), ActionItem(
                     label = stringResource(R.string.permanently_delete_tasks),
                     icon = Icons.Default.Delete,
@@ -288,6 +302,17 @@ fun ToolsMenuDialog(
         TextSizeDialog(onClose = { showTextSize = false })
     }
 
+    repeatsPreview?.let { preview ->
+        ArchiveRepeatsDialog(
+            preview = preview,
+            onConfirm = {
+                vm.archiveOldCompletedRepeats(asOf = preview.asOf)
+                repeatsPreview = null
+            },
+            onDismiss = { repeatsPreview = null }
+        )
+    }
+
     if (pending != null) {
         val action = pending!!
 
@@ -297,17 +322,6 @@ fun ToolsMenuDialog(
                 message = stringResource(R.string.confirm_archive_old_completed_msg),
                 onYes = {
                     vm.archiveOldCompleted()
-                    pending = null
-                },
-                onNo = { pending = null })
-        }
-
-        if (action == PendingAction.ARCHIVE_REPEATS) {
-            ConfirmArchive(
-                title = stringResource(R.string.confirm_archive_repeats_title),
-                message = stringResource(R.string.confirm_archive_repeats_msg),
-                onYes = {
-                    vm.archiveOldCompletedRepeats()
                     pending = null
                 },
                 onNo = { pending = null })
@@ -338,4 +352,4 @@ fun ToolsMenuDialog(
     }
 }
 
-private enum class PendingAction { ARCHIVE, ARCHIVE_REPEATS, PERMANENTLY_DELETE, RESTORE }
+private enum class PendingAction { ARCHIVE, PERMANENTLY_DELETE, RESTORE }

@@ -75,6 +75,8 @@
     <string name="confirm_archive_old_completed_msg">This will archive all tasks completed before today</string>
     <string name="confirm_archive_repeats_title">Archive completed repeats?</string>
     <string name="confirm_archive_repeats_msg">This will archive all repeating-task occurrences completed before today. One-off tasks are not affected.</string>
+    <string name="archive_repeats_total">Total</string>
+    <string name="archive_repeats_none">No repeating-task occurrences were completed before today, so there is nothing to archive.</string>
     <string name="confirm_archive_category_completed_msg">This will archive all completed tasks in this category</string>
     <string name="confirm_permanently_delete_title">Permanently delete archived tasks?</string>
 

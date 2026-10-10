@@ -176,6 +176,36 @@ class TaskDaoTest {
     }
 
     @Test
+    fun `old completed repeat counts group by text and category in name order`() = runTest {
+        val home = db.insertCategory("Home", color = 0xFF00AA00)
+        val work = db.insertCategory("Work", color = 0xFF0000AA)
+        val yesterday = today.minusDays(1)
+        fun done(cat: Int, text: String, completed: LocalDate = yesterday) = task(
+            cat, text, due = completed, recurrence = Recurrence.DAILY,
+            status = TaskStatus.DONE, completedDate = completed
+        )
+        repeat(3) { db.insertTask(done(home, "Water plants", yesterday.minusDays(it.toLong()))) }
+        db.insertTask(done(work, "Water plants"))
+        db.insertTask(done(work, "banana"))
+        db.insertTask(done(home, "Apple"))
+        // Not eligible: completed today, archived, not done, one-off
+        db.insertTask(done(home, "Apple", completed = today))
+        db.insertTask(done(home, "Apple").copy(isArchived = true))
+        db.insertTask(done(home, "Apple").copy(status = TaskStatus.IN_PROGRESS))
+        db.insertTask(done(home, "Apple").copy(recurrence = Recurrence.NONE, baseDate = null))
+
+        assertEquals(
+            listOf(
+                TaskDao.CompletedRepeatCount("Apple", home, "Home", 0xFF00AA00, 1),
+                TaskDao.CompletedRepeatCount("banana", work, "Work", 0xFF0000AA, 1),
+                TaskDao.CompletedRepeatCount("Water plants", home, "Home", 0xFF00AA00, 3),
+                TaskDao.CompletedRepeatCount("Water plants", work, "Work", 0xFF0000AA, 1)
+            ),
+            dao.oldCompletedRecurringCounts(today)
+        )
+    }
+
+    @Test
     fun `both archive queries require Done and an old completion without changing other fields`() = runTest {
         for (repeatsOnly in listOf(false, true)) {
             dao.deleteAll()
@@ -202,7 +232,10 @@ class TaskDaoTest {
             val count = expected.count { (id, task) -> task != before[id] }
             suspend fun archive() = if (repeatsOnly) dao.archiveOldCompletedRecurring(today)
                 else dao.archiveOldCompletedTasks(today)
+            // The confirmation preview must list exactly what the archive query changes
+            if (repeatsOnly) assertEquals(count, dao.oldCompletedRecurringCounts(today).sumOf { it.count })
             assertEquals(count, archive())
+            if (repeatsOnly) assertEquals(emptyList<TaskDao.CompletedRepeatCount>(), dao.oldCompletedRecurringCounts(today))
             assertEquals(expected, dao.getAllNow().associateBy { it.id })
             assertEquals(0, archive())
             assertEquals(expected, dao.getAllNow().associateBy { it.id })

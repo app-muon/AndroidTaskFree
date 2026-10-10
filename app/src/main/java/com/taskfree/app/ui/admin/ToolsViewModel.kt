@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskfree.app.data.repository.BackupManager
 import com.taskfree.app.data.repository.CategoryRepository
+import com.taskfree.app.data.repository.CompletedRepeatsPreview
 import com.taskfree.app.data.repository.TaskRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CancellationException
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class ToolsViewModel(
     private val taskRepo: TaskRepository,
@@ -46,8 +48,16 @@ class ToolsViewModel(
     fun archiveOldCompleted() =
         runOp { ToolsEvent.Archived(taskRepo.archiveTasksCompletedBeforeToday()) }
 
-    fun archiveOldCompletedRepeats() =
-        runOp { ToolsEvent.Archived(taskRepo.archiveRecurringCompletedBeforeToday()) }
+    /** [asOf] is the preview's date, so the archive matches the list the user confirmed. */
+    fun archiveOldCompletedRepeats(asOf: LocalDate? = null) = runOp {
+        ToolsEvent.Archived(
+            asOf?.let { taskRepo.archiveRecurringCompletedBefore(it) }
+                ?: taskRepo.archiveRecurringCompletedBeforeToday()
+        )
+    }
+
+    suspend fun completedRepeatsPreview(): CompletedRepeatsPreview =
+        taskRepo.previewRecurringCompletedBeforeToday()
 
     fun deleteArchived() = runOp { taskRepo.deleteAllArchivedTasks(); ToolsEvent.Deleted }
 

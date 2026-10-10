@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
@@ -293,6 +294,7 @@ class SmokeTest {
 
         openToolsAction(R.string.archive_old_completed_repeats)
         waitFor(hasText(str(R.string.confirm_archive_repeats_msg)))
+        waitFor(hasText(str(R.string.archive_repeats_total)))
         captureArchiveScreenshot("archive-repeats-confirmation")
         compose.onNodeWithText(str(R.string.cancel_no_dialog_button)).performClick()
         assertFalse(runBlocking { reset.db().taskDao().taskById(repeat)!!.isArchived })
@@ -308,6 +310,44 @@ class SmokeTest {
         waitFor(taskRow("Keep visible"))
         assertTrue(runBlocking { reset.db().taskDao().taskById(repeat)!!.isArchived })
         assertTrue(runBlocking { reset.db().taskDao().taskById(once)!!.isArchived })
+    }
+
+    @Test
+    fun archiveRepeats_longListScrollsBetweenFixedTitleAndButtons() {
+        val cat = seedCategory()
+        seedTask(cat, "Keep visible")
+        val repeats = (1..30).map { seedTask(cat, "Repeat %02d".format(it), it) }
+        reset.seed {
+            repeats.forEach { id ->
+                taskDao().update(taskDao().taskById(id)!!.copy(
+                    status = TaskStatus.DONE, completedDate = LocalDate.now().minusDays(1),
+                    recurrence = Recurrence.DAILY, baseDate = LocalDate.now()))
+            }
+        }
+        launch()
+        waitFor(taskRow("Keep visible"))
+        dismissTipIfShown()
+
+        openToolsAction(R.string.archive_old_completed_repeats)
+        val lastRow = hasText("Repeat 30") and hasAnyAncestor(isDialog())
+        val title = hasText(str(R.string.confirm_archive_repeats_title)) and hasAnyAncestor(isDialog())
+        val archive = hasText(str(R.string.archive_task_yes_dialog_button)) and hasAnyAncestor(isDialog())
+        waitFor(lastRow)
+        compose.onNode(lastRow).assertIsNotDisplayed()
+        compose.onNode(archive).assertIsDisplayed()
+        captureArchiveScreenshot("archive-repeats-long-list")
+
+        compose.onNode(hasText(str(R.string.archive_repeats_total)) and hasAnyAncestor(isDialog()))
+            .performScrollTo().assertIsDisplayed()
+        compose.onNode(lastRow).assertIsDisplayed()
+        compose.onNode(title).assertIsDisplayed()
+        compose.onNode(archive).assertIsDisplayed()
+        captureArchiveScreenshot("archive-repeats-long-list-scrolled")
+
+        compose.onNode(archive).performClick()
+        compose.waitUntil(10_000) {
+            runBlocking { repeats.all { reset.db().taskDao().taskById(it)!!.isArchived } }
+        }
     }
 
     @Test
