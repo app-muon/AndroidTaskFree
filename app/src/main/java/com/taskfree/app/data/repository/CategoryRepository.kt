@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.room.withTransaction
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
+import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.theme.FallBackColourForCategory
 import com.taskfree.app.ui.theme.categoryPalette
 import kotlinx.coroutines.flow.Flow
@@ -55,9 +56,12 @@ class CategoryRepository(private val database: AppDatabase) {
         require(rows > 0) { "Update failed for category id=${category.id}" }
     }
 
-    fun observeIncompleteTaskCounts(): Flow<Map<Int, Int>> =
-        database.taskDao().countNotDoneByCategory()
-            .map { it.associate { row -> row.categoryId to row.count } }
+    fun observeStatusCounts(): Flow<Map<Int, Map<TaskStatus, Int>>> =
+        database.taskDao().countByCategoryAndStatus()
+            .map { rows ->
+                rows.groupBy { it.categoryId }
+                    .mapValues { (_, byStatus) -> byStatus.associate { it.status to it.count } }
+            }
 
 
     suspend fun updateCategoryOrder(resequenced: List<Category>) {

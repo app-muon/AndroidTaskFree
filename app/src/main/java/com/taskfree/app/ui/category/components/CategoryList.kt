@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.data.entities.Category
+import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.thinVerticalScrollbar
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -32,7 +33,7 @@ private class CategoryListCallbacks(
 @Composable
 internal fun ColumnScope.CategoryList(
     categories: List<Category>,
-    counts: Map<Int, Int>,
+    counts: Map<Int, Map<TaskStatus, Int>>,
     onDragStart: () -> Unit,
     onDragMove: (Int, Int) -> Unit,
     onDragEnd: () -> Unit,
@@ -102,7 +103,7 @@ internal fun ColumnScope.CategoryList(
 
                 CategoryListRow(
                     category = category,
-                    count = counts[category.id] ?: 0,
+                    counts = counts[category.id].orEmpty(),
                     isDragging = isDragging,
                     onClick = { callbacks.onClick(category) }
                 )

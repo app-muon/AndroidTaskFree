@@ -99,17 +99,28 @@ class TaskDaoTest {
     }
 
     @Test
-    fun `incomplete counts skip done and archived tasks`() = runTest {
+    fun `status counts skip archived tasks`() = runTest {
         val a = db.insertCategory("a")
         val b = db.insertCategory("b")
-        db.insertTask(task(a, "todo"))
+        db.insertTask(task(a, "todo 1"))
+        db.insertTask(task(a, "todo 2"))
         db.insertTask(task(a, "in progress", status = TaskStatus.IN_PROGRESS))
         db.insertTask(task(a, "done", status = TaskStatus.DONE, completedDate = today))
         db.insertTask(task(b, "archived", isArchived = true))
+        db.insertTask(task(b, "archived done", status = TaskStatus.DONE, completedDate = today, isArchived = true))
         db.insertTask(task(b, "pending", status = TaskStatus.PENDING))
 
-        val counts = dao.countNotDoneByCategory().first().associate { it.categoryId to it.count }
-        assertEquals(mapOf(a to 2, b to 1), counts)
+        val counts = dao.countByCategoryAndStatus().first()
+            .associate { (it.categoryId to it.status) to it.count }
+        assertEquals(
+            mapOf(
+                (a to TaskStatus.TODO) to 2,
+                (a to TaskStatus.IN_PROGRESS) to 1,
+                (a to TaskStatus.DONE) to 1,
+                (b to TaskStatus.PENDING) to 1
+            ),
+            counts
+        )
     }
 
     @Test

@@ -28,14 +28,14 @@ class CategoryViewModel(
     /** single observable screen state */
     val uiState: StateFlow<CategoryUiState> = combine(
         repo.observeAllCategories(),
-        repo.observeIncompleteTaskCounts(),
+        repo.observeStatusCounts(),
         _isDragging,
         _dragReorderedCategories
     ) { cats, counts, isDragging, dragReordered ->
         CategoryUiState(
             // Use drag-reordered list if currently dragging, otherwise use repo data
             categories = if (isDragging && dragReordered != null) dragReordered else cats,
-            incompleteCounts = counts,
+            statusCounts = counts,
             isDragging = isDragging,
             isInitialLoadPending = false
         )
