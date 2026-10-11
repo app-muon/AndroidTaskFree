@@ -214,7 +214,7 @@ fun CategoryListScreen(navController: NavHostController) {
             } else {
                 CategoryList(
                     categories = uiState.categories,
-                    counts = uiState.incompleteCounts,
+                    counts = uiState.statusCounts,
                     onDragStart = viewModel::onDragStart,
                     onDragEnd = viewModel::onDragEnd,
                     onDragMove = viewModel::onDragMove,

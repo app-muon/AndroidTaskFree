@@ -3,6 +3,7 @@ package com.taskfree.app.ui.category.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,43 +26,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
+import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.DragHandle
+import com.taskfree.app.ui.components.InfoPill
+import com.taskfree.app.ui.mapper.backgroundColor
+import com.taskfree.app.ui.mapper.displayName
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 
 @Stable
 data class CategoryRowData(
-    val id: Int, val title: AnnotatedString, val color: Color
+    val id: Int, val title: String, val color: Color
 )
 
 @Composable
-private fun rememberCategoryRowData(category: Category, count: Int): CategoryRowData {
-    return remember(category.id, category.title, category.color, count) {
-        CategoryRowData(
-            id = category.id, title = buildAnnotatedString {
-                append(category.title)
-                if (count > 0) {
-                    append("  ")
-                    withStyle(SpanStyle(color = Color.Gray)) {
-                        append(count.toString())
-                    }
-                }
-            }, color = Color(category.color)
-        )
+private fun rememberCategoryRowData(category: Category): CategoryRowData {
+    return remember(category.id, category.title, category.color) {
+        CategoryRowData(id = category.id, title = category.title, color = Color(category.color))
     }
 }
 
 @Composable
 fun ReorderableCollectionItemScope.CategoryListRow(
-    category: Category, count: Int, isDragging: Boolean, onClick: () -> Unit
+    category: Category, counts: Map<TaskStatus, Int>, isDragging: Boolean, onClick: () -> Unit
 ) {
-    val rowData = rememberCategoryRowData(category, count)
+    val rowData = rememberCategoryRowData(category)
 
     // Subtle visual feedback for dragging state
     val backgroundColor = if (isDragging) {
@@ -107,8 +101,32 @@ fun ReorderableCollectionItemScope.CategoryListRow(
                 color = colorResource(R.color.surface_colour)
             )
 
+            StatusCountPills(counts)
+
+            Spacer(Modifier.width(8.dp))
+
             DragHandle(
                 modifier = Modifier.draggableHandle()
+            )
+        }
+    }
+}
+
+/** One pill per status, always in the same order so they line up down the list; zeros are dimmed. */
+@Composable
+private fun StatusCountPills(counts: Map<TaskStatus, Int>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        TaskStatus.entries.forEach { status ->
+            val count = counts[status] ?: 0
+            val description = "$count ${status.displayName()}"
+            InfoPill(
+                title = count.toString(),
+                selectedFillColor = status.backgroundColor(),
+                selected = count > 0,
+                border = count == 0,
+                modifier = Modifier
+                    .widthIn(min = 22.dp)
+                    .semantics { contentDescription = description }
             )
         }
     }

@@ -65,7 +65,7 @@ class CategoryViewModelTest {
     }
 
     @Test
-    fun `state combines categories with incomplete counts`() = runTest {
+    fun `state combines categories with status counts`() = runTest {
         val a = db.insertCategory("a", order = 0)
         db.insertCategory("b", order = 1)
         db.insertTask(task(a, "open"))
@@ -74,7 +74,7 @@ class CategoryViewModelTest {
         val state = awaitState { it.categories.size == 2 }
 
         assertEquals(listOf("a", "b"), state.titles)
-        assertEquals(mapOf(a to 1), state.incompleteCounts)
+        assertEquals(mapOf(a to mapOf(TaskStatus.TODO to 1, TaskStatus.DONE to 1)), state.statusCounts)
     }
 
     @Test

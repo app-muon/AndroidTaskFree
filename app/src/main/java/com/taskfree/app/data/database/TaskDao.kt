@@ -8,7 +8,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.taskfree.app.data.entities.IncompleteTaskCount
+import com.taskfree.app.data.entities.CategoryStatusCount
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.Recurrence
@@ -54,13 +54,13 @@ interface TaskDao {
 
     @Query(
         """
-    SELECT categoryId, COUNT(*) AS count
+    SELECT categoryId, status, COUNT(*) AS count
     FROM Task
-    WHERE status != 'DONE' AND isArchived = 0
-    GROUP BY categoryId
+    WHERE isArchived = 0
+    GROUP BY categoryId, status
 """
     )
-    fun countNotDoneByCategory(): Flow<List<IncompleteTaskCount>>
+    fun countByCategoryAndStatus(): Flow<List<CategoryStatusCount>>
 
     @Query("SELECT DISTINCT categoryId FROM Task")
     suspend fun getAllCategoryIds(): List<Int>

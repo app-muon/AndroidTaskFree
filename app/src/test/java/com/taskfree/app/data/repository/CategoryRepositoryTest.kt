@@ -103,14 +103,17 @@ class CategoryRepositoryTest {
     }
 
     @Test
-    fun `incomplete counts are keyed by category`() = runTest {
+    fun `status counts are keyed by category and status`() = runTest {
         val a = db.insertCategory("a")
         val b = db.insertCategory("b")
         db.insertTask(task(a, "1"))
         db.insertTask(task(a, "2"))
         db.insertTask(task(b, "done", status = TaskStatus.DONE, completedDate = LocalDate.of(2026, 10, 6)))
 
-        assertEquals(mapOf(a to 2), repo.observeIncompleteTaskCounts().first())
+        assertEquals(
+            mapOf(a to mapOf(TaskStatus.TODO to 2), b to mapOf(TaskStatus.DONE to 1)),
+            repo.observeStatusCounts().first()
+        )
     }
 
     @Test
