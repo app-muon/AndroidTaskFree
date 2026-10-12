@@ -110,6 +110,20 @@ class TaskFilterUtilsTest {
     }
 
     @Test
+    fun `alphabetical sorts ignore case and accents`() {
+        val input = listOf(
+            row(task(id = 1, categoryId = 1, text = "zebra")),
+            row(task(id = 2, categoryId = 1, text = "Banana")),
+            row(task(id = 3, categoryId = 1, text = "apple")),
+            row(task(id = 4, categoryId = 1, text = "Árbol")),
+        )
+        val order = OrderProperty.ALL_CATEGORY_PAGE_ORDERING
+
+        assertEquals(listOf(3, 4, 2, 1), TaskFilterUtils.sortTasks(input, SortMode.ALPHA_ASC, order).ids())
+        assertEquals(listOf(1, 2, 4, 3), TaskFilterUtils.sortTasks(input, SortMode.ALPHA_DESC, order).ids())
+    }
+
+    @Test
     fun `quickDateKind picks set, postpone or move`() {
         val today = LocalDate.of(2026, 10, 6)
         val dp = datesAt(today)

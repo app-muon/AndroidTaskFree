@@ -5,6 +5,7 @@ import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.SortMode
+import com.taskfree.app.ui.components.sortedAlphabetically
 import java.time.LocalDate
 
 object TaskFilterUtils {
@@ -43,6 +44,9 @@ object TaskFilterUtils {
             SortMode.DATE_DESC -> tasks.sortedWith(compareByDescending<TaskWithCategoryInfo> {
                 it.task.due ?: LocalDate.MIN
             }.thenBy { it.task.text.lowercase() })
+
+            SortMode.ALPHA_ASC -> tasks.sortedAlphabetically(descending = false) { it.task.text }
+            SortMode.ALPHA_DESC -> tasks.sortedAlphabetically(descending = true) { it.task.text }
         }
     }
 }

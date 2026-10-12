@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
@@ -40,7 +41,10 @@ import com.taskfree.app.ui.category.components.CategoryDialogHost
 import com.taskfree.app.ui.category.components.CategoryEmptyState
 import com.taskfree.app.ui.category.components.CategoryList
 import com.taskfree.app.ui.category.components.Dialogs
+import com.taskfree.app.ui.category.components.sortCategories
 import com.taskfree.app.ui.components.AppBottomBar
+import com.taskfree.app.ui.components.SortMode
+import com.taskfree.app.ui.components.SortToggle
 import com.taskfree.app.ui.enc.EncryptWizard
 import com.taskfree.app.ui.enc.ViewPhraseDialog
 import com.taskfree.app.ui.onboarding.Anchor
@@ -60,6 +64,11 @@ fun CategoryListScreen(navController: NavHostController) {
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
     var dialogs by remember { mutableStateOf<Dialogs>(Dialogs.None) }
+    // A/Z only change what is shown; the saved drag order is left alone
+    var categorySort by rememberSaveable { mutableStateOf(SortMode.USER) }
+    val shownCategories = remember(uiState.categories, categorySort) {
+        sortCategories(uiState.categories, categorySort)
+    }
     val tipManager = LocalTipManager.current
     val resetTick by tipManager.resetTick.collectAsState()
     /* ------------- INSTRUCTIONS------------- */
@@ -206,15 +215,28 @@ fun CategoryListScreen(navController: NavHostController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colorResource(R.color.top_bar_colour))
-                    .height(15.dp)
-            )
+                    .heightIn(min = 15.dp)
+            ) {
+                if (uiState.categories.isNotEmpty()) {
+                    // end padding lines the toggle up with the row handles (card 8dp + row 12dp)
+                    SortToggle(
+                        mode = categorySort,
+                        onChange = { categorySort = it },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 20.dp),
+                        modes = SortMode.CATEGORY_SORT_MODES
+                    )
+                }
+            }
             Spacer(Modifier.height(2.dp))
             if (uiState.categories.isEmpty()) {
                 CategoryEmptyState()
             } else {
                 CategoryList(
-                    categories = uiState.categories,
+                    categories = shownCategories,
                     counts = uiState.statusCounts,
+                    dragEnabled = categorySort == SortMode.USER,
                     onDragStart = viewModel::onDragStart,
                     onDragEnd = viewModel::onDragEnd,
                     onDragMove = viewModel::onDragMove,
