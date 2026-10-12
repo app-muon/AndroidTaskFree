@@ -22,7 +22,6 @@ import java.time.Instant
 import androidx.test.platform.app.InstrumentationRegistry
 import com.taskfree.app.Prefs
 import com.taskfree.app.data.repository.BackupManager
-import com.taskfree.app.data.repository.CategoryRepository
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.data.preferences.TipPreferences
 import com.taskfree.app.ui.onboarding.TipId
@@ -156,7 +155,7 @@ class EncryptedDatabaseTest {
                         reminderTime = if (id == 1) Instant.ofEpochMilli(reminderAt) else null)
                 })
                 TaskRepository(db).reindexAllTaskPageOrders()
-                snapshot.writeBytes(BackupManager.buildJson(CategoryRepository(db), TaskRepository(db)))
+                snapshot.writeBytes(BackupManager.buildJson(db))
             }
             Prefs.savePhrase(ctx, fetchWords().take(8))
             val tips = TipPreferences(ctx)
@@ -166,7 +165,7 @@ class EncryptedDatabaseTest {
             RealDatabaseMigrator.start(ctx).join()
             val db = AppDatabaseFactory.getDatabase(ctx)
             val before = Json.parseToJsonElement(snapshot.readText()).jsonObject
-            val after = Json.parseToJsonElement(BackupManager.buildJson(CategoryRepository(db), TaskRepository(db))
+            val after = Json.parseToJsonElement(BackupManager.buildJson(db)
                 .decodeToString()).jsonObject
             assertEquals(before["tasks"], after["tasks"])
             assertEquals(before["categories"], after["categories"])

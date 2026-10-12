@@ -2,6 +2,7 @@ package com.taskfree.app.data.backup
 
 import com.taskfree.app.R
 import com.taskfree.app.data.repository.BackupManager.BackupValidationException
+import com.taskfree.app.data.repository.BackupManager
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 import javax.crypto.AEADBadTagException
@@ -29,6 +30,7 @@ internal object BackupCrypto {
     private const val NONCE_SIZE = 12
     private const val TAG_BITS = 128
     private const val HEADER_SIZE = 4 + 1 + 1 + 4 + SALT_SIZE + NONCE_SIZE + 8
+    internal const val OVERHEAD_BYTES = HEADER_SIZE + TAG_BITS / 8
 
     class Key(val salt: ByteArray, val iterations: Int, internal val secret: SecretKeySpec)
 
@@ -53,6 +55,7 @@ internal object BackupCrypto {
         bytes.size >= MAGIC.size && bytes.copyOf(MAGIC.size).contentEquals(MAGIC)
 
     fun encrypt(plain: ByteArray, key: Key): ByteArray {
+        BackupManager.checkOutputSize(plain.size.toLong() + OVERHEAD_BYTES)
         val nonce = randomBytes(NONCE_SIZE)
         val header = ByteBuffer.allocate(HEADER_SIZE)
             .put(MAGIC).put(VERSION).put(KDF_PBKDF2_SHA256).putInt(key.iterations)

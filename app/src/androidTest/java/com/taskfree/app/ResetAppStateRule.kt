@@ -8,6 +8,7 @@ import com.taskfree.app.data.RealDatabaseMigrator
 import com.taskfree.app.data.MigrationHooks
 import com.taskfree.app.data.useDatabase
 import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.data.backup.AutoBackup
 import com.taskfree.app.data.preferences.TipPreferences
 import com.taskfree.app.ui.onboarding.TipId
 import com.taskfree.app.ui.task.TaskStatusFilter
@@ -69,7 +70,10 @@ class ResetAppStateRule : ExternalResource() {
         return AppDatabaseFactory.getDatabase(ctx)
     }
 
-    fun newProcess() = runBlocking { RealDatabaseMigrator.resetProcessForTesting() }
+    fun newProcess() = runBlocking {
+        AutoBackup.resetProcessForTesting()
+        RealDatabaseMigrator.resetProcessForTesting()
+    }
 
     private companion object {
         const val DB_NAME = "checklists.db"

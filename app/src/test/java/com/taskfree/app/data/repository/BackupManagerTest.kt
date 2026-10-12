@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.room.Room
 import com.taskfree.app.BuildConfig
 import com.taskfree.app.R
 import com.taskfree.app.data.backup.BackupCrypto
@@ -39,6 +40,8 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import java.time.Instant
 import java.time.LocalDate
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicBoolean
 
 @RunWith(AndroidJUnit4::class)
 class BackupManagerTest {
@@ -107,7 +110,7 @@ class BackupManagerTest {
     @Test
     fun `export then import restores identical data`() = runTest {
         seed()
-        val bytes = BackupManager.buildJson(catRepo, taskRepo)
+        val bytes = BackupManager.buildJson(db)
         val expectedCats = catRepo.snapshot().sortedBy { it.id }
         val expectedTasks = taskRepo.snapshot().sortedBy { it.id }
 
@@ -125,7 +128,7 @@ class BackupManagerTest {
     @Test
     fun `export format has metadata and omits isDeleted for live categories`() = runTest {
         seed()
-        val root = Json.parseToJsonElement(BackupManager.buildJson(catRepo, taskRepo).decodeToString()).jsonObject
+        val root = Json.parseToJsonElement(BackupManager.buildJson(db).decodeToString()).jsonObject
 
         assertEquals("1.0", root["version"]!!.jsonPrimitive.content)
         assertEquals(BuildConfig.VERSION_NAME, root["app_version"]!!.jsonPrimitive.content)
@@ -203,7 +206,7 @@ class BackupManagerTest {
         val category = db.insertCategory()
         val id = taskRepo.createTask(TaskInput("Water plants", today, Recurrence.DAILY, category))
         val nextId = taskRepo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
-        val exported = json.decodeFromString(Backup.serializer(), BackupManager.buildJson(catRepo, taskRepo).decodeToString())
+        val exported = json.decodeFromString(Backup.serializer(), BackupManager.buildJson(db).decodeToString())
         val reordered = exported.copy(tasks = exported.tasks.sortedByDescending { it.id })
 
         for (backup in listOf(exported, reordered)) {
@@ -259,7 +262,7 @@ class BackupManagerTest {
     @Test
     fun `an encrypted backup unlocks only with its phrase and restores identical data`() = runTest {
         seed()
-        val expected = BackupManager.snapshot(catRepo, taskRepo)
+        val expected = BackupManager.snapshot(db)
         val key = BackupCrypto.deriveKey(phrase, iterations = 1_000)
         val file = BackupCrypto.encrypt(BackupManager.encode(expected), key)
 
@@ -293,6 +296,66 @@ class BackupManagerTest {
         assertEquals(R.string.err_not_a_backup, readError(ByteArray(0)))
         assertEquals(R.string.err_backup_incomplete, readError(encrypted.copyOf(encrypted.size - 1)))
         assertEquals(R.string.err_backup_too_large, readError(ByteArray(BackupManager.MAX_FILE_BYTES + 1) { ' '.code.toByte() }))
+    }
+
+    @Test
+    fun `plain and encrypted files share the same inclusive final file limit`() = runTest {
+        val base = BackupManager.encode(backup(listOf(home), listOf(task(1, "ok", id = 1))))
+        val key = BackupCrypto.deriveKey(phrase, iterations = 1_000)
+        assertEquals(62, BackupCrypto.encrypt(base, key).size - base.size)
+        fun padded(size: Int) = base + ByteArray(size - base.size) { 32 }
+        for (size in listOf(BackupManager.MAX_FILE_BYTES - 1, BackupManager.MAX_FILE_BYTES)) {
+            assertTrue(BackupManager.read(ctx, uriFor(padded(size))) is BackupSource.Plain)
+            val ciphertext = BackupCrypto.encrypt(padded(size - BackupCrypto.OVERHEAD_BYTES), key)
+            assertEquals(size, ciphertext.size)
+            val read = BackupManager.read(ctx, uriFor(ciphertext)) as BackupSource.Encrypted
+            assertEquals("ok", BackupManager.unlock(read, phrase)!!.tasks.single().text)
+        }
+        assertEquals(R.string.err_backup_too_large, readError(padded(BackupManager.MAX_FILE_BYTES + 1)))
+        val largePlain = padded(BackupManager.MAX_FILE_BYTES - BackupCrypto.OVERHEAD_BYTES + 1)
+        assertEquals(R.string.err_backup_too_large,
+            assertFails<BackupValidationException> { BackupCrypto.encrypt(largePlain, key) }.resId)
+        // Include a correctly marked encrypted file above the final-file bound.
+        val ciphertext = BackupCrypto.encrypt(padded(BackupManager.MAX_FILE_BYTES - BackupCrypto.OVERHEAD_BYTES), key)
+        assertEquals(R.string.err_backup_too_large, readError(ciphertext + byteArrayOf(0)))
+        val category = db.insertCategory()
+        repeat(24) { db.insertTask(task(category, "x".repeat(900_000))) }
+        assertEquals(R.string.err_backup_too_large,
+            assertFails<BackupValidationException> { BackupManager.buildJson(db) }.resId)
+    }
+
+    @Test
+    fun `snapshot encloses both table reads in one transaction`() = runTest {
+        val recording = AtomicBoolean(false)
+        val queries = Collections.synchronizedList(mutableListOf<Pair<Long, String>>())
+        val transactionalDb = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java)
+            .setQueryCallback({ sql, _ ->
+                if (recording.get()) queries += Thread.currentThread().id to sql
+            }, java.util.concurrent.Executor { it.run() }).build()
+        try {
+            val repo = TaskRepository(transactionalDb)
+            repo.replaceAll(listOf(home), listOf(task(1, "before", id = 1)))
+            recording.set(true)
+            val captured = BackupManager.snapshot(transactionalDb)
+            recording.set(false)
+            val recorded = synchronized(queries) { queries.toList() }
+            val readerThread = recorded.single { it.second == "SELECT * FROM Category" }.first
+            assertEquals(readerThread, recorded.single { it.second == "SELECT * FROM Task" }.first)
+            // Room's invalidation tracker may transact concurrently on another connection/thread.
+            val boundariesAndReads = recorded.filter { it.first == readerThread }.mapNotNull { (_, sql) ->
+                when {
+                    sql.startsWith("BEGIN") -> "begin"
+                    sql == "END TRANSACTION" -> "end"
+                    sql == "SELECT * FROM Category" -> "categories"
+                    sql == "SELECT * FROM Task" -> "tasks"
+                    else -> null
+                }
+            }
+            assertEquals(recorded.toString(), listOf("begin", "categories", "tasks", "end"), boundariesAndReads)
+            assertEquals(listOf(home), captured.categories)
+            assertEquals("before", captured.tasks.single().text)
+            assertEquals(1, captured.tasks.single().categoryId)
+        } finally { transactionalDb.close() }
     }
 
     @Test

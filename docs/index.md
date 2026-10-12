@@ -20,7 +20,7 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 - No ads, tracking, or data sharing.
 - Works without permissions (only needed for notifications).
 - Manual backup and restore included.
-- Optional automatic backup file, encrypted with your recovery phrase and kept on your phone, ready for a sync app to upload.
+- Optional automatic backups in two alternating files, encrypted with your recovery phrase and kept in a folder you choose. Include both files in your sync app.
 - Optionally encrypt your data.
   -   Android automatically saves app data to your Google account so it can be restored when you set up a new phone. Most apps let Google see this data as it isn’t encrypted. TaskFree gives you the option to encrypt your   backup with a recovery phrase, so the data is still saved to your Google account for convenience, but only you can read it. This means your tasks stay private even if you change or restore your phone.
 

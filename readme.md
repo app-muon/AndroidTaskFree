@@ -18,7 +18,15 @@ No ads. No tracking. No data sharing. Your tasks stay on your device.
 - Requires no permissions (only if you want notifications).  
 - Option to encrypt Google backups, so your data stays private if you change or restore your phone.  
 - Manual backup and restore for full control.  
-- Optional automatic backup file, encrypted with your recovery phrase and kept on your phone for a sync app to upload.  
+- Optional automatic backups: two alternating files encrypted with your recovery phrase, in a folder you choose. Include both files in your sync app.
+
+Choose a dedicated folder such as `Downloads/TaskFree` under **Tools → Backup files**.
+After setup, failed or interrupted saves preserve a complete backup in that folder.
+Existing single-file backups are left untouched; choose a folder to resume automatic saves.
+Either A or B can be restored; check its date and counts before confirming. Keep the
+recovery phrase used for each file. Files are limited to 20 MiB, including encryption.
+TaskFree verifies local saves; upload completion is the sync app’s responsibility.
+See [backup behavior and validation](docs/automatic-backups.md).
 
 ### Task management
 - Add due dates, make tasks recurrent, and trigger notifications.  

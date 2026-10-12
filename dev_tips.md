@@ -293,6 +293,13 @@ adb -s emulator-5582 pull /sdcard/archive-recovery-en.png docs/archive-recovery-
 On older emulator images, change the system language in Settings. These screenshot
 paths are intended outputs, not existing verification artifacts.
 
+### Automatic encrypted backup files
+
+See [the focused backup validation guide](docs/automatic-backups.md) for folder grants,
+A/B preservation, process interruption, Home/background saving, restoring either slot,
+and checking both files separately in a sync app. These files use the existing encryption
+format and JSON schema; there is no database migration. Tests use disposable devices only.
+
 ### 0 · Build APK once on your host
 Android Studio, you normally use Build → Generate Signed Bundle / APK which handles the signing step.
 

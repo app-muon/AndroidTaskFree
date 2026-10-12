@@ -10,6 +10,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -269,7 +271,7 @@ class SmokeTest {
         waitFor(isDialog())
         compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
             .performScrollToNode(hasText(str(action)))
-        compose.onNodeWithText(str(action)).performClick()
+        compose.onNode(hasText(str(action)) and hasAnyAncestor(isDialog())).performClick()
     }
 
     @Test
@@ -288,6 +290,7 @@ class SmokeTest {
         compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
 
         waitFor(hasText(str(R.string.backup_file_intro)))
+        captureArchiveScreenshot("backup-folder-setup")
         for (action in listOf(R.string.backup_set_up, R.string.restore_from_file, R.string.backup_export_unencrypted)) {
             compose.onNode(dialogList).performScrollToNode(hasText(str(action)))
             compose.onNodeWithText(str(action)).assertIsDisplayed()
@@ -296,6 +299,102 @@ class SmokeTest {
         waitFor(hasText(str(R.string.backup_export_warning)))
         compose.onNodeWithText(str(R.string.cancel_no_dialog_button)).performClick()
         waitForGone(hasText(str(R.string.backup_export_warning)))
+    }
+
+    @Test
+    fun toolsBackupFolder_legacyFileShowsMigrationAndKeepsSavedDate() {
+        val cat = seedCategory()
+        seedTask(cat, "Keep visible")
+        ctx.getSharedPreferences("local_backup", Context.MODE_PRIVATE).edit()
+            .putString("uri", "content://com.android.externalstorage.documents/document/primary%3AOld.tfbackup")
+            .putString("fileName", "Old.tfbackup")
+            .putLong("savedAt", Instant.parse("2026-10-10T12:00:00Z").toEpochMilli()).commit()
+        launch()
+        waitFor(taskRow("Keep visible"))
+        dismissTipIfShown()
+        compose.onNodeWithText(str(R.string.backup_migration_notice)).assertIsDisplayed()
+        captureArchiveScreenshot("backup-migration-tasks")
+        compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
+        waitFor(hasText(str(R.string.backup_migrate)))
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithText(str(R.string.backup_migration_notice)).assertIsDisplayed()
+        compose.onNodeWithText(str(R.string.categories)).performClick()
+        dismissTipIfShown()
+        compose.onNodeWithText(str(R.string.backup_migration_notice)).assertIsDisplayed()
+        captureArchiveScreenshot("backup-migration-categories")
+        compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
+        waitFor(hasText(str(R.string.backup_migrate)))
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        openToolsAction(R.string.backup_file_title)
+        waitFor(hasText(str(R.string.backup_migrate)))
+        compose.onNodeWithText(str(R.string.backup_choose_folder)).assertIsDisplayed()
+        compose.onNode(hasClickAction() and hasAnyDescendant(hasText(str(R.string.backup_now))))
+            .assertIsNotEnabled()
+        val saved = com.taskfree.app.ui.components.formatDateTime(
+            Instant.parse("2026-10-10T12:00:00Z"), ctx.resources.configuration.locales[0], java.time.ZoneId.systemDefault())
+        compose.onNodeWithText(str(R.string.backup_saved_at, saved)).assertIsDisplayed()
+        captureArchiveScreenshot("backup-folder-migration")
+        compose.onNodeWithText(str(R.string.backup_turn_off)).performScrollTo().performClick()
+        compose.onNodeWithText(str(R.string.backup_turn_off_yes)).performClick()
+        waitForGone(hasText(str(R.string.backup_migration_notice)))
+        compose.onNodeWithText(str(R.string.backup_migration_notice)).assertDoesNotExist()
+    }
+
+    @Test fun backupRetryBanner_opensPanelOnBothMainScreens() = recoveryBannerOnBothScreens(false)
+
+    @Test fun backupRestartBanner_opensPanelOnBothMainScreens() = recoveryBannerOnBothScreens(true)
+
+    private fun recoveryBannerOnBothScreens(restart: Boolean) {
+        val cat = seedCategory()
+        seedTask(cat, "Keep visible")
+        val folder = android.net.Uri.parse("content://test/tree/backups")
+        val time = Instant.parse("2026-10-10T12:00:00Z")
+        val phrase = listOf("apple", "brick", "cloud", "delta", "eagle", "flame", "grape", "house")
+        Prefs.savePhrase(ctx, phrase)
+        var settings: com.taskfree.app.data.backup.BackupSettings? = com.taskfree.app.data.backup.BackupSettings(
+            folder, com.taskfree.app.ui.enc.MnemonicManager.hashPhrase(phrase),
+            slots = listOf("A", "B").map { letter -> com.taskfree.app.data.backup.BackupSlot(
+                android.net.Uri.parse("$folder/$letter"), "TaskFree-$letter.tfbackup", "0".repeat(64), 10) },
+            savedAt = time, error = com.taskfree.app.data.backup.BackupError(com.taskfree.app.data.backup.BackupError.Kind.FAILED, time))
+        val file = object : com.taskfree.app.data.backup.BackupFile {
+            override fun retain(uri: android.net.Uri) {}
+            override fun release(uri: android.net.Uri) {}
+            override fun canWrite(uri: android.net.Uri) = true
+            override fun create(folder: android.net.Uri, name: String): com.taskfree.app.data.backup.BackupSlot = error("Unexpected setup")
+            override fun delete(uri: android.net.Uri) = error("Unexpected deletion")
+            override fun write(uri: android.net.Uri, bytes: ByteArray) = error("Must protect survivor")
+            override fun verify(uri: android.net.Uri, size: Long, digest: String) = throw java.io.FileNotFoundException()
+        }
+        val saver = com.taskfree.app.data.backup.BackupSaver(ctx, file, { reset.db() }, { time }, prefs =
+            object : com.taskfree.app.data.backup.BackupSettingsStore {
+                override fun load() = settings
+                override fun commit(candidate: com.taskfree.app.data.backup.BackupSettings?): Boolean {
+                    if (restart) return false
+                    settings = candidate
+                    return true
+                }
+            })
+        if (restart) runBlocking { saver.disable() }
+        com.taskfree.app.data.backup.AutoBackup.configureForTesting(saver)
+        launch()
+        waitFor(taskRow("Keep visible"))
+        dismissTipIfShown()
+        val notice = if (restart) R.string.backup_error_settings else R.string.backup_retry_notice
+        for (screen in listOf("tasks", "categories")) {
+            if (screen == "categories") {
+                compose.onNodeWithText(str(R.string.categories)).performClick()
+                dismissTipIfShown()
+            }
+            compose.onNodeWithText(str(notice)).assertIsDisplayed()
+            captureArchiveScreenshot("backup-${if (restart) "restart" else "retry"}-$screen")
+            compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
+            compose.onNodeWithText(str(R.string.backup_retry_recovery)).performScrollTo().assertIsDisplayed()
+            val action = compose.onNode(hasClickAction() and hasAnyDescendant(hasText(str(R.string.backup_choose_folder))))
+            action.performScrollTo()
+            if (restart) action.assertIsNotEnabled()
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            compose.onNodeWithText(str(notice)).assertIsDisplayed()
+        }
     }
 
     @Test

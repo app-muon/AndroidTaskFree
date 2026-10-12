@@ -24,6 +24,8 @@ import androidx.navigation.NavHostController
 import com.taskfree.app.R
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.ui.admin.ToolsMenuDialog
+import com.taskfree.app.ui.admin.BackupFileDialog
+import com.taskfree.app.ui.admin.BackupMigrationBanner
 import com.taskfree.app.ui.admin.ToolsViewModel
 import com.taskfree.app.ui.admin.ToolsVmFactory
 import com.taskfree.app.ui.category.CategoryViewModel
@@ -82,6 +84,7 @@ fun TaskSearchScreen(
     // Local state
     var dialogs by remember { mutableStateOf<TaskDialogs>(TaskDialogs.None) }
     var showGlobalMenu by remember { mutableStateOf(false) }
+    var showBackup by rememberSaveable { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
     var selectedCatId by rememberSaveable { mutableStateOf(initialCategoryId) }
@@ -255,6 +258,7 @@ fun TaskSearchScreen(
         )
 
         // Bottom bar
+        BackupMigrationBanner(onOpenBackup = { showBackup = true })
         AppBottomBar(
             navController = navController,
             isTodayView = (config.dueChoice.date == AppDateProvider.current.today() && selectedCatId == null),
@@ -287,11 +291,14 @@ fun TaskSearchScreen(
         })
 
     ToolsMenuDialog(
+        onOpenBackup = { showBackup = true },
         startEncryptFlow = { showEncryptWizard = true },
         showPhraseFlow = { showPhraseDialog = true },
         vm = adminVm, show = showGlobalMenu,
         onDismiss = { showGlobalMenu = false },
         onResetTips = { tipManager.resetTips() })
+
+    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true }, onDismiss = { showBackup = false })
 
     if (showEncryptWizard) {
         EncryptWizard(onClose = { showEncryptWizard = false })

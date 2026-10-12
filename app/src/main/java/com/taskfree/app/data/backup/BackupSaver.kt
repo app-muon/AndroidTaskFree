@@ -6,136 +6,280 @@ import com.taskfree.app.Prefs
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.repository.Backup
 import com.taskfree.app.data.repository.BackupManager
-import com.taskfree.app.data.repository.CategoryRepository
-import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.ui.enc.MnemonicManager
 import com.taskfree.app.util.db
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
-internal data class BackupStatus(val settings: BackupSettings?, val saving: Boolean = false)
+internal data class BackupStatus(
+    val settings: BackupSettings?,
+    val saving: Boolean = false,
+    val operationError: BackupError? = null,
+    val restartRequired: Boolean = false
+) {
+    val canMutate: Boolean get() = !saving && !restartRequired
+    val error: BackupError? get() = settings?.error
+    val pending: Boolean get() = error != null || settings?.pending == true
+}
 
-/** Saves the encrypted backup file, one save at a time; [AutoBackup] decides when. */
+/** All writes, settings changes and grant lifetimes share this mutex. */
 internal class BackupSaver(
     context: Context,
     private val file: BackupFile = SafBackupFile(context.contentResolver),
     private val database: () -> AppDatabase = { context.db },
     private val now: () -> Instant = Instant::now,
-    private val iterations: Int = BackupCrypto.ITERATIONS
+    private val iterations: Int = BackupCrypto.ITERATIONS,
+    private val prefs: BackupSettingsStore = BackupPrefs(context)
 ) {
     private val context = context.applicationContext
-    private val prefs = BackupPrefs(context)
     private val mutex = Mutex()
-    // Derived once per process (fresh salt); each save still uses a fresh nonce. Guarded by mutex.
     private var key: Pair<String, BackupCrypto.Key>? = null
-    private val _status = MutableStateFlow(BackupStatus(prefs.load()))
+    // Never reload SharedPreferences in this process: a failed commit can still change its in-memory map.
+    private var trusted = prefs.load()
+    @Volatile private var blocked = false
+    private val databaseRevision = AtomicLong()
+    @Volatile private var oversizedRevision: Long? = null
+    private var operationError: BackupError? = null
+    private val _status = MutableStateFlow(BackupStatus(trusted))
     val status: StateFlow<BackupStatus> = _status.asStateFlow()
+    val isEnabled: Boolean get() = status.value.settings?.needsMigration == false && !blocked
 
-    val isEnabled: Boolean get() = _status.value.settings != null
+    /** Called before the watcher's debounce, including while a snapshot/save is in progress. */
+    fun databaseChanged() { databaseRevision.incrementAndGet() }
 
-    suspend fun enable(uri: Uri, fileName: String) = mutex.withLock {
-        prefs.enable(uri, fileName, currentPhraseHash().orEmpty())
-        publish()
+    /** Cheap enough for lifecycle/service decisions; the same policy gates snapshots below. */
+    fun canSaveAutomatically(): Boolean = automaticRetryAllowed(status.value.settings)
+
+    private fun automaticRetryAllowed(settings: BackupSettings?): Boolean {
+        if (settings == null || settings.needsMigration || blocked) return false
+        return when (settings.error?.kind) {
+            BackupError.Kind.ACTIVE_DAMAGED, BackupError.Kind.PHRASE_CHANGED -> false
+            BackupError.Kind.TOO_LARGE -> oversizedRevision != databaseRevision.get()
+            BackupError.Kind.NO_ACCESS -> runCatching { file.canWrite(settings.uri) }.getOrDefault(false)
+            else -> true
+        }
     }
 
-    suspend fun disable() = mutex.withLock {
-        prefs.clear()
-        publish()
+    /** Keeps the current destination until both newly created files are verified and committed. */
+    suspend fun enable(uri: Uri) = operation {
+        val previous = trusted
+        val created = mutableSetOf<Uri>()
+        var commitmentAttempted = false
+        try {
+            file.retain(uri)
+            if (!file.canWrite(uri)) return@operation setupFailed(BackupError.Kind.NO_ACCESS)
+            val phrase = Prefs.loadPhrase(context)
+                ?: return@operation setupFailed(BackupError.Kind.PHRASE_CHANGED)
+            val phraseHash = MnemonicManager.hashPhrase(phrase)
+            // Changing folders must not silently accept a changed recovery phrase either.
+            if (previous != null && previous.phraseHash != phraseHash)
+                return@operation setupFailed(BackupError.Kind.PHRASE_CHANGED)
+            val backup = BackupManager.snapshot(database())
+            val bytes = payload(backup, phrase, phraseHash)
+            val setupDate = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss'Z'", Locale.ROOT)
+                .withZone(ZoneOffset.UTC).format(now())
+            val slots = listOf("A", "B").map { letter ->
+                val name = "TaskFree-$setupDate-$letter.tfbackup"
+                val slot = file.create(uri, name)
+                // Track each returned document before any later creation or validation can fail.
+                val existing = previous?.slots?.any { it.uri == slot.uri } == true || slot.uri == previous?.uri
+                if (!existing) created += slot.uri
+                check(!existing)
+                currentCoroutineContext().ensureActive()
+                slot
+            }
+            check(slots[0].uri != slots[1].uri)
+            val verified = slots.map {
+                writeVerified(it, bytes).also { currentCoroutineContext().ensureActive() }
+            }
+            val candidate = BackupSettings(uri, phraseHash, slots = verified, activeSlot = 1,
+                fingerprint = fingerprint(backup, phraseHash), savedAt = now(), pending = false)
+            currentCoroutineContext().ensureActive()
+            commitmentAttempted = true
+            if (commit(candidate)) {
+                operationError = null
+                previous?.uri?.takeIf { it != uri }?.let { runCatching { file.release(it) } }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            operationError = errorFor(e)
+        } finally {
+            // Once commitment is attempted either configuration may be durable. Keep both pairs/grants.
+            if (!commitmentAttempted) withContext(NonCancellable) {
+                created.forEach { runCatching { file.delete(it) } }
+                if (trusted?.uri != uri) runCatching { file.release(uri) }
+            }
+        }
     }
 
-    /** Accepts the phone's current recovery phrase for future backups. */
-    suspend fun usePhrase() = mutex.withLock {
-        prefs.usePhrase(currentPhraseHash().orEmpty())
-        publish()
+    /** Files stay in the folder. A failed settings commit retains access and stops all later writes. */
+    suspend fun disable() = operation {
+        val old = trusted
+        if (commit(null)) {
+            operationError = null
+            old?.uri?.let(file::release)
+        }
     }
 
-    /** Unknown counts as unsaved, so a failed check never skips a save. */
-    suspend fun hasUnsavedChanges(): Boolean {
+    suspend fun usePhrase() = operation {
+        val settings = trusted ?: return@operation
+        val phrase = Prefs.loadPhrase(context)
+            ?: return@operation fail(BackupError.Kind.PHRASE_CHANGED)
+        if (commit(settings.copy(phraseHash = MnemonicManager.hashPhrase(phrase), pending = true,
+                error = settings.error?.takeUnless { it.kind == BackupError.Kind.PHRASE_CHANGED }))) {
+            if (!settings.needsMigration) attempt(force = false)
+        }
+    }
+
+    /** Repair work is retryable automatically only while nonempty data can safely be saved. */
+    suspend fun needsAutomaticSave(): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val settings = prefs.load() ?: return false
-            return try {
-                fingerprint(snapshot(), settings) != settings.fingerprint
+            val settings = trusted ?: return@withLock false
+            if (!automaticRetryAllowed(settings)) return@withLock false
+            try {
+                val backup = BackupManager.snapshot(database())
+                if (backup.categories.isEmpty() && backup.tasks.isEmpty()) return@withLock false
+                settings.pending || settings.error != null ||
+                    fingerprint(backup, settings.phraseHash) != settings.fingerprint
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 true
             }
         }
     }
 
-    /** Writes the backup if anything changed since the last save, or always when [force]d. */
-    suspend fun save(force: Boolean) {
+    suspend fun save(force: Boolean) = operation { attempt(force) }
+
+    private suspend fun operation(block: suspend () -> Unit) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val settings = prefs.load() ?: return
-            _status.value = BackupStatus(settings, saving = true)
+            if (blocked) return@withLock
+            _status.value = BackupStatus(trusted, saving = true, operationError = operationError)
             try {
-                attempt(settings, force)
+                block()
             } finally {
-                publish()
+                _status.value = BackupStatus(trusted, operationError = operationError, restartRequired = blocked)
             }
         }
     }
 
-    private suspend fun attempt(settings: BackupSettings, force: Boolean) {
-        if (!file.canWrite(settings.uri)) return fail(BackupError.Kind.NO_ACCESS)
-        // Never switch phrase silently: the phrase the user wrote down must keep opening the file.
-        val phrase = Prefs.loadPhrase(context)
-        if (phrase == null || MnemonicManager.hashPhrase(phrase) != settings.phraseHash)
-            return fail(BackupError.Kind.PHRASE_CHANGED)
+    private suspend fun attempt(force: Boolean) {
+        val settings = trusted ?: return
+        if (settings.needsMigration) return // The legacy document must never be opened for writing.
+        if (!force && !automaticRetryAllowed(settings)) return
+        // Capture before the snapshot: an invalidation during this attempt permits another try.
+        val revision = databaseRevision.get()
         try {
-            val backup = snapshot()
-            // A fresh install must not overwrite a synced backup before it is restored.
+            val backup = BackupManager.snapshot(database())
             if (!force && backup.categories.isEmpty() && backup.tasks.isEmpty()) return
-            val fingerprint = fingerprint(backup, settings)
-            if (!force && fingerprint == settings.fingerprint) return
-            val bytes = BackupCrypto.encrypt(BackupManager.encode(backup), keyFor(phrase, settings.phraseHash))
-            // Already ciphertext, so finishing the copy after the app is left is safe.
-            withContext(NonCancellable + Dispatchers.IO) {
-                file.write(settings.uri, bytes)
-                prefs.recordSuccess(fingerprint, now())
+            if (!file.canWrite(settings.uri)) return fail(BackupError.Kind.NO_ACCESS)
+            val phrase = Prefs.loadPhrase(context)
+            if (phrase == null || MnemonicManager.hashPhrase(phrase) != settings.phraseHash)
+                return fail(BackupError.Kind.PHRASE_CHANGED)
+            val fingerprint = fingerprint(backup, settings.phraseHash)
+            if (!force && !settings.pending && settings.error == null &&
+                fingerprint == settings.fingerprint) return
+            val active = settings.active
+            if (active?.digest?.matches(Regex("[0-9a-f]{64}")) != true ||
+                active.size !in 1..BackupManager.MAX_FILE_BYTES.toLong() ||
+                settings.slots.map { it.uri }.distinct().size != 2)
+                return fail(BackupError.Kind.ACTIVE_DAMAGED)
+            try {
+                file.verify(active.uri, active.size, active.digest)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: BackupVerificationMismatchException) {
+                return fail(BackupError.Kind.ACTIVE_DAMAGED)
+            } catch (e: Exception) {
+                val error = errorFor(e)
+                return fail(error.kind, error.detail)
+            }
+            val bytes = payload(backup, phrase, settings.phraseHash)
+            // Persist pending work before opening the inactive file. Process death cannot hide a failed forced save.
+            if (!settings.pending && !commit(settings.copy(pending = true))) return
+            withContext(NonCancellable) {
+                val inactive = 1 - settings.activeSlot
+                val written = writeVerified(settings.slots[inactive], bytes)
+                val updated = settings.slots.toMutableList().apply { this[inactive] = written }
+                commit(settings.copy(slots = updated, activeSlot = inactive, fingerprint = fingerprint,
+                    savedAt = now(), pending = false, error = null))
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: BackupWriteException) {
-            fail(BackupError.Kind.FAILED, e.detail)
         } catch (e: Exception) {
-            fail(BackupError.Kind.FAILED, failureDetail("build", e))
+            val error = errorFor(e)
+            if (error.kind == BackupError.Kind.TOO_LARGE) oversizedRevision = revision
+            fail(error.kind, error.detail)
         }
     }
 
-    private suspend fun snapshot(): Backup {
-        val db = database()
-        return BackupManager.snapshot(CategoryRepository(db), TaskRepository(db))
+    private fun payload(backup: Backup, phrase: List<String>, phraseHash: String): ByteArray {
+        val plain = BackupManager.encode(backup)
+        BackupManager.checkOutputSize(plain.size.toLong() + BackupCrypto.OVERHEAD_BYTES)
+        return BackupCrypto.encrypt(plain, keyFor(phrase, phraseHash))
     }
 
-    /** Ignores the export time; covers the phrase and file so a change to either is saved. */
-    private fun fingerprint(backup: Backup, settings: BackupSettings): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        digest.update(BackupManager.encode(backup.copy(exported_at = "")))
-        digest.update(settings.phraseHash.toByteArray())
-        digest.update(settings.uri.toString().toByteArray())
-        return digest.digest().joinToString("") { "%02x".format(it) }
+    private fun writeVerified(slot: BackupSlot, bytes: ByteArray): BackupSlot {
+        val digest = bytes.backupDigest()
+        file.write(slot.uri, bytes)
+        try {
+            file.verify(slot.uri, bytes.size.toLong(), digest)
+        } catch (e: BackupVerificationMismatchException) {
+            throw BackupWriteException(failureDetail("verification", e), e)
+        }
+        return slot.copy(digest = digest, size = bytes.size.toLong())
     }
+
+    private fun fingerprint(backup: Backup, phraseHash: String): String =
+        MessageDigest.getInstance("SHA-256").apply {
+            update(BackupManager.encode(backup.copy(exported_at = "")))
+            update(phraseHash.toByteArray())
+        }.digest().toBackupHex()
 
     private fun keyFor(phrase: List<String>, phraseHash: String): BackupCrypto.Key =
         key?.takeIf { it.first == phraseHash }?.second
             ?: BackupCrypto.deriveKey(phrase, iterations = iterations).also { key = phraseHash to it }
 
-    private fun currentPhraseHash(): String? = Prefs.loadPhrase(context)?.let(MnemonicManager::hashPhrase)
+    private fun commit(settings: BackupSettings?): Boolean {
+        if (blocked) return false
+        if (runCatching { prefs.commit(settings) }.getOrDefault(false)) {
+            trusted = settings
+            return true
+        }
+        blocked = true
+        return false
+    }
 
-    private fun fail(kind: BackupError.Kind, detail: String? = null) =
-        prefs.recordError(BackupError(kind, now(), detail))
+    private fun fail(kind: BackupError.Kind, detail: String? = null) {
+        val settings = trusted ?: return
+        commit(settings.copy(error = BackupError(kind, now(), detail), pending = true))
+    }
 
-    private fun publish() {
-        _status.value = BackupStatus(prefs.load())
+    private fun setupFailed(kind: BackupError.Kind) {
+        operationError = BackupError(kind, now())
+    }
+
+    private fun errorFor(e: Exception): BackupError = when {
+        generateSequence<Throwable>(e) { it.cause }.any { it is SecurityException } ->
+            BackupError(BackupError.Kind.NO_ACCESS, now())
+        e is BackupManager.BackupValidationException -> BackupError(BackupError.Kind.TOO_LARGE, now())
+        e is BackupWriteException -> BackupError(BackupError.Kind.FAILED, now(), e.detail)
+        else -> BackupError(BackupError.Kind.FAILED, now(), failureDetail("build", e))
     }
 }

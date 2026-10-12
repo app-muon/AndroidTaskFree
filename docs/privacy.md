@@ -6,7 +6,7 @@ permalink: /privacy/
 
 # Privacy Policy
 
-Last updated: October 10, 2026
+Last updated: October 11, 2026
 
 This privacy policy applies to TaskFree, an Android task manager developed by Muon App Development.
 
@@ -32,7 +32,7 @@ TaskFree itself does not upload your app data. Your data may leave your device o
 
 - Android or Google backs up app data to your Google account because Android backup is enabled on your device.
 - You manually export a TaskFree backup file and choose where to save or share it.
-- You turn on the automatic backup file and use another app, such as a sync app, to copy that file off your device. TaskFree only writes the file on your device; it never uploads it.
+- You turn on automatic backup files and use another app, such as a sync app, to copy both files off your device. A cloud storage provider chosen in the system picker may also upload files under its own privacy policy. TaskFree does not upload files itself.
 - Android displays a local notification reminder using task information already stored on your device.
 
 Muon App Development does not receive your task data, backup files, reminders, categories, recovery phrase, or encryption key.
@@ -43,13 +43,15 @@ TaskFree may request notification permission so it can show task reminders. If r
 
 TaskFree uses the boot-completed permission to reschedule reminders after your device restarts.
 
-TaskFree uses the foreground-service permission to finish saving the automatic backup file for a short time after you leave the app.
+TaskFree uses the foreground-service permission to finish saving automatic backups for a short time after you leave the app. If you enable this feature, the Android folder picker grants persistent read and write access to the folder you select, so TaskFree can create, update, and verify its two backup files.
 
 ## Backups and Restore
 
 TaskFree supports Android backup and restore. This is the only automatic off-device backup path in the app. If Android backup is enabled on your device, Android or Google may back up TaskFree app data to your Google account according to your device and Google account settings. TaskFree does not operate this backup service, does not choose where it is stored, and does not receive your backup data.
 
-TaskFree can also keep an automatic backup file. If you turn it on, TaskFree saves an encrypted copy of your tasks to a file you choose on your device and keeps it up to date. The file is encrypted with your recovery phrase, so it can only be read with that phrase. TaskFree does not upload this file. If you want a copy off your device, you can use another app, such as a sync app, to upload it; that app's own privacy policy then applies.
+TaskFree can also keep two automatic backup files, A and B, in a folder you choose. Both are encrypted with your recovery phrase. Each save updates one file and verifies it before making it the current backup; the other file is preserved. Include both files in any sync configuration. The selected folder, file locations, verification digests, successful save time, content fingerprint, and retry status are stored only on this device and excluded from Android cloud backup and device transfer. No database keys or recovery words are stored in these backup settings.
+
+Changing folders creates new files and preserves the previous configuration until the new files are verified. Existing single-file backups are left untouched during migration. Turning automatic backups off releases the folder access and leaves the files in place. You can delete those files yourself. TaskFree does not upload them or confirm upload completion; any storage provider or sync app you choose has its own privacy policy.
 
 You can also manually export an unencrypted JSON backup file, and restore from either kind of backup file. Manual export and restore are user-initiated. A backup file is saved only to the location you choose and may contain your tasks, categories, dates, statuses, recurrence settings, and reminder information.
 
