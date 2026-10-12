@@ -60,6 +60,7 @@ fun ToolsMenuDialog(
     show: Boolean,
     startEncryptFlow: () -> Unit,
     showPhraseFlow: () -> Unit,
+    onOpenBackup: () -> Unit,
     onDismiss: () -> Unit,
     onResetTips: () -> Unit
 ) {
@@ -69,7 +70,6 @@ fun ToolsMenuDialog(
     var showContact by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showTextSize by rememberSaveable { mutableStateOf(false) }
-    var showBackup by rememberSaveable { mutableStateOf(false) }
     val colors = providePanelColors()
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
@@ -144,7 +144,7 @@ fun ToolsMenuDialog(
                     labelContent = { BackupMenuLabel() },
                     icon = Icons.Outlined.Backup,
                     onClick = {
-                        showBackup = true
+                        onOpenBackup()
                         onDismiss()
                     }), if (BuildConfig.DEBUG) {
                     ActionItem(
@@ -251,8 +251,6 @@ fun ToolsMenuDialog(
     if (showTextSize) {
         TextSizeDialog(onClose = { showTextSize = false })
     }
-
-    BackupFileDialog(vm, show = showBackup, onDismiss = { showBackup = false })
 
     repeatsPreview?.let { preview ->
         ArchiveRepeatsDialog(

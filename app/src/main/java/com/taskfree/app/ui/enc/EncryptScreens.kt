@@ -62,7 +62,8 @@ fun EncryptPhraseScreen(
     words: List<String>,
     onConfirmed: () -> Unit,
     onCancel: () -> Unit,
-    confirmLabel: String = stringResource(R.string.encrypt_yes_dialog_button)
+    confirmLabel: String = stringResource(R.string.encrypt_yes_dialog_button),
+    confirmEnabled: Boolean = true
 ) {
     var chk1 by remember { mutableStateOf(false) }
     var chk2 by remember { mutableStateOf(false) }
@@ -145,7 +146,7 @@ fun EncryptPhraseScreen(
                     }
                     Spacer(Modifier.width(8.dp))
                     TextButton(
-                        enabled = chk1 && chk2,
+                        enabled = chk1 && chk2 && confirmEnabled,
                         onClick = onConfirmed,
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = colorResource(R.color.dark_red)

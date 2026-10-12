@@ -7,7 +7,6 @@ import com.taskfree.app.ResetAppStateRule
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.repository.BackupManager
-import com.taskfree.app.data.repository.CategoryRepository
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.ui.enc.fetchWords
 import kotlinx.coroutines.runBlocking
@@ -39,7 +38,7 @@ class CreationDatesEncryptionTest {
                 id = 2, text = "Legacy task", originalCreatedAt = null, occurrenceCreatedAt = null
             )))
         }
-        val before = BackupManager.buildJson(CategoryRepository(reset.db()), TaskRepository(reset.db()))
+        val before = BackupManager.buildJson(reset.db())
 
         reset.newProcess()
         RealDatabaseMigrator.migrateToEncrypted(context, fetchWords().take(8))
@@ -48,7 +47,7 @@ class CreationDatesEncryptionTest {
         val encrypted = reset.db()
         assertEquals(expected, encrypted.taskDao().taskById(expected.id))
         assertEquals(1, encrypted.taskDao().taskById(3)!!.sourceTaskId)
-        val after = BackupManager.buildJson(CategoryRepository(encrypted), TaskRepository(encrypted))
+        val after = BackupManager.buildJson(encrypted)
         assertEquals(
             Json.parseToJsonElement(before.decodeToString()).jsonObject["tasks"],
             Json.parseToJsonElement(after.decodeToString()).jsonObject["tasks"]

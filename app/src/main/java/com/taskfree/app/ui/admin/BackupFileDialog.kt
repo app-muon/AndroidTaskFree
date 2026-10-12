@@ -1,14 +1,11 @@
 package com.taskfree.app.ui.admin
 
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import android.provider.DocumentsContract
-import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
+import androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -41,6 +38,7 @@ import com.taskfree.app.data.backup.AutoBackup
 import com.taskfree.app.data.backup.BackupError
 import com.taskfree.app.data.backup.BackupStatus
 import com.taskfree.app.data.backup.isPhoneStorage
+import com.taskfree.app.data.repository.BackupManager.BackupValidationException
 import com.taskfree.app.ui.components.ActionItem
 import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.PanelActionList
@@ -51,27 +49,26 @@ import com.taskfree.app.ui.enc.MnemonicManager
 import com.taskfree.app.ui.enc.ViewPhraseDialog
 import com.taskfree.app.ui.theme.providePanelColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private const val BACKUP_FILE_NAME = "TaskFree.tfbackup"
-
 private sealed interface BackupStep {
     /** The database is encrypted but its phrase isn't on this phone; a new phrase wouldn't match it. */
     data object NoPhrase : BackupStep
-    /** Confirms the phrase backups use, then picks a file or accepts the phrase. */
-    data class ShowPhrase(val thenPickFile: Boolean) : BackupStep
+    /** Confirms the phrase backups use, then picks a folder or accepts the phrase. */
+    data class ShowPhrase(val thenPickFolder: Boolean) : BackupStep
     data class CloudWarning(val uri: Uri) : BackupStep
     data object ViewPhrase : BackupStep
     data object ConfirmTurnOff : BackupStep
     data object ConfirmExport : BackupStep
 }
 
-/** The "Backup file" panel and its flows. It stays composed while the panel is closed. */
+/** The "Backup files" panel and its flows. It stays composed while the panel is closed. */
 @Composable
-fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
+fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = providePanelColors()
@@ -79,9 +76,25 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
     var step by remember { mutableStateOf<BackupStep?>(null) }
     var restoreStep by remember { mutableStateOf<RestoreStep?>(null) }
 
-    val pickFile = rememberLauncherForActivityResult(CreateDocument("application/octet-stream")) { uri ->
+    fun showSetupResult(result: AutoBackup.EnableResult) {
+        val message = when (result) {
+            AutoBackup.EnableResult.STARTED -> { onShow(); return }
+            AutoBackup.EnableResult.BUSY -> R.string.backup_setup_busy
+            AutoBackup.EnableResult.NOT_READY -> R.string.backup_setup_not_ready
+            AutoBackup.EnableResult.RESTART_REQUIRED -> R.string.backup_setup_restart
+        }
+        Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
+    }
+    fun enableFolder(uri: Uri) = showSetupResult(AutoBackup.enable(ctx, uri))
+
+    val pickFolder = rememberLauncherForActivityResult(OpenDocumentTree()) { uri ->
         if (uri != null) {
-            if (uri.isPhoneStorage()) useFile(ctx, uri) else step = BackupStep.CloudWarning(uri)
+            val rejection = AutoBackup.setupRejection(ctx)
+            when {
+                rejection != null -> showSetupResult(rejection)
+                uri.isPhoneStorage() -> enableFolder(uri)
+                else -> step = BackupStep.CloudWarning(uri)
+            }
         }
     }
     val openFile = rememberLauncherForActivityResult(OpenDocument()) { uri ->
@@ -94,26 +107,28 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
     val exportFile = rememberLauncherForActivityResult(CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
             runCatching {
-                val bytes = vm.buildBackup()
-                checkNotNull(ctx.contentResolver.openOutputStream(uri)).use { it.write(bytes) }
+                vm.exportBackup(ctx.contentResolver, uri)
             }.onSuccess {
                 Toast.makeText(ctx, R.string.backup_ok, Toast.LENGTH_LONG).show()
             }.onFailure { e ->
-                Toast.makeText(ctx, e.message ?: ctx.getString(R.string.backup_save_failed), Toast.LENGTH_LONG).show()
+                if (e is CancellationException) throw e
+                val message = if (e is BackupValidationException) ctx.getString(e.resId, *e.args)
+                    else ctx.getString(R.string.backup_save_failed)
+                Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
             }
         }
     }
 
     fun phraseUnavailable() = Prefs.isEncrypted(ctx) && Prefs.loadPhrase(ctx) == null
-    fun chooseFile() {
+    fun chooseFolder() {
         when {
             phraseUnavailable() -> step = BackupStep.NoPhrase
-            Prefs.loadPhrase(ctx) == null -> step = BackupStep.ShowPhrase(thenPickFile = true)
-            else -> pickFile.launch(BACKUP_FILE_NAME)
+            Prefs.loadPhrase(ctx) == null -> step = BackupStep.ShowPhrase(thenPickFolder = true)
+            else -> pickFolder.launch(null)
         }
     }
     fun reviewPhrase() {
-        step = if (phraseUnavailable()) BackupStep.NoPhrase else BackupStep.ShowPhrase(thenPickFile = false)
+        step = if (phraseUnavailable()) BackupStep.NoPhrase else BackupStep.ShowPhrase(thenPickFolder = false)
     }
 
     if (show) {
@@ -121,25 +136,33 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
         val actions = buildList {
             if (settings == null) {
                 add(ActionItem(label = stringResource(R.string.backup_set_up), icon = Icons.Outlined.Backup,
-                    onClick = { chooseFile() }))
+                    enabled = status.canMutate,
+                    onClick = { chooseFolder() }))
             } else {
-                when (settings.error?.kind) {
-                    BackupError.Kind.NO_ACCESS -> add(ActionItem(label = stringResource(R.string.backup_choose_again),
-                        icon = Icons.Outlined.Warning, iconTint = colors.brightRed, onClick = { chooseFile() }))
-                    BackupError.Kind.PHRASE_CHANGED -> add(ActionItem(label = stringResource(R.string.backup_review_phrase),
-                        icon = Icons.Outlined.Warning, iconTint = colors.brightRed, onClick = { reviewPhrase() }))
-                    else -> {}
+                val folderAction = when {
+                    settings.needsMigration || status.error?.kind in
+                        listOf(BackupError.Kind.ACTIVE_DAMAGED, BackupError.Kind.FAILED) ->
+                        R.string.backup_choose_folder
+                    status.error?.kind == BackupError.Kind.NO_ACCESS -> R.string.backup_choose_again
+                    else -> R.string.backup_change_file
                 }
+                add(ActionItem(label = stringResource(folderAction), enabled = status.canMutate,
+                    icon = Icons.Outlined.FolderOpen, onClick = { chooseFolder() }))
                 // Stays open, so the status above shows the save happen.
                 add(ActionItem(label = stringResource(R.string.backup_now), icon = Icons.Outlined.Backup,
-                    enabled = !status.saving, dismissOnClick = false, onClick = { AutoBackup.backUpNow(ctx) }))
-                add(ActionItem(label = stringResource(R.string.backup_change_file), icon = Icons.Outlined.FolderOpen,
-                    onClick = { chooseFile() }))
-                add(ActionItem(label = stringResource(R.string.view_recovery_phrase), icon = Icons.Outlined.Lock,
-                    onClick = { step = BackupStep.ViewPhrase }))
+                    enabled = status.canMutate && !settings.needsMigration, dismissOnClick = false,
+                    onClick = { AutoBackup.backUpNow(ctx) }))
                 add(ActionItem(label = stringResource(R.string.backup_turn_off), icon = Icons.Outlined.CloudOff,
+                    enabled = status.canMutate,
                     onClick = { step = BackupStep.ConfirmTurnOff }))
             }
+            if (status.error?.kind == BackupError.Kind.PHRASE_CHANGED ||
+                status.operationError?.kind == BackupError.Kind.PHRASE_CHANGED)
+                add(ActionItem(label = stringResource(R.string.backup_review_phrase), enabled = status.canMutate,
+                    icon = Icons.Outlined.Warning, iconTint = colors.brightRed, onClick = { reviewPhrase() }))
+            if (settings != null || Prefs.loadPhrase(ctx) != null)
+                add(ActionItem(label = stringResource(R.string.view_recovery_phrase), icon = Icons.Outlined.Lock,
+                    onClick = { step = BackupStep.ViewPhrase }))
             add(ActionItem(label = stringResource(R.string.restore_from_file), icon = Icons.Outlined.Restore,
                 onClick = { openFile.launch(arrayOf("*/*")) }))
             add(ActionItem(label = stringResource(R.string.backup_export_unencrypted), icon = Icons.Outlined.FileDownload,
@@ -163,9 +186,10 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
             EncryptPhraseScreen(
                 words = words,
                 confirmLabel = stringResource(R.string.backup_continue),
+                confirmEnabled = status.canMutate,
                 onConfirmed = {
                     step = null
-                    if (current.thenPickFile) pickFile.launch(BACKUP_FILE_NAME) else AutoBackup.usePhrase(ctx)
+                    if (current.thenPickFolder) pickFolder.launch(null) else AutoBackup.usePhrase(ctx)
                 },
                 onCancel = { step = null }
             )
@@ -175,18 +199,18 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
             message = stringResource(R.string.backup_cloud_msg),
             yesMessage = stringResource(R.string.backup_use_anyway),
             noMessage = stringResource(R.string.backup_choose_again),
+            yesEnabled = status.canMutate,
+            noEnabled = status.canMutate,
             onYes = {
                 step = null
-                useFile(ctx, current.uri)
+                enableFolder(current.uri)
             },
             onNo = {
                 step = null
-                discard(ctx, current.uri)
-                pickFile.launch(BACKUP_FILE_NAME)
+                pickFolder.launch(null)
             },
             onDismiss = {
                 step = null
-                discard(ctx, current.uri)
             }
         )
         BackupStep.ViewPhrase -> ViewPhraseDialog(onClose = { step = null })
@@ -194,6 +218,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onDismiss: () -> Unit) {
             title = stringResource(R.string.backup_turn_off),
             message = stringResource(R.string.backup_turn_off_msg),
             yesMessage = stringResource(R.string.backup_turn_off_yes),
+            yesEnabled = status.canMutate,
             onYes = {
                 step = null
                 AutoBackup.disable(ctx)
@@ -227,12 +252,17 @@ internal fun BackupMenuLabel() {
         Text(stringResource(R.string.backup_file_title), color = colors.surfaceText)
         Text(
             text = when {
+                status.restartRequired -> stringResource(R.string.backup_restart_required)
+                status.saving -> stringResource(R.string.backup_saving)
+                status.error != null -> stringResource(R.string.backup_failed_tap_to_fix)
+                status.operationError != null -> stringResource(R.string.backup_folder_failed_tap_to_fix)
                 settings == null -> stringResource(R.string.backup_off)
-                settings.error != null -> stringResource(R.string.backup_failed_tap_to_fix)
+                settings.needsMigration -> stringResource(R.string.backup_migration_notice)
                 else -> savedText(status)
             },
             style = MaterialTheme.typography.bodySmall,
-            color = if (settings?.error != null) colors.brightRed else colors.surfaceText
+            color = if (status.error != null || status.operationError != null || status.restartRequired || settings?.needsMigration == true)
+                colors.brightRed else colors.surfaceText
         )
     }
 }
@@ -260,9 +290,29 @@ private fun BackupHeader(status: BackupStatus) {
             val location = stringResource(
                 if (settings.inPhoneStorage) R.string.backup_phone_storage else R.string.backup_not_phone_storage
             )
-            Text("${settings.fileName} · $location", style = body, color = colors.surfaceText)
+            Text(location, style = body, color = colors.surfaceText)
+            if (settings.needsMigration) {
+                Text(settings.fileName, style = body, color = colors.surfaceText)
+            } else {
+                Text(stringResource(R.string.backup_current_files), style = body, color = colors.surfaceText)
+                settings.slots.forEach { Text(it.fileName, style = body, color = colors.surfaceText) }
+                if (settings.savedAt != null) Text(stringResource(R.string.backup_last_saved_file, settings.fileName),
+                    style = body, color = colors.surfaceText)
+            }
             Text(savedText(status), style = body, color = colors.surfaceText)
-            settings.error?.let { Text(errorText(it), style = body, color = colors.brightRed) }
+            Text(stringResource(if (settings.needsMigration) R.string.backup_migrate else R.string.backup_two_files),
+                style = body, color = colors.surfaceText)
+        }
+        if (status.saving) Text(stringResource(R.string.backup_saving), style = body, color = colors.surfaceText)
+        if (status.restartRequired)
+            Text(stringResource(R.string.backup_error_settings), style = body, color = colors.brightRed)
+        status.error?.let { Text(errorText(it, hasSavedBackup = settings?.savedAt != null), style = body, color = colors.brightRed) }
+        if (status.error?.kind == BackupError.Kind.FAILED)
+            Text(stringResource(R.string.backup_retry_recovery), style = body, color = colors.brightRed)
+        status.operationError?.let {
+            Text(stringResource(if (settings == null) R.string.backup_setup_failed else R.string.backup_folder_change_failed),
+                style = body, color = colors.brightRed)
+            Text(errorText(it, setup = true, hasSavedBackup = settings?.savedAt != null), style = body, color = colors.brightRed)
         }
     }
 }
@@ -271,39 +321,19 @@ private fun BackupHeader(status: BackupStatus) {
 private fun savedText(status: BackupStatus): String {
     val savedAt = status.settings?.savedAt
     return when {
-        status.saving -> stringResource(R.string.backup_saving)
         savedAt != null -> stringResource(R.string.backup_saved_at, formatBackupTime(savedAt))
         else -> stringResource(R.string.backup_not_saved_yet)
     }
 }
 
 @Composable
-private fun errorText(error: BackupError): String = when (error.kind) {
-    BackupError.Kind.NO_ACCESS -> stringResource(R.string.backup_error_no_access)
+private fun errorText(error: BackupError, setup: Boolean = false, hasSavedBackup: Boolean): String = when (error.kind) {
+    BackupError.Kind.NO_ACCESS -> stringResource(if (setup) R.string.backup_file_not_usable else R.string.backup_error_no_access)
     BackupError.Kind.PHRASE_CHANGED -> stringResource(R.string.backup_error_phrase)
+    BackupError.Kind.TOO_LARGE -> stringResource(R.string.err_backup_too_large) +
+        if (hasSavedBackup) " " + stringResource(R.string.backup_error_too_large) else ""
+    BackupError.Kind.ACTIVE_DAMAGED -> stringResource(R.string.backup_error_active_damaged)
+    BackupError.Kind.SETTINGS_FAILED -> stringResource(R.string.backup_error_settings)
     BackupError.Kind.FAILED -> stringResource(R.string.backup_error_failed, formatBackupTime(error.at)) +
         (error.detail?.let { "\n($it)" } ?: "")
-}
-
-/** Keeps access to [uri] across restarts, then starts backing up to it. */
-private fun useFile(ctx: Context, uri: Uri) {
-    try {
-        ctx.contentResolver.takePersistableUriPermission(
-            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-    } catch (e: SecurityException) {
-        Toast.makeText(ctx, R.string.backup_file_not_usable, Toast.LENGTH_LONG).show()
-        return
-    }
-    AutoBackup.enable(ctx, uri, displayName(ctx, uri) ?: BACKUP_FILE_NAME)
-}
-
-private fun displayName(ctx: Context, uri: Uri): String? = runCatching {
-    ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        ?.use { if (it.moveToFirst()) it.getString(0) else null }
-}.getOrNull()
-
-/** Removes the empty file the picker created, when the user doesn't use it after all. */
-private fun discard(ctx: Context, uri: Uri) {
-    runCatching { DocumentsContract.deleteDocument(ctx.contentResolver, uri) }
 }

@@ -3,9 +3,11 @@ package com.taskfree.app.data.repository
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.StringRes
+import androidx.room.withTransaction
 import com.taskfree.app.BuildConfig
 import com.taskfree.app.R
 import com.taskfree.app.data.backup.BackupCrypto
+import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.serialization.InstantSerializer
 import com.taskfree.app.data.serialization.LocalDateSerializer
 import kotlinx.coroutines.Dispatchers
@@ -32,18 +34,29 @@ object BackupManager {
         }
     }
 
-    suspend fun snapshot(catRepo: CategoryRepository, taskRepo: TaskRepository): Backup = Backup(
-        app_version = BuildConfig.VERSION_NAME,
-        exported_at = Instant.now().toString(),
-        categories = catRepo.snapshot().sortedBy { it.id },
-        tasks = taskRepo.snapshot().sortedBy { it.id }
-    )
+    suspend fun snapshot(database: AppDatabase): Backup {
+        val (categories, tasks) = database.withTransaction {
+            database.categoryDao().getAllNow() to database.taskDao().getAllNow()
+        }
+        return Backup(
+            app_version = BuildConfig.VERSION_NAME,
+            exported_at = Instant.now().toString(),
+            categories = categories.sortedBy { it.id },
+            tasks = tasks.sortedBy { it.id }
+        )
+    }
 
     fun encode(backup: Backup): ByteArray =
         json.encodeToString(Backup.serializer(), backup).toByteArray()
 
-    suspend fun buildJson(catRepo: CategoryRepository, taskRepo: TaskRepository): ByteArray =
-        encode(snapshot(catRepo, taskRepo))
+    suspend fun buildJson(database: AppDatabase): ByteArray = withContext(Dispatchers.Default) {
+        encode(snapshot(database)).also { checkOutputSize(it.size.toLong()) }
+    }
+
+    /** The limit includes the encryption header and tag, when present. Check before opening a destination. */
+    internal fun checkOutputSize(size: Long) {
+        if (size > MAX_FILE_BYTES) throw BackupValidationException(R.string.err_backup_too_large)
+    }
 
     /** Reads a backup file once. A plain file is parsed and validated now; an encrypted one by [unlock]. */
     suspend fun read(ctx: Context, uri: Uri): BackupSource = withContext(Dispatchers.IO) {

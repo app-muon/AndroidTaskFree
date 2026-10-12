@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
-import com.taskfree.app.data.repository.CategoryRepository
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
@@ -55,7 +54,7 @@ class ToolsViewModelTest {
     fun setUp() {
         db = inMemoryDb()
         taskRepo = TaskRepository(db, datesAt(today))
-        vm = ToolsViewModel(taskRepo, CategoryRepository(db), main.dispatcher)
+        vm = ToolsViewModel(taskRepo, db, main.dispatcher)
     }
 
     @After
@@ -227,5 +226,160 @@ class ToolsViewModelTest {
             val resources = context.createConfigurationContext(config).resources
             assertEquals(expected, listOf(0, 1, 12).map { resources.getQuantityString(R.plurals.archived_task_count, it, it) })
         }
+    }
+
+    private val exportUri = android.net.Uri.parse("content://exports/document/new-export")
+
+    @Test fun `export produces valid JSON and opens writes and closes off the main thread`() = runTest {
+        val category = db.insertCategory("Exported category")
+        db.insertTask(task(category, "Exported task"))
+        val ioVm = ToolsViewModel(taskRepo, db)
+        val operations = mutableListOf<String>()
+        fun record(name: String) {
+            assertFalse(Thread.currentThread() == android.os.Looper.getMainLooper().thread)
+            operations += name
+        }
+        val output = object : java.io.ByteArrayOutputStream() {
+            override fun write(bytes: ByteArray) { record("write"); super.write(bytes) }
+            override fun close() { record("close"); super.close() }
+        }
+        ioVm.exportBackup(exportUri, { uri ->
+            assertEquals(exportUri, uri); record("open"); output
+        })
+        assertEquals(listOf("open", "write", "close"), operations)
+        val result = kotlinx.serialization.json.Json.decodeFromString<com.taskfree.app.data.repository.Backup>(output.toString("UTF-8"))
+        assertEquals("Exported category", result.categories.single().title)
+        assertEquals("Exported task", result.tasks.single().text)
+    }
+
+    @Test fun `export open write and close failures propagate the original failure`() = runTest {
+        val ioVm = ToolsViewModel(taskRepo, db)
+        for (stage in listOf("open", "write", "close")) {
+            val failure = java.io.IOException(stage)
+            val actual = com.taskfree.app.testutil.assertFails<java.io.IOException> {
+                ioVm.exportBackup(exportUri, {
+                    assertFalse(Thread.currentThread() == android.os.Looper.getMainLooper().thread)
+                    if (stage == "open") throw failure
+                    object : java.io.OutputStream() {
+                        override fun write(value: Int) {
+                            assertFalse(Thread.currentThread() == android.os.Looper.getMainLooper().thread)
+                            if (stage == "write") throw failure
+                        }
+                        override fun close() {
+                            assertFalse(Thread.currentThread() == android.os.Looper.getMainLooper().thread)
+                            if (stage == "close") throw failure
+                        }
+                    }
+                })
+            }
+            // Coroutine stack-trace recovery can wrap a copy of the original exception.
+            assertTrue(generateSequence<Throwable>(actual) { it.cause }.any { it === failure })
+        }
+    }
+
+    @Test fun `export validation and build failures never open the destination`() = runTest {
+        val category = db.insertCategory()
+        repeat(24) { db.insertTask(task(category, "x".repeat(900_000))) }
+        val failure = com.taskfree.app.testutil.assertFails<com.taskfree.app.data.repository.BackupManager.BackupValidationException> {
+            vm.exportBackup(exportUri, { error("Must validate before opening") })
+        }
+        assertEquals(R.string.err_backup_too_large, failure.resId)
+        db.close()
+        com.taskfree.app.testutil.assertFails<IllegalStateException> {
+            vm.exportBackup(exportUri, { error("Build must finish before opening") })
+        }
+    }
+
+    @Test fun `export cancellation during writing closes the partial document and propagates`() = runTest {
+        val ioVm = ToolsViewModel(taskRepo, db)
+        var closed = false
+        val output = java.io.ByteArrayOutputStream()
+        val cancellation = kotlinx.coroutines.CancellationException("cancel writing")
+        val exporting = async {
+            ioVm.exportBackup(exportUri, {
+                object : java.io.OutputStream() {
+                    override fun write(value: Int) { output.write(value); throw cancellation }
+                    override fun close() { closed = true }
+                }
+            })
+        }
+        val actual = com.taskfree.app.testutil.assertFails<kotlinx.coroutines.CancellationException> { exporting.await() }
+        assertTrue(generateSequence<Throwable>(actual) { it.cause }.any { it === cancellation })
+        assertTrue(exporting.isCancelled)
+        assertTrue(closed)
+        assertEquals(1, output.size())
+    }
+
+    @Test fun `cancellation after successful close retains complete export`() = runTest {
+        val ioVm = ToolsViewModel(taskRepo, db)
+        val output = java.io.ByteArrayOutputStream()
+        var closed = false
+        val exporting = async {
+            val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]!!
+            ioVm.exportBackup(exportUri) {
+                object : java.io.FilterOutputStream(output) {
+                    override fun close() { super.close(); closed = true; job.cancel() }
+                }
+            }
+        }
+        com.taskfree.app.testutil.assertFails<kotlinx.coroutines.CancellationException> { exporting.await() }
+        assertTrue(closed)
+        kotlinx.serialization.json.Json.decodeFromString<com.taskfree.app.data.repository.Backup>(output.toString("UTF-8"))
+    }
+
+    @Test fun `provider export truncates longer JSON and never falls back or deletes on failure`() = runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val target = java.io.File.createTempFile("export", ".json", context.cacheDir)
+        val modes = mutableListOf<String>()
+        var deletions = 0
+        var openFailure: java.io.IOException? = null
+        val provider = object : android.content.ContentProvider() {
+            override fun onCreate() = true
+            override fun openFile(uri: android.net.Uri, mode: String): android.os.ParcelFileDescriptor {
+                assertFalse(Thread.currentThread() == android.os.Looper.getMainLooper().thread)
+                modes += mode
+                openFailure?.let { throw it }
+                val flags = android.os.ParcelFileDescriptor.MODE_WRITE_ONLY or
+                    if (mode == "wt") android.os.ParcelFileDescriptor.MODE_TRUNCATE else 0
+                return android.os.ParcelFileDescriptor.open(target, flags)
+            }
+            override fun call(method: String, arg: String?, extras: android.os.Bundle?): android.os.Bundle? {
+                if (method == "android:deleteDocument") deletions++
+                return null
+            }
+            override fun delete(uri: android.net.Uri, selection: String?, selectionArgs: Array<out String>?): Int {
+                deletions++; return 0
+            }
+            override fun query(uri: android.net.Uri, projection: Array<out String>?, selection: String?,
+                               selectionArgs: Array<out String>?, sortOrder: String?): android.database.Cursor? = null
+            override fun getType(uri: android.net.Uri) = "application/json"
+            override fun insert(uri: android.net.Uri, values: android.content.ContentValues?): android.net.Uri? = null
+            override fun update(uri: android.net.Uri, values: android.content.ContentValues?, selection: String?,
+                                selectionArgs: Array<out String>?) = 0
+        }
+        provider.attachInfo(context, android.content.pm.ProviderInfo().apply { authority = "exports" })
+        org.robolectric.shadows.ShadowContentResolver.registerProviderInternal("exports", provider)
+        val ioVm = ToolsViewModel(taskRepo, db)
+        try {
+            db.insertCategory("Original " + "x".repeat(1000))
+            ioVm.exportBackup(context.contentResolver, exportUri)
+            val longer = target.length()
+            taskRepo.replaceAll(emptyList(), emptyList())
+            ioVm.exportBackup(context.contentResolver, exportUri)
+            val parsed = kotlinx.serialization.json.Json.decodeFromString<com.taskfree.app.data.repository.Backup>(target.readText())
+            assertTrue(parsed.categories.isEmpty())
+            assertTrue(target.length() < longer)
+            org.junit.Assert.assertArrayEquals(com.taskfree.app.data.repository.BackupManager.encode(parsed), target.readBytes())
+            assertEquals(listOf("wt", "wt"), modes)
+            val original = target.readBytes()
+            openFailure = java.io.FileNotFoundException("provider unavailable")
+            com.taskfree.app.testutil.assertFails<java.io.FileNotFoundException> {
+                ioVm.exportBackup(context.contentResolver, exportUri)
+            }
+            assertEquals(listOf("wt", "wt", "wt"), modes)
+            org.junit.Assert.assertArrayEquals(original, target.readBytes())
+            assertEquals(0, deletions)
+            assertTrue(target.exists())
+        } finally { target.delete() }
     }
 }

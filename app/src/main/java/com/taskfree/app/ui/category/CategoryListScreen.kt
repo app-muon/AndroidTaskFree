@@ -35,6 +35,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.taskfree.app.R
 import com.taskfree.app.ui.admin.ToolsMenuDialog
+import com.taskfree.app.ui.admin.BackupFileDialog
+import com.taskfree.app.ui.admin.BackupMigrationBanner
 import com.taskfree.app.ui.admin.ToolsViewModel
 import com.taskfree.app.ui.admin.ToolsVmFactory
 import com.taskfree.app.ui.category.components.CategoryDialogHost
@@ -61,6 +63,7 @@ fun CategoryListScreen(navController: NavHostController) {
     val uiState by viewModel.uiState.collectAsState()
     val adminVm: ToolsViewModel = viewModel(factory = ToolsVmFactory(context))
     var showGlobalMenu by rememberSaveable { mutableStateOf(false) }
+    var showBackup by rememberSaveable { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
     var dialogs by remember { mutableStateOf<Dialogs>(Dialogs.None) }
@@ -195,13 +198,16 @@ fun CategoryListScreen(navController: NavHostController) {
                 .heightIn(min = 10.dp)
         )
     }, bottomBar = {
-        AppBottomBar(
-            navController = navController,
-            isTodayView = false,
-            addButtonLabel = stringResource(R.string.add_category_button_label),
-            onAddTask = { dialogs = Dialogs.Add },
-            hasCategories = uiState.categories.isNotEmpty(),
-            onShowGlobalMenu = { showGlobalMenu = true })
+        Column {
+            BackupMigrationBanner(onOpenBackup = { showBackup = true })
+            AppBottomBar(
+                navController = navController,
+                isTodayView = false,
+                addButtonLabel = stringResource(R.string.add_category_button_label),
+                onAddTask = { dialogs = Dialogs.Add },
+                hasCategories = uiState.categories.isNotEmpty(),
+                onShowGlobalMenu = { showGlobalMenu = true })
+        }
     }) { innerPadding ->
 
 
@@ -256,6 +262,7 @@ fun CategoryListScreen(navController: NavHostController) {
         )
 
         ToolsMenuDialog(
+            onOpenBackup = { showBackup = true },
             startEncryptFlow = { showEncryptWizard = true },
             showPhraseFlow = { showPhraseDialog = true },
             vm = adminVm,
@@ -263,6 +270,7 @@ fun CategoryListScreen(navController: NavHostController) {
             onDismiss = { showGlobalMenu = false },
             onResetTips = { tipManager.resetTips() })
     }
+    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true }, onDismiss = { showBackup = false })
     if (showEncryptWizard) {
         EncryptWizard(onClose = { showEncryptWizard = false })
     }

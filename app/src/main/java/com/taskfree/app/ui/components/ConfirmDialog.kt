@@ -40,6 +40,8 @@ fun ConfirmDialog(
     onYes: () -> Unit,
     onNo: () -> Unit,
     onDismiss: () -> Unit = onNo,
+    yesEnabled: Boolean = true,
+    noEnabled: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Dialog(
@@ -96,6 +98,7 @@ fun ConfirmDialog(
                     if (noMessage.isNotEmpty()) {
                         TextButton(
                             onClick = onNo,
+                            enabled = noEnabled,
                             colors = ButtonDefaults.textButtonColors(contentColor = noColour)
                         ) {
                             Text(noMessage)
@@ -106,6 +109,7 @@ fun ConfirmDialog(
 
                     TextButton(
                         onClick = onYes,
+                        enabled = yesEnabled,
                         colors = ButtonDefaults.textButtonColors(contentColor = yesColour)
                     ) {
                         Text(yesMessage)

@@ -1,12 +1,14 @@
 // ui/admin/ToolsViewModel.kt
 package com.taskfree.app.ui.admin
 
+import android.content.ContentResolver
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskfree.app.data.repository.Backup
 import com.taskfree.app.data.repository.BackupManager
-import com.taskfree.app.data.repository.CategoryRepository
+import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.repository.CompletedRepeatsPreview
 import com.taskfree.app.data.repository.TaskRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -21,11 +23,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.OutputStream
 import java.time.LocalDate
 
 class ToolsViewModel(
     private val taskRepo: TaskRepository,
-    private val catRepo: CategoryRepository,
+    private val database: AppDatabase,
     private val io: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     private val _ui = MutableStateFlow(ToolsUiState())
@@ -77,7 +81,19 @@ class ToolsViewModel(
         }
 
     suspend fun buildBackup(): ByteArray =
-        BackupManager.buildJson(catRepo, taskRepo)
+        BackupManager.buildJson(database)
+
+    /** Failed exports remain in place. Opening an existing document is not an atomic replacement. */
+    suspend fun exportBackup(resolver: ContentResolver, uri: Uri) = exportBackup(
+        uri, { resolver.openOutputStream(it, "wt") }
+    )
+
+    internal suspend fun exportBackup(uri: Uri, open: (Uri) -> OutputStream?) {
+        val bytes = buildBackup()
+        withContext(io) {
+            checkNotNull(open(uri)).use { it.write(bytes) }
+        }
+    }
 
     suspend fun restoreBackup(backup: Backup) = BackupManager.restore(backup, taskRepo)
 }

@@ -2,7 +2,6 @@ package com.taskfree.app.data.backup
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.MainThread
@@ -14,10 +13,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -25,13 +26,16 @@ import kotlin.time.Duration.Companion.seconds
  * foreground, when the user leaves it, and on request. [BackupSaver] does each save.
  */
 internal object AutoBackup {
+    enum class EnableResult { STARTED, BUSY, NOT_READY, RESTART_REQUIRED }
     private const val TAG = "AutoBackup"
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val processScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var scope = processScope
     @SuppressLint("StaticFieldLeak") // Holds only the application context.
     private var saver: BackupSaver? = null
     private var watcher: Job? = null
+    private var setupJob: Job? = null
     // Only decides whether leaving starts the service; a wrong value never skips a save.
-    @Volatile private var dirty = false
+    @Volatile private var automaticSaveNeeded = true
 
     @MainThread
     fun status(context: Context): StateFlow<BackupStatus> = saver(context).status
@@ -41,46 +45,75 @@ internal object AutoBackup {
     fun onForeground(context: Context) {
         if (!ready() || !saver(context).isEnabled) return
         watch(context)
-        launchSave(context, force = false, hold = false)
+        launchSave(context, hold = false) { save(false) }
     }
 
     @MainThread
     fun onLeaving(context: Context) {
         if (!ready() || !saver(context).isEnabled) return
-        val failed = saver(context).status.value.settings?.error != null
-        launchSave(context, force = false, hold = dirty || failed)
+        val saver = saver(context)
+        val hold = saver.status.value.saving || (saver.canSaveAutomatically() && automaticSaveNeeded)
+        launchSave(context, hold = hold) { save(false) }
     }
 
     @MainThread
     fun backUpNow(context: Context) {
-        if (ready()) launchSave(context, force = true, hold = true)
+        if (ready() && saver(context).status.value.canMutate)
+            launchSave(context, hold = true) { save(true) }
     }
 
-    /** [uri] must already hold a persisted read and write grant. */
+    /** Takes the folder grant and replaces the destination only after a verified first save. */
     @MainThread
-    fun enable(context: Context, uri: Uri, fileName: String) {
-        if (!ready()) return
-        saver(context).status.value.settings?.uri?.takeIf { it != uri }?.let { releaseGrant(context, it) }
+    fun enable(context: Context, uri: Uri): EnableResult {
+        setupRejection(context)?.let { return it }
         watch(context)
-        launchSave(context, force = true, hold = true) { enable(uri, fileName) }
+        setupJob = launchSave(context, hold = true) { enable(uri) }
+        return EnableResult.STARTED
+    }
+
+    /** Also checked when a cloud-folder picker returns, before showing its confirmation. */
+    @MainThread
+    fun setupRejection(context: Context): EnableResult? = when {
+        saver(context).status.value.restartRequired -> EnableResult.RESTART_REQUIRED
+        !ready() -> EnableResult.NOT_READY
+        setupJob?.isCompleted == false || saver(context).status.value.saving -> EnableResult.BUSY
+        else -> null
     }
 
     /** The file itself is left in place. */
     @MainThread
     fun disable(context: Context) {
         val saver = saver(context)
-        saver.status.value.settings?.uri?.let { releaseGrant(context, it) }
+        if (!saver.status.value.canMutate) return
         watcher?.cancel()
         watcher = null
-        scope.launch { saver.disable() }
+        launchSave(context, hold = false) { disable() }
     }
 
     @MainThread
     fun usePhrase(context: Context) {
-        if (ready()) launchSave(context, force = true, hold = true) { usePhrase() }
+        if (ready() && saver(context).status.value.canMutate)
+            launchSave(context, hold = true) { usePhrase() }
     }
 
     private fun ready() = RealDatabaseMigrator.startup.value == DatabaseStartup.READY
+
+    /** Stop and join the watcher, then let existing saves finish before database/grant teardown. */
+    internal suspend fun resetProcessForTesting() {
+        watcher?.cancelAndJoin()
+        scope.coroutineContext[Job]!!.children.toList().joinAll()
+        watcher = null
+        setupJob = null
+        saver = null
+        automaticSaveNeeded = true
+        scope = processScope
+    }
+
+    /** Called only between test process resets, before any work starts. */
+    internal fun configureForTesting(backupSaver: BackupSaver, saveScope: CoroutineScope = processScope) {
+        saver = backupSaver
+        scope = saveScope
+    }
 
     private fun saver(context: Context): BackupSaver =
         saver ?: BackupSaver(context.applicationContext).also { saver = it }
@@ -88,30 +121,26 @@ internal object AutoBackup {
     /** Starts the service first, if asked, because Android only allows that while the app is visible. */
     private fun launchSave(
         context: Context,
-        force: Boolean,
         hold: Boolean,
-        prepare: suspend BackupSaver.() -> Unit = {}
-    ) {
-        val saver = saver(context)
-        val held = hold && BackupSaveService.hold(context)
-        scope.launch {
-            try {
-                saveAndRefresh(saver, force, prepare)
-            } finally {
-                if (held) BackupSaveService.release(context)
-            }
+        operation: suspend BackupSaver.() -> Unit
+    ): Job {
+        val appContext = context.applicationContext
+        val saver = saver(appContext)
+        val held = hold && BackupSaveService.hold(appContext)
+        return scope.launch {
+            saveAndRefresh(saver, operation)
+        }.also { job ->
+            job.invokeOnCompletion { if (held) BackupSaveService.release(appContext) }
         }
     }
 
     private suspend fun saveAndRefresh(
         saver: BackupSaver,
-        force: Boolean,
-        prepare: suspend BackupSaver.() -> Unit = {}
+        operation: suspend BackupSaver.() -> Unit
     ) {
         try {
-            saver.prepare()
-            saver.save(force)
-            dirty = saver.hasUnsavedChanges()
+            saver.operation()
+            automaticSaveNeeded = saver.needsAutomaticSave()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -123,16 +152,18 @@ internal object AutoBackup {
     @MainThread
     private fun watch(context: Context) {
         if (watcher?.isActive == true) return
-        val saver = saver(context)
+        val appContext = context.applicationContext
+        val saver = saver(appContext)
         watcher = scope.launch {
             try {
-                context.db.invalidationTracker.createFlow("Task", "Category", emitInitialState = false)
+                appContext.db.invalidationTracker.createFlow("Task", "Category", emitInitialState = false)
                     .collectLatest {
-                        dirty = true
+                        saver.databaseChanged()
+                        automaticSaveNeeded = true
                         delay(1.seconds) // Let a burst of writes finish, then ignore writes that changed nothing.
-                        dirty = saver.hasUnsavedChanges()
+                        automaticSaveNeeded = saver.needsAutomaticSave()
                         delay(59.seconds)
-                        if (ready()) scope.launch { saveAndRefresh(saver, force = false) }
+                        if (ready()) scope.launch { saveAndRefresh(saver) { save(false) } }
                     }
             } catch (e: CancellationException) {
                 throw e
@@ -142,11 +173,4 @@ internal object AutoBackup {
         }
     }
 
-    private fun releaseGrant(context: Context, uri: Uri) {
-        runCatching {
-            context.contentResolver.releasePersistableUriPermission(
-                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-        }
-    }
 }
