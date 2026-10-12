@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -96,16 +97,26 @@ fun ReorderableCollectionItemScope.CategoryListRow(
 
             Spacer(Modifier.width(12.dp))
 
-            Text(
-                text = rowData.title,
+            FlowRow(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorResource(R.color.surface_colour)
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically
+            ) {
+                // Keep room for the name; move the counts below it when they cannot fit.
+                Text(
+                    text = rowData.title,
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(min = 96.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorResource(R.color.surface_colour)
+                )
 
-            StatusCountPills(counts)
+                StatusCountPills(counts)
+            }
 
             Spacer(Modifier.width(8.dp))
 
@@ -118,10 +129,13 @@ fun ReorderableCollectionItemScope.CategoryListRow(
     }
 }
 
-/** One pill per status, always in the same order so they line up down the list; zeros are dimmed. */
+/** One pill per status, in a consistent order; wrap if necessary and dim zeros. */
 @Composable
 private fun StatusCountPills(counts: Map<TaskStatus, Int>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
         TaskStatus.entries.forEach { status ->
             val count = counts[status] ?: 0
             val description = "$count ${status.displayName()}"
