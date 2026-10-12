@@ -72,7 +72,7 @@ class ChoiceSaversTest {
             searchText = " milk ",
             searchVisible = true,
             dueChoice = DueChoice.Other(LocalDate.of(2027, 3, 1)),
-            sortMode = SortMode.DATE_DESC
+            sortMode = SortMode.ALPHA_DESC
         )
         assertEquals(state, TaskListState.Saver.roundTrip(state))
     }

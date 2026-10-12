@@ -141,6 +141,8 @@
     <string name="sort_order_date_asc">Fecha ↑</string>
     <string name="sort_order_date_desc">Fecha ↓</string>
     <string name="sort_order_custom">Personalizado</string>
+    <string name="sort_order_alpha_asc">Alfabético A–Z</string>
+    <string name="sort_order_alpha_desc">Alfabético Z–A</string>
 
     <!-- Consejos -->
     <string name="tip_show_tips_again">Mostrar consejos</string>
@@ -166,7 +168,7 @@
 
     <string name="tip_sorting_title">Ordenar</string>
     <string name="tip_sorting_intro">
-        Ordena tareas o categorías por tu cuenta.\n\nArrastra el icono ≡ para establecer el orden o usa la fecha.
+        Ordena tareas o categorías por tu cuenta.\n\nArrastra el icono ≡ para establecer el orden o usa la fecha o el orden alfabético (A / Z).
     </string>
 
     <string name="tip_archiving_title">Archivado</string>

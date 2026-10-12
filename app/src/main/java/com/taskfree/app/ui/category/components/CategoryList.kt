@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.ui.components.SortMode
+import com.taskfree.app.ui.components.sortedAlphabetically
 import com.taskfree.app.ui.components.thinVerticalScrollbar
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -30,10 +32,18 @@ private class CategoryListCallbacks(
     val onClick: (Category) -> Unit
 )
 
+/** Categories in [mode]'s order; any mode other than A or Z keeps the custom (drag) order. */
+fun sortCategories(categories: List<Category>, mode: SortMode): List<Category> = when (mode) {
+    SortMode.ALPHA_ASC -> categories.sortedAlphabetically(descending = false) { it.title }
+    SortMode.ALPHA_DESC -> categories.sortedAlphabetically(descending = true) { it.title }
+    else -> categories
+}
+
 @Composable
 internal fun ColumnScope.CategoryList(
     categories: List<Category>,
     counts: Map<Int, Map<TaskStatus, Int>>,
+    dragEnabled: Boolean,
     onDragStart: () -> Unit,
     onDragMove: (Int, Int) -> Unit,
     onDragEnd: () -> Unit,
@@ -105,6 +115,7 @@ internal fun ColumnScope.CategoryList(
                     category = category,
                     counts = counts[category.id].orEmpty(),
                     isDragging = isDragging,
+                    showHandle = dragEnabled,
                     onClick = { callbacks.onClick(category) }
                 )
             }

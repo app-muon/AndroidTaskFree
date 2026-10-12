@@ -52,7 +52,11 @@ private fun rememberCategoryRowData(category: Category): CategoryRowData {
 
 @Composable
 fun ReorderableCollectionItemScope.CategoryListRow(
-    category: Category, counts: Map<TaskStatus, Int>, isDragging: Boolean, onClick: () -> Unit
+    category: Category,
+    counts: Map<TaskStatus, Int>,
+    isDragging: Boolean,
+    showHandle: Boolean,
+    onClick: () -> Unit
 ) {
     val rowData = rememberCategoryRowData(category)
 
@@ -105,8 +109,10 @@ fun ReorderableCollectionItemScope.CategoryListRow(
 
             Spacer(Modifier.width(8.dp))
 
+            // Hidden but still taking its space while sorted A/Z, so the pills stay lined up
             DragHandle(
-                modifier = Modifier.draggableHandle()
+                show = showHandle,
+                modifier = Modifier.draggableHandle(enabled = showHandle)
             )
         }
     }
