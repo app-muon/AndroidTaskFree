@@ -1,17 +1,12 @@
 // CategoryListRow.kt
 package com.taskfree.app.ui.category.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -25,6 +20,9 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.semantics.contentDescription
@@ -82,20 +80,20 @@ fun ReorderableCollectionItemScope.CategoryListRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                // Draw the colour bar rather than sizing the row with IntrinsicSize.Min:
+                // FlowRow under-reports its intrinsic height, which hid the name and counts.
+                .drawBehind {
+                    drawRoundRect(
+                        color = rowData.color,
+                        size = Size(4.dp.toPx(), size.height),
+                        cornerRadius = CornerRadius(2.dp.toPx())
+                    )
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(
-                        color = rowData.color, shape = RoundedCornerShape(2.dp)
-                    )
-            )
-
-            Spacer(Modifier.width(12.dp))
+            // Room for the colour bar plus the gap after it
+            Spacer(Modifier.width(16.dp))
 
             FlowRow(
                 modifier = Modifier
