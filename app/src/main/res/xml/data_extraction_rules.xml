@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<data-extraction-rules allowBackup="true">
+<!-- Cloud backup is off (allowBackup="false"); Android 12+ still applies device-transfer rules -->
+<data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="encryption_secret.xml"/>
         <exclude domain="sharedpref" path="runtime_state.xml"/>

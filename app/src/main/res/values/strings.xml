@@ -65,7 +65,7 @@
     <string name="tools_menu_name">Tools</string>
     <string name="contact_title">Contact developer</string>
     <string name="privacy_policy_title">Privacy policy</string>
-    <string name="privacy_policy_body">TaskFree is local-only. It does not use ads, analytics, accounts, developer servers, or internet access.\n\nThe main exception is Android/Google app-data backup if enabled on your device. TaskFree does not operate or receive those backups.\n\nFull privacy policy: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContact: muonappdevelopment@gmail.com</string>
+    <string name="privacy_policy_body">TaskFree is local-only. It does not use ads, analytics, accounts, developer servers, or internet access.\n\nFull privacy policy: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContact: muonappdevelopment@gmail.com</string>
     <string name="archive_old_completed">Archive old completed tasks</string>
     <string name="archive_old_completed_repeats">Archive old completed repeats</string>
     <string name="permanently_delete_tasks">Permanently delete archived tasks</string>
@@ -204,7 +204,7 @@
 
     <string name="tip_encryption_title">Encryption</string>
     <string name="tip_encryption_intro">
-    By default, tasks sync with your Google account. This lets you restore your tasks automatically on a new phone.
+    Your tasks stay on this phone. TaskFree does not back them up to your Google account.
 
         \n\nIf you turn on encryption, your tasks are protected so only you can read them.
         \n\nWhen you encrypt, you’ll be given an recovery phrase. Keep this phrase safe as you’ll need it to unlock your tasks on a new phone.
@@ -249,9 +249,9 @@
 
     <!--    When the database is encrypted-->
     <string name="encrypting_header">Encrypting…</string>
-    <string name="encrypt_my_data_command">Encrypt my Google-backup data</string>
+    <string name="encrypt_my_data_command">Encrypt my data</string>
     <string name="you_ll_need_to_enter">
-Your app data will be encrypted in your Google backup, so only you can read it.
+Your app data will be encrypted on this phone, so only you can read it.
 When you set up a new phone, enter your 8-word recovery phrase to unlock the data.
 </string>
     <string name="view_recovery_phrase">View recovery phrase</string>

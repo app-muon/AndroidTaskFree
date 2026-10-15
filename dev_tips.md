@@ -300,7 +300,8 @@ A/B preservation, process interruption, Home/background saving, restoring either
 and checking both files separately in a sync app. These files use the existing encryption
 format and JSON schema; there is no database migration. Tests use disposable devices only.
 
-### 0 · Build APK once on your host
+### 0 · Build APK once on your host (with earlier versions which had google account backup on)
+
 Android Studio, you normally use Build → Generate Signed Bundle / APK which handles the signing step.
 
 Or alternatively build the version you want from the CLI:
