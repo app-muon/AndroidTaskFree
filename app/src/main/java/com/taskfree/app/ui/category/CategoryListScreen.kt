@@ -246,7 +246,8 @@ fun CategoryListScreen(navController: NavHostController) {
                     onDragStart = viewModel::onDragStart,
                     onDragEnd = viewModel::onDragEnd,
                     onDragMove = viewModel::onDragMove,
-                    onClick = { cat -> dialogs = Dialogs.Options(cat) })
+                    onClick = { cat -> dialogs = Dialogs.Options(cat) },
+                    onLongClick = { cat -> navController.navigate("search?categoryId=${cat.id}") })
             }
         }
 

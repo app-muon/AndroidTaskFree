@@ -29,7 +29,8 @@ private class CategoryListCallbacks(
     val onDragStart: () -> Unit,
     val onDragMove: (Int, Int) -> Unit,
     val onDragEnd: () -> Unit,
-    val onClick: (Category) -> Unit
+    val onClick: (Category) -> Unit,
+    val onLongClick: (Category) -> Unit
 )
 
 /** Categories in [mode]'s order; any mode other than A or Z keeps the custom (drag) order. */
@@ -47,7 +48,8 @@ internal fun ColumnScope.CategoryList(
     onDragStart: () -> Unit,
     onDragMove: (Int, Int) -> Unit,
     onDragEnd: () -> Unit,
-    onClick: (Category) -> Unit
+    onClick: (Category) -> Unit,
+    onLongClick: (Category) -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -56,8 +58,8 @@ internal fun ColumnScope.CategoryList(
     var dragStartIndex by remember { mutableStateOf(-1) }
 
     // Wrap callbacks in a stable class to prevent recreation
-    val callbacks = remember(onDragStart, onDragMove, onDragEnd, onClick) {
-        CategoryListCallbacks(onDragStart, onDragMove, onDragEnd, onClick)
+    val callbacks = remember(onDragStart, onDragMove, onDragEnd, onClick, onLongClick) {
+        CategoryListCallbacks(onDragStart, onDragMove, onDragEnd, onClick, onLongClick)
     }
 
     val reorderState = rememberReorderableLazyListState(
@@ -116,7 +118,8 @@ internal fun ColumnScope.CategoryList(
                     counts = counts[category.id].orEmpty(),
                     isDragging = isDragging,
                     showHandle = dragEnabled,
-                    onClick = { callbacks.onClick(category) }
+                    onClick = { callbacks.onClick(category) },
+                    onLongClick = { callbacks.onLongClick(category) }
                 )
             }
         }
