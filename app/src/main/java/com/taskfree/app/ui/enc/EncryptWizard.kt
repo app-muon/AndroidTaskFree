@@ -1,5 +1,10 @@
 package com.taskfree.app.ui.enc
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.os.Build
+import android.os.PersistableBundle
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +18,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -130,6 +139,21 @@ fun ViewPhraseDialog(onClose: () -> Unit) {
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
+                    if (!words.isNullOrEmpty()) {
+                        IconButton(onClick = {
+                            val clip = ClipData.newPlainText(null, words.joinToString(" "))
+                            // Hides the words from the clipboard preview on Android 13+.
+                            if (Build.VERSION.SDK_INT >= 33) clip.description.extras =
+                                PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+                            ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                        }) {
+                            Icon(
+                                Icons.Outlined.ContentCopy,
+                                contentDescription = null,
+                                tint = colorResource(R.color.dialog_button_text_colour)
+                            )
+                        }
+                    }
                     TextButton(
                         onClick = onClose,
                         colors = ButtonDefaults.textButtonColors(
