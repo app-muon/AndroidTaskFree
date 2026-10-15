@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -55,9 +56,12 @@ fun ReorderableCollectionItemScope.CategoryListRow(
     counts: Map<TaskStatus, Int>,
     isDragging: Boolean,
     showHandle: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     val rowData = rememberCategoryRowData(category)
+    // Read by TalkBack for the long press; the Spanish string ends with a space before the name
+    val longClickLabel = "${stringResource(R.string.go_to_category_action).trim()} ${rowData.title}"
 
     // Subtle visual feedback for dragging state
     val backgroundColor = if (isDragging) {
@@ -72,7 +76,11 @@ fun ReorderableCollectionItemScope.CategoryListRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .combinedClickable(onClick = onClick),
+            .combinedClickable(
+                onLongClickLabel = longClickLabel,
+                onLongClick = onLongClick,
+                onClick = onClick
+            ),
         elevation = CardDefaults.cardElevation(elevation),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         shape = RoundedCornerShape(12.dp)
