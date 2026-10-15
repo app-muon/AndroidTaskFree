@@ -64,7 +64,7 @@
     <string name="tools_menu_name">Herramientas</string>
     <string name="contact_title">Contactar</string>
     <string name="privacy_policy_title">Pol&#237;tica de privacidad</string>
-    <string name="privacy_policy_body">TaskFree es una aplicaci&#243;n local. No usa anuncios, anal&#237;ticas, cuentas, servidores del desarrollador ni acceso a internet.\n\nLa excepci&#243;n principal es la copia de seguridad de datos de Android/Google si est&#225; activada en tu dispositivo. TaskFree no opera ni recibe esas copias.\n\nPol&#237;tica de privacidad completa: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContacto: muonappdevelopment@gmail.com</string>
+    <string name="privacy_policy_body">TaskFree es una aplicaci&#243;n local. No usa anuncios, anal&#237;ticas, cuentas, servidores del desarrollador ni acceso a internet.\n\nPol&#237;tica de privacidad completa: https://app-muon.github.io/AndroidTaskFree/privacy/\n\nContacto: muonappdevelopment@gmail.com</string>
     <string name="archive_old_completed">Archivar completadas</string>
     <string name="archive_old_completed_repeats">Archivar repeticiones completadas</string>
     <string name="permanently_delete_tasks">Eliminar archivadas</string>
@@ -179,7 +179,7 @@
 
     <string name="tip_encryption_title">Cifrado</string>
     <string name="tip_encryption_intro">
-        Las tareas se sincronizan con tu cuenta de Google.
+        Tus tareas se quedan en este dispositivo. TaskFree no las copia en tu cuenta de Google.
         \n\nSi activas el cifrado, solo tú podrás leerlas.
         \n\nRecibirás una frase de recuperación. Guárdala para restaurarlas en otro dispositivo.
     </string>
@@ -211,7 +211,7 @@
     <!-- Cifrado -->
     <string name="encrypting_header">Cifrando…</string>
     <string name="encrypt_my_data_command">Cifrar mis datos</string>
-    <string name="you_ll_need_to_enter">Tus datos se cifrarán en tu copia de seguridad de Google. Cuando configures un nuevo dispositivo, introduce tu frase de recuperación para desbloquearlos.</string>
+    <string name="you_ll_need_to_enter">Tus datos se cifrarán en este dispositivo. Cuando configures un nuevo dispositivo, introduce tu frase de recuperación para desbloquearlos.</string>
     <string name="view_recovery_phrase">Ver frase</string>
     <string name="no_phrase_found">No se encontró frase.</string>
     <string name="close">Cerrar</string>
