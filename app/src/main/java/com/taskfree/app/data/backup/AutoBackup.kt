@@ -156,7 +156,7 @@ internal object AutoBackup {
         val saver = saver(appContext)
         watcher = scope.launch {
             try {
-                appContext.db.invalidationTracker.createFlow("Task", "Category", emitInitialState = false)
+                appContext.db.invalidationTracker.createFlow("Task", "Category", "TaskNote", emitInitialState = false)
                     .collectLatest {
                         saver.databaseChanged()
                         automaticSaveNeeded = true

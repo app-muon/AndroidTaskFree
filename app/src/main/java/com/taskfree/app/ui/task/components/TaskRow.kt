@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -177,6 +179,7 @@ private fun Placeable.PlacementScope.placeLineEndAlignedInt(
 @Composable
 fun ReorderableCollectionItemScope.TaskRow(
     task: Task,
+    hasNotes: Boolean = false,
     isDragging: Boolean = false,
     showHandle: Boolean = true,
     showCategory: Boolean = false,
@@ -303,6 +306,13 @@ fun ReorderableCollectionItemScope.TaskRow(
                     else -> textColor
                 }
                 val metaItems = buildList<@Composable () -> Unit> {
+                    if (hasNotes) add {
+                        MetaBox {
+                            Icon(Icons.AutoMirrored.Filled.Notes,
+                                contentDescription = stringResource(R.string.task_has_notes),
+                                tint = textColor, modifier = Modifier.size(TaskRowDimens.bellIconSize))
+                        }
+                    }
                     if (task.reminderTime != null) add {
                         MetaBox {
                             Icon(

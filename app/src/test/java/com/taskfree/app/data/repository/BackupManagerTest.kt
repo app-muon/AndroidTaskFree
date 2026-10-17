@@ -12,6 +12,8 @@ import com.taskfree.app.data.backup.BackupCrypto
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.TaskNote
+import com.taskfree.app.data.entities.TASK_NOTE_LIMIT
 import com.taskfree.app.data.repository.BackupManager.BackupValidationException
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
@@ -105,6 +107,12 @@ class BackupManagerTest {
             )
         )
         db.insertTask(task(gone, "Archived orphan", isArchived = true))
+        val parent = db.taskDao().getAllNow().first().id
+        db.taskNoteDao().insertAll(listOf(
+            TaskNote(8, parent, "First\nsecond", Instant.parse("2026-10-06T08:15:30.123Z"),
+                Instant.parse("2026-10-06T09:15:30.456Z")),
+            TaskNote(3, parent, "Unedited", Instant.parse("2026-10-05T08:15:30.789Z"))
+        ))
     }
 
     @Test
@@ -120,6 +128,7 @@ class BackupManagerTest {
 
             assertEquals(expectedCats, target.categoryDao().getAllNow().sortedBy { it.id })
             assertEquals(expectedTasks, target.taskDao().getAllNow().sortedBy { it.id })
+            assertEquals(db.taskNoteDao().getAllNow(), target.taskNoteDao().getAllNow())
         } finally {
             target.close()
         }
@@ -130,7 +139,7 @@ class BackupManagerTest {
         seed()
         val root = Json.parseToJsonElement(BackupManager.buildJson(db).decodeToString()).jsonObject
 
-        assertEquals("1.0", root["version"]!!.jsonPrimitive.content)
+        assertEquals("1.1", root["version"]!!.jsonPrimitive.content)
         assertEquals(BuildConfig.VERSION_NAME, root["app_version"]!!.jsonPrimitive.content)
         val cats = root["categories"]!!.jsonArray.map { it.jsonObject }
         assertFalse("isDeleted" in cats.single { it["title"]!!.jsonPrimitive.content == "Home" })
@@ -143,9 +152,11 @@ class BackupManagerTest {
 
     @Test
     fun `older backups without isDeleted import and ignore unknown keys`() = runTest {
+        seed()
         val bytes = javaClass.getResourceAsStream("/backups/v1_0_no_isDeleted.json")!!.readBytes()
 
         importFile(uriFor(bytes), taskRepo)
+        assertTrue(db.taskNoteDao().getAllNow().isEmpty())
 
         val cat = catRepo.snapshot().single()
         assertEquals("Home", cat.title)
@@ -274,6 +285,7 @@ class BackupManagerTest {
 
             assertEquals(expected.categories, target.categoryDao().getAllNow().sortedBy { it.id })
             assertEquals(expected.tasks, target.taskDao().getAllNow().sortedBy { it.id })
+            assertEquals(expected.notes, target.taskNoteDao().getAllNow())
         } finally {
             target.close()
         }
@@ -325,7 +337,7 @@ class BackupManagerTest {
     }
 
     @Test
-    fun `snapshot encloses both table reads in one transaction`() = runTest {
+    fun `snapshot encloses all three table reads in one transaction`() = runTest {
         val recording = AtomicBoolean(false)
         val queries = Collections.synchronizedList(mutableListOf<Pair<Long, String>>())
         val transactionalDb = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java)
@@ -341,6 +353,7 @@ class BackupManagerTest {
             val recorded = synchronized(queries) { queries.toList() }
             val readerThread = recorded.single { it.second == "SELECT * FROM Category" }.first
             assertEquals(readerThread, recorded.single { it.second == "SELECT * FROM Task" }.first)
+            assertEquals(readerThread, recorded.single { it.second == "SELECT * FROM TaskNote ORDER BY id" }.first)
             // Room's invalidation tracker may transact concurrently on another connection/thread.
             val boundariesAndReads = recorded.filter { it.first == readerThread }.mapNotNull { (_, sql) ->
                 when {
@@ -348,10 +361,12 @@ class BackupManagerTest {
                     sql == "END TRANSACTION" -> "end"
                     sql == "SELECT * FROM Category" -> "categories"
                     sql == "SELECT * FROM Task" -> "tasks"
+                    sql == "SELECT * FROM TaskNote ORDER BY id" -> "notes"
                     else -> null
                 }
             }
-            assertEquals(recorded.toString(), listOf("begin", "categories", "tasks", "end"), boundariesAndReads)
+            assertEquals(recorded.toString(), listOf("begin", "categories", "tasks", "notes", "end"),
+                boundariesAndReads.take(boundariesAndReads.indexOf("end") + 1))
             assertEquals(listOf(home), captured.categories)
             assertEquals("before", captured.tasks.single().text)
             assertEquals(1, captured.tasks.single().categoryId)
@@ -375,6 +390,26 @@ class BackupManagerTest {
                 assertEquals(beforeTasks, taskRepo.snapshot())
                 assertEquals(beforeCategories, catRepo.snapshot())
             }
+        }
+    }
+
+    @Test
+    fun `invalid notes reject restore before touching existing data`() = runTest {
+        seed()
+        val before = BackupManager.snapshot(db)
+        val note = before.notes.first()
+        val invalid = listOf(
+            listOf(note.copy(id = 0)), listOf(note.copy(id = -1)), listOf(note, note),
+            listOf(note.copy(taskId = 999)), listOf(note.copy(text = " \n ")),
+            listOf(note.copy(text = "x".repeat(TASK_NOTE_LIMIT + 1)))
+        )
+        for (notes in invalid) {
+            val bad = before.copy(notes = notes)
+            assertEquals(R.string.err_backup_notes,
+                assertFails<BackupValidationException> { BackupManager.restore(bad, taskRepo) }.resId)
+            assertFails<IllegalArgumentException> { taskRepo.replaceAll(bad.categories, bad.tasks, bad.notes) }
+            assertEquals(before.tasks, taskRepo.snapshot().sortedBy { it.id })
+            assertEquals(before.notes, db.taskNoteDao().getAllNow())
         }
     }
 }

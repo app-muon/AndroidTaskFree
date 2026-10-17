@@ -16,7 +16,8 @@ data class ActionItem(
     val backgroundColour: Color? = null,
     val labelColor: Color? = null,
     val iconTint: Color? = null,
-    val fontWeight: FontWeight? = null
+    val fontWeight: FontWeight? = null,
+    val dividerAbove: Boolean = false
 )
 
 fun ActionItem(

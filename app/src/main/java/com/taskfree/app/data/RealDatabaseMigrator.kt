@@ -6,6 +6,7 @@ import com.taskfree.app.Prefs
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.TaskNote
 import com.taskfree.app.enc.DatabaseKeyManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
@@ -461,12 +462,14 @@ object RealDatabaseMigrator {
     private suspend fun copyTables(source: AppDatabase, target: AppDatabase) {
         target.categoryDao().insertAll(source.categoryDao().getAllNow())
         target.taskDao().insertAll(source.taskDao().getAllNow())
+        target.taskNoteDao().insertAll(source.taskNoteDao().getAllNow())
     }
 
-    private data class Snapshot(val tasks: List<Task>, val categories: List<Category>)
+    private data class Snapshot(val tasks: List<Task>, val categories: List<Category>, val notes: List<TaskNote>)
 
     private suspend fun snapshot(db: AppDatabase) = Snapshot(
-        db.taskDao().getAllNow().sortedBy { it.id }, db.categoryDao().getAllNow().sortedBy { it.id }
+        db.taskDao().getAllNow().sortedBy { it.id }, db.categoryDao().getAllNow().sortedBy { it.id },
+        db.taskNoteDao().getAllNow().sortedBy { it.id }
     )
 
 }

@@ -19,10 +19,12 @@ import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.toInstant
 import com.taskfree.app.ui.task.components.ArchiveMode
 import com.taskfree.app.ui.task.components.TaskFilter
+import com.taskfree.app.ui.task.components.TaskDialogs
 import com.taskfree.app.ui.task.components.computeReorderUpdates
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,6 +40,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.text.input.TextFieldValue
 import java.time.LocalDate
 
 class TaskViewModel(
@@ -46,6 +50,39 @@ class TaskViewModel(
     private val dateProvider: DateProvider = AppDateProvider.current,
     private val io: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
+
+    private val mutations: TaskMutationQueue = TaskMutationQueue(viewModelScope) {
+        Log.e("TaskViewModel", "Task operation failed", it)
+        sheetEditor.actionFailed()
+    }
+    private val sheetEditor: TaskSheetEditor = TaskSheetEditor(repo, viewModelScope, io, mutations)
+    val sheetState = sheetEditor.state
+    private val _dialogs = MutableStateFlow<TaskDialogs>(TaskDialogs.None)
+    val dialogs: StateFlow<TaskDialogs> = _dialogs
+    val noteCounts = repo.observeNoteCounts().map { counts -> counts.associate { it.taskId to it.count } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun setDialog(dialog: TaskDialogs) {
+        if (sheetState.value != null && dialog !is TaskDialogs.Options) {
+            sheetEditor.close { _dialogs.value = dialog }
+        } else if (dialog is TaskDialogs.Options && sheetState.value?.taskId != dialog.task.task.id) {
+            sheetEditor.close {
+                sheetEditor.open(dialog.task.task)
+                _dialogs.value = dialog
+            }
+        } else {
+            _dialogs.value = dialog
+        }
+    }
+
+    fun focusText(field: TaskTextField?) = sheetEditor.focus(field)
+    fun blurText(field: TaskTextField) = sheetEditor.blur(field)
+    fun editText(field: TaskTextField, value: TextFieldValue) = sheetEditor.edit(field, value)
+    fun addNote() = sheetEditor.addNote()
+    fun deleteNote(id: Int) = sheetEditor.deleteNote(id)
+    fun retryTextSave() = sheetEditor.retry()
+    fun onBackground() = sheetEditor.background()
+    fun closeSheet(onClosed: () -> Unit) = sheetEditor.close(onClosed)
 
     /* ------------  filters ------------------ */
     // Tag used by every log in this file
@@ -167,7 +204,7 @@ class TaskViewModel(
         createAndSchedule(TaskInput(text, due.date, rec, categoryId, intendedReminder), notify)
     }
 
-    fun clone(taskId: Int, titleTemplate: String) = launchIO {
+    fun clone(taskId: Int, titleTemplate: String) = launchIO(taskId, needsTitle = true) {
         val current = repo.taskById(taskId) ?: return@launchIO
         val notify = NotificationOption.fromTask(current)
         createAndSchedule(
@@ -198,7 +235,7 @@ class TaskViewModel(
 
 
 
-    fun updateStatus(taskId: Int, newStatus: TaskStatus) = launchIO {
+    fun updateStatus(taskId: Int, newStatus: TaskStatus) = launchIO(taskId, needsTitle = true) {
         val before = repo.taskById(taskId) ?: return@launchIO
 
         val wasDone = before.status == TaskStatus.DONE
@@ -322,7 +359,7 @@ class TaskViewModel(
 
     fun toggleStatusVisibility(status: TaskStatus) = TaskStatusFilter.toggle(status)
 
-    fun archive(task: Task, mode: ArchiveMode) = launchIO {
+    fun archive(task: Task, mode: ArchiveMode) = launchIO(task.id, needsTitle = true) {
         val current = repo.taskById(task.id) ?: return@launchIO
         when (mode) {
             ArchiveMode.Single -> {
@@ -357,7 +394,7 @@ class TaskViewModel(
     }
 
 
-    fun unArchive(task: Task) = launchIO {
+    fun unArchive(task: Task) = launchIO(task.id) {
         // Persist unarchive
         repo.unarchiveTask(task.id)
 
@@ -382,16 +419,32 @@ class TaskViewModel(
         }
     }
 
-    fun deletePermanently(task: Task) = launchIO {
+    fun deletePermanently(task: Task) = launchIO(task.id) {
         NotificationScheduler.cancel(appContext, task.id, task.reminderTime)
         repo.deleteTaskPermanently(task)
     }
 
 
-    /** convenience wrapper that always uses IO dispatcher */
-    private fun launchIO(block: suspend () -> Unit) = viewModelScope.launch(io) {
-        runCatching { block() }
-            .onFailure { Log.e("TaskViewModel", "Task operation failed", it) }
+    /**
+     * Enqueue the captured edits and await them before a mutation reads the task. Only an
+     * operation that copies the title ([needsTitle]) is skipped when the title fails to save.
+     */
+    private fun launchIO(taskId: Int? = null, needsTitle: Boolean = false, block: suspend () -> Unit): Job {
+        val flush = if (sheetState.value?.taskId == taskId && taskId != null)
+            sheetEditor.prepareFlush() else null
+        return mutations.submit {
+            val titleSaved = flush == null || flush()
+            if (titleSaved || !needsTitle) {
+                try {
+                    withContext(io) { block() }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("TaskViewModel", "Task operation failed", e)
+                    sheetEditor.actionFailed { launchIO(taskId, needsTitle, block) }
+                }
+            }
+        }
     }
 
     fun setShowArchived(value: Boolean) {
@@ -411,7 +464,7 @@ class TaskViewModel(
         val notify: FieldEdit<NotificationOption> = FieldEdit.NoChange
     )
 
-    fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO {
+    fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO(taskId) {
         val current = repo.taskById(taskId) ?: return@launchIO
         val oldReminder = current.reminderTime
         val newTitle = edits.title.resolve(current.text) { current.text }

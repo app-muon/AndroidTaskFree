@@ -16,21 +16,22 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskfree.app.R
@@ -69,7 +70,6 @@ import com.taskfree.app.ui.task.components.commitDue
 import com.taskfree.app.ui.task.components.commitNotification
 import com.taskfree.app.ui.task.components.commitRecurrence
 import com.taskfree.app.ui.task.components.quickDateKind
-import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.weekdayShortLabel
@@ -90,6 +90,10 @@ fun TaskOptionsPanel(
     val taskSnapshot = taskWithCategory.task
     val category = taskWithCategory.category
     val colors = providePanelColors()
+    val sheetState by taskVm.sheetState.collectAsState()
+    val sheet = sheetState ?: return
+    val focusManager = LocalFocusManager.current
+    fun dismiss() { taskVm.closeSheet(onDismiss) }
 
     val context = LocalContext.current.applicationContext as android.app.Application
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
@@ -114,7 +118,7 @@ fun TaskOptionsPanel(
             minDate = minDate,
             onDateSelected = { picked ->
                 applyPostponeDate(picked)
-                onDismiss()
+                dismiss()
             }
         )
     }
@@ -150,7 +154,7 @@ fun TaskOptionsPanel(
                             label = label,
                             onClick = {
                                 applyPostponeDate(date)
-                                onDismiss()
+                                dismiss()
                             }
                         )
                     }
@@ -182,15 +186,15 @@ fun TaskOptionsPanel(
                     )
                     LabelledOptionPill(
                         label = stringResource(R.string.today),
-                        onClick = { applyPostponeDate(today); onDismiss() }
+                        onClick = { applyPostponeDate(today); dismiss() }
                     )
                     LabelledOptionPill(
                         label = stringResource(R.string.tomorrow),
-                        onClick = { applyPostponeDate(today.plusDays(1)); onDismiss() }
+                        onClick = { applyPostponeDate(today.plusDays(1)); dismiss() }
                     )
                     LabelledOptionPill(
                         label = stringResource(R.string.offset_weeks_format, 1),
-                        onClick = { applyPostponeDate(today.plusDays(7)); onDismiss() }
+                        onClick = { applyPostponeDate(today.plusDays(7)); dismiss() }
                     )
                     IconOptionPill(
                         icon = Icons.Default.DateRange,
@@ -232,7 +236,7 @@ fun TaskOptionsPanel(
                         }
                         LabelledOptionPill(
                             label = label,
-                            onClick = { applyPostponeDate(date); onDismiss() }
+                            onClick = { applyPostponeDate(date); dismiss() }
                         )
                     }
                     IconOptionPill(
@@ -274,9 +278,8 @@ fun TaskOptionsPanel(
                 stringResource(R.string.set_as_for_task_status, status.displayName())
             },
             enabled = !isCurrent,
-            onClick = { taskVm.updateStatus(taskSnapshot.id, status) },
+            onClick = { taskVm.updateStatus(taskSnapshot.id, status); onDismiss() },
             icon = if (isCurrent) Icons.Default.Check else null,
-            fontWeight = if (status == TaskStatus.DONE) FontWeight.Bold else null,
             backgroundColour = status.backgroundColor(),
         )
     }
@@ -289,7 +292,7 @@ fun TaskOptionsPanel(
                 icon = Icons.Default.Check,
                 onClick = {
                     taskVm.unArchive(taskForLiveActions)
-                    onDismiss()
+                    dismiss()
                 })
         )
 
@@ -322,7 +325,6 @@ fun TaskOptionsPanel(
     val gotoCategoryEnabled = categoryExists && currentFilterCatId != currentCategory.id
     val gotoCategoryAction =
         ActionItem(icon = Icons.AutoMirrored.Filled.List, enabled = gotoCategoryEnabled, onClick = {
-            onDismiss()
             onNavigateToCategory(currentCategory.id)
         }, labelContent = {
             val alpha = if (gotoCategoryEnabled) 1f else 0.4f
@@ -348,49 +350,34 @@ fun TaskOptionsPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = PanelConstants.SECTION_VERTICAL_PADDING)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = { focusManager.clearFocus(); taskVm.focusText(null) })
+                    }
             ) {
                 /* --- TITLE ROW --- */
                 EditableMetaRow(
                     label = "",
+                    modifier = Modifier.testTag("task-title-row"),
                     value = {
-                        if (editState.editingField == EditingField.TITLE) {
-                            var newTitle by rememberSaveable { mutableStateOf(editState.title) }
-
-                            Column {
-                                OutlinedTextField(
-                                    value = newTitle,
-                                    onValueChange = { newTitle = it },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = colors.outlinedFieldColours()
-                                )
-                                EditCancelRow(
-                                    onCancel = { editState.exitEditMode() },
-                                    onSave = {
-                                        val t = newTitle.trim()
-                                        if (t.isNotEmpty() && t != editState.title) {
-                                            taskVm.applyEdits(
-                                                taskSnapshot.id,
-                                                TaskViewModel.TaskEdits(title = FieldEdit.Set(t))  // ← wrap in Set
-                                            )
-                                            editState.updateTitle(t)
-                                        }
-                                        editState.exitEditMode()
-                                    },
-                                    saveEnabled = newTitle.isNotBlank(),
-                                    colors = colors
-                                )
-                            }
+                        if (sheet.active == TaskTextField.Title) {
+                            TaskTextEditor(
+                                value = sheet.title.value,
+                                field = TaskTextField.Title,
+                                active = true,
+                                limitReached = sheet.title.limitReached,
+                                vm = taskVm,
+                                onTextFocus = { editState.exitEditMode() }
+                            )
                         } else {
                             AutoLinkedText(
-                                raw = editState.title,
+                                raw = sheet.title.value.text.trim().ifBlank { sheet.title.saved },
                                 style = MaterialTheme.typography.titleLarge,
                                 color = colors.surfaceText
                             )
                         }
                     },
-                    currentField = editState.editingField == EditingField.TITLE,
-                    onEdit = { editState.enterEditMode(EditingField.TITLE) },
+                    currentField = sheet.active == TaskTextField.Title,
+                    onEdit = { editState.exitEditMode(); taskVm.focusText(TaskTextField.Title) },
                     colors = colors
                 )
 
@@ -405,7 +392,7 @@ fun TaskOptionsPanel(
                         )
                     },
                     currentField = editState.editingField == EditingField.DUE,
-                    onEdit = { editState.enterEditMode(EditingField.DUE) }
+                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.DUE) }
                 )
 
                 if (editState.editingField == EditingField.DUE) {
@@ -465,7 +452,7 @@ fun TaskOptionsPanel(
                         )
                     },
                     currentField = editState.editingField == EditingField.NOTIFY,
-                    onEdit = { editState.enterEditMode(EditingField.NOTIFY) }
+                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.NOTIFY) }
                 )
 
                 if (editState.editingField == EditingField.NOTIFY) {
@@ -528,7 +515,7 @@ fun TaskOptionsPanel(
                         )
                     },
                     currentField = editState.editingField == EditingField.RECURRENCE,
-                    onEdit = { editState.enterEditMode(EditingField.RECURRENCE) }
+                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.RECURRENCE) }
                 )
 
                 if (editState.editingField == EditingField.RECURRENCE) {
@@ -569,7 +556,7 @@ fun TaskOptionsPanel(
                         )
                     },
                     currentField = editState.editingField == EditingField.CATEGORY,
-                    onEdit = { editState.enterEditMode(EditingField.CATEGORY) })
+                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.CATEGORY) })
 
                 if (editState.editingField == EditingField.CATEGORY) {
                     FlowRow(
@@ -600,14 +587,16 @@ fun TaskOptionsPanel(
                     )
                 }
 
+                TaskNotesSection(sheet, taskVm, onTextFocus = { editState.exitEditMode() })
+
                 /* --- CREATION AND COMPLETION DATES (read-only) --- */
 
                 TaskDatesRow(taskSnapshot)
                 HorizontalDivider(color = Color.Gray)
             }
 
-        }, actions = listOfNotNull(
-            quickDateAction,
+        }, actions = (listOf(quickDateAction) + statusActions + listOfNotNull(
+            gotoCategoryAction,
             if (categoryDeleted) null else ActionItem(
                 label = stringResource(R.string.clone_task_action),
                 icon = Icons.Default.Add,
@@ -619,6 +608,14 @@ fun TaskOptionsPanel(
                 iconTint = colors.brightRed,
                 onClick = { onDeletePermanently(taskSnapshot) }
             )
-        ) + archiveActions + gotoCategoryAction + statusActions, onDismiss = onDismiss
+        ).plus(archiveActions).mapIndexed { i, action ->
+            // A line separates the date and status changes from the task's other actions.
+            if (i == 0) action.copy(dividerAbove = true) else action
+        }).map { action ->
+            if (!action.dismissOnClick) action else action.copy(
+                dismissOnClick = false,
+                onClick = { taskVm.closeSheet { action.onClick() } }
+            )
+        }, onDismiss = { dismiss() }
     )
 }

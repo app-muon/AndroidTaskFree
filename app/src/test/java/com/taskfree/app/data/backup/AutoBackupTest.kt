@@ -228,4 +228,31 @@ class AutoBackupTest {
         assertFalse(store.disk!!.pending)
         assertEquals(3, file.writes.size)
     }
+
+    @Test fun `note-only add edit and delete trigger the automatic backup watcher`() = runBlocking {
+        val category = db.insertCategory("Home")
+        val repo = TaskRepository(db)
+        val id = repo.createTask(com.taskfree.app.domain.model.TaskInput("Task", null,
+            com.taskfree.app.domain.model.Recurrence.NONE, category))
+        saver.enable(folder)
+        AutoBackup.onForeground(app)
+        finishSaves(watching = true)
+        suspend fun awaitBackupAfter(change: suspend () -> Unit) {
+            val before = file.writes.size
+            change()
+            // Room invalidation delivery uses a real executor, separately from the debounce clock.
+            delay(200)
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(1_001)
+            pumpUntil { saveScope.coroutineContext[Job]!!.children.count() == 1 }
+            scheduler.advanceTimeBy(60_000)
+            pumpUntil { file.writes.size > before }
+            finishSaves(watching = true)
+            assertEquals(before + 1, file.writes.size)
+        }
+        var note = 0
+        awaitBackupAfter { note = repo.addNote(id, "Added")!!.id }
+        awaitBackupAfter { repo.editNote(note, "Edited") }
+        awaitBackupAfter { repo.deleteNote(note) }
+    }
 }

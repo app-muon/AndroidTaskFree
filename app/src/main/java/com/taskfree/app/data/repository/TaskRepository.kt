@@ -8,6 +8,9 @@ import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.database.TaskDao
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.TaskNote
+import com.taskfree.app.data.entities.TASK_NOTE_LIMIT
+import com.taskfree.app.data.entities.TASK_TITLE_LIMIT
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
@@ -37,8 +40,37 @@ class TaskRepository(
 
     suspend fun taskById(id: Int): Task? = database.taskDao().taskById(id)
 
-    suspend fun replaceAll(cats: List<Category>, tasks: List<Task>) {
+    fun observeNotes(taskId: Int) = database.taskNoteDao().observe(taskId)
+
+    fun observeNoteCounts() = database.taskNoteDao().observeCounts()
+
+    suspend fun addNote(taskId: Int, text: String): TaskNote? = database.withTransaction {
+        val normalized = validateNoteText(text)
+        if (database.taskDao().taskById(taskId) == null) return@withTransaction null
+        val note = TaskNote(taskId = taskId, text = normalized, createdAt = dates.nowInstant())
+        note.copy(id = database.taskNoteDao().insert(note).toInt())
+    }
+
+    /** A missing target is distinct from a successful save; updates never recreate notes. */
+    suspend fun editNote(id: Int, text: String): TaskNote? = database.withTransaction {
+        val normalized = validateNoteText(text)
+        val current = database.taskNoteDao().byId(id) ?: return@withTransaction null
+        if (normalized == current.text) return@withTransaction current
+        val edited = current.copy(text = normalized, editedAt = dates.nowInstant())
+        if (database.taskNoteDao().updateText(id, edited.text, edited.editedAt!!) == 0) null else edited
+    }
+
+    suspend fun deleteNote(id: Int) = database.taskNoteDao().delete(id)
+
+    suspend fun updateTitle(id: Int, text: String): Boolean = database.withTransaction {
+        val normalized = validateTaskTitle(text)
+        val current = database.taskDao().taskById(id) ?: return@withTransaction false
+        if (current.text == normalized) true else database.taskDao().updateTitle(id, normalized) > 0
+    }
+
+    suspend fun replaceAll(cats: List<Category>, tasks: List<Task>, notes: List<TaskNote> = emptyList()) {
         requireNoLiveTasksInDeletedCategories(cats, tasks)
+        validateBackupNotes(tasks, notes)
 
         if (BuildConfig.DEBUG) {
             Log.d("Backup", "replaceAll cats=${cats.size} tasks=${tasks.size}")
@@ -48,6 +80,7 @@ class TaskRepository(
             val d1 = database.categoryDao().deleteAll()
             val i1 = database.categoryDao().insertAll(cats).size
             val i2 = database.taskDao().insertAll(tasks).size
+            database.taskNoteDao().insertAll(notes)
             database.categoryDao().deleteDeletedWithoutTasks()
             if (BuildConfig.DEBUG) {
                 Log.d("Backup", "delC=$d1 delT=$d2  insC=$i1 insT=$i2")
@@ -253,7 +286,8 @@ class TaskRepository(
                 requireActiveCategory(newCategoryId)
             }
             database.taskDao().update(current.copy(
-                text = sanitizeTaskTitle(newTitle),
+                // An unchanged title is not revalidated, so a stored legacy title can't block other edits.
+                text = if (newTitle == current.text) current.text else validateTaskTitle(newTitle),
                 due = newDueDate,
                 baseDate = if (newRecurrence != Recurrence.NONE) newDueDate else null,
                 categoryId = newCategoryId,
@@ -307,7 +341,7 @@ class TaskRepository(
 
     private fun sanitizeTaskTitle(title: String): String {
         return title.trim().replace(Regex("[\\r\\n]+"), " ") // Replace line breaks with space
-            .take(MAX_TASK_TITLE_LENGTH)
+            .take(TASK_TITLE_LIMIT)
     }
 
     private suspend fun requireActiveCategory(categoryId: Int) {
@@ -330,8 +364,20 @@ class TaskRepository(
         }
     }
 
-    companion object {
-        private const val MAX_TASK_TITLE_LENGTH = 100
-    }
+}
 
+internal fun validateNoteText(text: String): String = text.trim().also {
+    require(it.isNotBlank() && it.length <= TASK_NOTE_LIMIT) { "Invalid note text" }
+}
+
+/** A title is one line, as on creation, but is never silently truncated. */
+internal fun validateTaskTitle(text: String): String = text.trim().replace(Regex("[\\r\\n]+"), " ").also {
+    require(it.isNotBlank() && it.length <= TASK_TITLE_LIMIT) { "Invalid task title" }
+}
+
+internal fun validateBackupNotes(tasks: List<Task>, notes: List<TaskNote>) {
+    val taskIds = tasks.mapTo(hashSetOf()) { it.id }
+    require(notes.all { it.id > 0 && it.taskId in taskIds }) { "Invalid note reference" }
+    require(notes.map { it.id }.toSet().size == notes.size) { "Duplicate note ID" }
+    notes.forEach { validateNoteText(it.text) }
 }

@@ -4,6 +4,10 @@ package com.taskfree.app.ui.task
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +71,18 @@ fun TaskSearchScreen(
         )
     )
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val activity = LocalContext.current.activity()
+    DisposableEffect(lifecycleOwner, taskVm, activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true) {
+                taskVm.onBackground()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var due by rememberSaveable(stateSaver = DueChoiceSaver) {
         mutableStateOf(initialDueChoice)
     }
@@ -82,7 +98,7 @@ fun TaskSearchScreen(
     val allTasksUnfiltered by taskVm.allTasksUnfiltered.collectAsState()
 
     // Local state
-    var dialogs by remember { mutableStateOf<TaskDialogs>(TaskDialogs.None) }
+    val dialogs by taskVm.dialogs.collectAsState()
     var showGlobalMenu by remember { mutableStateOf(false) }
     var showBackup by rememberSaveable { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
@@ -252,7 +268,7 @@ fun TaskSearchScreen(
             orderProperty = if (selectedCatId == null) OrderProperty.ALL_CATEGORY_PAGE_ORDERING else OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING,
             config = config,
             onDueChange = { due = it },
-            onClickTask = { dialogs = TaskDialogs.Options(it) },
+            onClickTask = { taskVm.setDialog(TaskDialogs.Options(it)) },
             onCategoryChange = { id -> selectedCatId = id },
             modifier = Modifier.weight(1f),
         )
@@ -273,7 +289,7 @@ fun TaskSearchScreen(
                     val defaultDue = if (config.dueChoice.kind == DueKind.ALL) {
                         DueChoice.fromSpecial(DueChoice.Special.NONE)
                     } else config.dueChoice
-                    dialogs = TaskDialogs.Add(cat, defaultDue)
+                    taskVm.setDialog(TaskDialogs.Add(cat, defaultDue))
                 }
             },
             onShowGlobalMenu = { showGlobalMenu = true })
@@ -282,7 +298,7 @@ fun TaskSearchScreen(
     // Dialogs
     TaskDialogHost(
         dialogs = dialogs,
-        setDialogs = { dialogs = it },
+        setDialogs = taskVm::setDialog,
         allCategories = categoryUi.categories,
         taskVm = taskVm,
         currentFilterCatId = selectedCatId,

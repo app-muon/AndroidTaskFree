@@ -47,32 +47,27 @@ internal fun TaskDialogHost(
 
         is TaskDialogs.Options -> {
             val ti = dialogs.task          // local snapshot
-            var hasInteracted = false      // <-- NEW
 
             TaskOptionsPanel(
                 task = ti, taskVm = taskVm, onArchive = { taskToArchive, mode ->
-                    hasInteracted = true
                     setDialogs(TaskDialogs.ConfirmArchive(ti.copy(task = taskToArchive), mode))
                 },
 
                 onNavigateToCategory = { catId ->
-                    hasInteracted = true
                     setDialogs(TaskDialogs.None)
                     onNavigateToCategory(catId)
                 },
 
                 onClone = { taskToClone ->
-                    hasInteracted = true
                     setDialogs(TaskDialogs.ConfirmClone(ti.copy(task = taskToClone)))   // <-- show the Y/N dialog
                 },
 
                 onDeletePermanently = { taskToDelete ->
-                    hasInteracted = true
                     setDialogs(TaskDialogs.ConfirmPermanentDelete(ti.copy(task = taskToDelete)))
                 },
 
                 onDismiss = {
-                    if (!hasInteracted) setDialogs(TaskDialogs.None)   // <-- only clear if untouched
+                    setDialogs(TaskDialogs.None)
                 },
 
                 currentFilterCatId = currentFilterCatId

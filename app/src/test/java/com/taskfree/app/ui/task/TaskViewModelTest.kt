@@ -4,6 +4,10 @@ package com.taskfree.app.ui.task
 import android.app.AlarmManager
 import android.app.Application
 import android.os.Looper
+import androidx.compose.ui.text.input.TextFieldValue
+import com.taskfree.app.data.entities.TASK_TITLE_LIMIT
+import com.taskfree.app.data.entities.TaskWithCategoryInfo
+import com.taskfree.app.ui.task.components.TaskDialogs
 import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -128,6 +132,125 @@ class TaskViewModelTest {
     private suspend fun addDaily(due: LocalDate): Int {
         vm.add("Stretch", DueChoice.Other(due), Recurrence.DAILY, cat, NotificationOption.Morning).join()
         return repo.snapshot().single().id
+    }
+
+    private suspend fun openSheet(id: Int) {
+        vm.setDialog(TaskDialogs.Options(TaskWithCategoryInfo(repo.taskById(id)!!,
+            db.categoryDao().getAllNow().first { it.id == cat })))
+        vm.sheetState.first { it?.taskId == id }
+    }
+
+    @Test
+    fun `immediate completion and clone await title flush and inherit no notes`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        repo.addNote(id, "Source only")
+        openSheet(id)
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Newest title"))
+        vm.updateStatus(id, TaskStatus.DONE).join()
+        val next = repo.snapshot().single { it.id != id }
+        assertEquals("Newest title", next.text)
+        assertTrue(repo.observeNotes(next.id).first().isEmpty())
+        vm.clone(id, "%1\$s (copy)").join()
+        val clone = repo.snapshot().single { it.id !in listOf(id, next.id) }
+        assertEquals("Newest title (copy)", clone.text)
+        assertTrue(repo.observeNotes(clone.id).first().isEmpty())
+    }
+
+    @Test
+    fun `title flush precedes metadata and archive without overwriting other fields`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        openSheet(id)
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Renamed"))
+        val later = realToday.plusDays(7)
+        vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Set(later)))
+        vm.archive(repo.taskById(id)!!, ArchiveMode.Single).join()
+        val next = repo.snapshot().single { it.id != id }
+        assertEquals("Renamed", repo.taskById(id)!!.text)
+        assertEquals(later, repo.taskById(id)!!.due)
+        assertEquals("Renamed", next.text)
+        assertEquals(later.plusDays(1), next.due)
+    }
+
+    @Test
+    fun `title autosave leaves the scheduled alarm unchanged`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        val before = alarms.scheduledAlarms.single()
+        val taskBefore = repo.taskById(id)!!
+        openSheet(id)
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("New title"))
+        vm.onBackground().join()
+        assertEquals(taskBefore.copy(text = "New title"), repo.taskById(id))
+        assertEquals(before, alarms.scheduledAlarms.single())
+    }
+
+    @Test
+    fun `failed title prevents completion and clone but failed note allows a status action`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        openSheet(id)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_title BEFORE UPDATE OF text ON Task BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Unsaved"))
+        vm.updateStatus(id, TaskStatus.DONE).join()
+        vm.clone(id, "%1\$s (copy)").join()
+        assertEquals(1, repo.snapshot().size)
+        assertEquals(TaskStatus.TODO, repo.taskById(id)!!.status)
+        assertTrue(vm.sheetState.value!!.title.failed)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_title")
+        val note = repo.addNote(id, "Original")!!
+        vm.sheetState.first { it!!.notes.isNotEmpty() }
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_note BEFORE UPDATE ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.focusText(TaskTextField.Note(note.id))
+        vm.editText(TaskTextField.Note(note.id), TextFieldValue("Retained"))
+        vm.updateStatus(id, TaskStatus.IN_PROGRESS).join()
+        assertEquals(TaskStatus.IN_PROGRESS, repo.taskById(id)!!.status)
+        assertEquals("Unsaved", repo.taskById(id)!!.text)
+        assertTrue(vm.sheetState.value!!.edits.getValue(note.id).failed)
+        assertEquals("Retained", vm.sheetState.value!!.edits.getValue(note.id).value.text)
+    }
+
+    @Test
+    fun `replacement confirmation remains behind sheet on failure and Retry performs close`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        openSheet(id)
+        val original = vm.dialogs.value as TaskDialogs.Options
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_note BEFORE INSERT ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.editText(TaskTextField.Composer, TextFieldValue("Keep composer"))
+        vm.setDialog(TaskDialogs.ConfirmClone(original.task))
+        vm.sheetState.first { it!!.submissionFailed }
+        assertTrue(vm.dialogs.value is TaskDialogs.Options)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_note")
+        vm.retryTextSave().join()
+        assertTrue(vm.dialogs.value is TaskDialogs.ConfirmClone)
+        assertNull(vm.sheetState.value)
+        assertEquals(1, db.taskNoteDao().getAllNow().size)
+    }
+
+    @Test
+    fun `a failed title save does not drop a metadata edit`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        openSheet(id)
+        // Fails only the title change, not the full-row update that keeps the title.
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_title BEFORE UPDATE OF text ON Task WHEN NEW.text <> OLD.text BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Unsaved"))
+        val later = realToday.plusDays(7)
+        vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Set(later))).join()
+        assertEquals(later, repo.taskById(id)!!.due)
+        assertEquals("Stretch", repo.taskById(id)!!.text)
+        assertTrue(vm.sheetState.value!!.title.failed)
+    }
+
+    @Test
+    fun `a metadata edit keeps a stored title longer than the limit`() = vmTest {
+        val long = "x".repeat(TASK_TITLE_LIMIT + 50)
+        val id = db.insertTask(task(cat, long))
+        val later = realToday.plusDays(7)
+        vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Set(later))).join()
+        assertEquals(later, repo.taskById(id)!!.due)
+        assertEquals(long, repo.taskById(id)!!.text)
     }
 
     @Test

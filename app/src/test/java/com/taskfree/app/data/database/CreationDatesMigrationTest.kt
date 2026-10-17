@@ -33,11 +33,14 @@ class CreationDatesMigrationTest {
     @Test
     fun `version 18 preserves recorded creation dates`() = runTest { assertUpgrade(18) }
 
+    @Test
+    fun `version 19 adds empty notes with an indexed cascading foreign key`() = runTest { assertUpgrade(19) }
+
     private suspend fun assertUpgrade(fromVersion: Int) {
         val file = tmp.newFile("version17.db")
         val today = LocalDate.of(2026, 10, 6)
         val reminder = Instant.parse("2026-10-06T08:00:00Z")
-        val recordedCreation = if (fromVersion == 18) reminder.minusSeconds(86400) else null
+        val recordedCreation = if (fromVersion >= 18) reminder.minusSeconds(86400) else null
 
         // A real v17 schema fixture: Room validates the migrated tables when it opens.
         SQLiteDatabase.openOrCreateDatabase(file, null).use { old ->
@@ -78,18 +81,22 @@ class CreationDatesMigrationTest {
                 "INSERT INTO Task VALUES (8, 2, 'Old task', NULL, NULL, 6, 7, ?, 'NONE', 'DONE', 1, NULL)",
                 arrayOf(today.minusDays(1).toEpochDay())
             )
-            if (fromVersion == 18) {
+            if (fromVersion >= 18) {
                 old.execSQL("ALTER TABLE Task ADD COLUMN originalCreatedAt INTEGER")
                 old.execSQL("ALTER TABLE Task ADD COLUMN occurrenceCreatedAt INTEGER")
                 old.execSQL("UPDATE Task SET originalCreatedAt = ?, occurrenceCreatedAt = ? WHERE id = 7",
                     arrayOf(recordedCreation!!.toEpochMilli(), recordedCreation.toEpochMilli()))
+            }
+            if (fromVersion >= 19) {
+                old.execSQL("ALTER TABLE Task ADD COLUMN sourceTaskId INTEGER REFERENCES Task(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED")
+                old.execSQL("CREATE UNIQUE INDEX index_Task_sourceTaskId ON Task(sourceTaskId)")
             }
             old.version = fromVersion
         }
 
         val context = ApplicationProvider.getApplicationContext<Context>()
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
             .allowMainThreadQueries()
             .build()
         try {
@@ -113,7 +120,8 @@ class CreationDatesMigrationTest {
                 ),
                 migrated.taskDao().getAllNow().sortedBy { it.id }
             )
-            assertEquals(19, migrated.openHelper.readableDatabase.version)
+            assertEquals(20, migrated.openHelper.readableDatabase.version)
+            assertEquals(emptyList<com.taskfree.app.data.entities.TaskNote>(), migrated.taskNoteDao().getAllNow())
 
             val repo = TaskRepository(migrated, datesAt(today))
             val newId = repo.createTask(TaskInput("New task", null, Recurrence.NONE, 1))
@@ -121,8 +129,10 @@ class CreationDatesMigrationTest {
             assertNotNull(added.originalCreatedAt)
             assertEquals(added.originalCreatedAt, added.occurrenceCreatedAt)
             val nextId = repo.updateTaskStatus(7, TaskStatus.DONE).nextCreatedId!!
+            val note = repo.addNote(7, "Migrated note")!!
             assertEquals(7, repo.taskById(nextId)!!.sourceTaskId)
             repo.deleteTaskPermanently(repo.taskById(7)!!)
+            assertEquals(null, migrated.taskNoteDao().byId(note.id))
             assertEquals(null, repo.taskById(nextId)!!.sourceTaskId)
         } finally {
             migrated.close()

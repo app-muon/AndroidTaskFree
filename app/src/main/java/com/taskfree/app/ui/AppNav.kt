@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +74,8 @@ fun AppNav() {
         val catUi by categoryVm.uiState.collectAsState()
         val isLoading = catUi.isInitialLoadPending
         val categories = catUi.categories
-        var initialLoadCompleted by remember { mutableStateOf(false) }
+        // Recreating the activity must retain the restored destination and its task-sheet ViewModel.
+        var initialLoadCompleted by rememberSaveable { mutableStateOf(false) }
         /* ── once we know the list size, navigate away from Splash ── */
         LaunchedEffect(isLoading) {
             if (!isLoading && !initialLoadCompleted) {

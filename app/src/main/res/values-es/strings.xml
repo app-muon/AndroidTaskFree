@@ -361,4 +361,20 @@
     <string name="backup_setup_failed">No se pudo configurar la copia automática.</string>
     <string name="backup_folder_change_failed">No se pudo cambiar la carpeta de copias. La carpeta anterior sigue seleccionada.</string>
     <string name="backup_error_settings">TaskFree no pudo registrar la copia de forma segura. Las copias están pausadas. Fuerza la detención y vuelve a abrir TaskFree para cargar los ajustes guardados.</string>
+    <string name="add_note">Añadir una nota</string>
+    <string name="write_note">Escribe una nota…</string>
+    <string name="notes_show_all">Mostrar todas (%1$d)</string>
+    <string name="notes_show_fewer">Mostrar menos notas</string>
+    <string name="note_expand">Mostrar más</string>
+    <string name="note_collapse">Mostrar menos</string>
+    <string name="note_edited">editada</string>
+    <string name="edit_note">Editar nota</string>
+    <string name="note_limit_reached">Se ha alcanzado el límite de 2000 caracteres</string>
+    <string name="title_limit_reached">Se ha alcanzado el límite de 100 caracteres</string>
+    <string name="task_save_failed">No se pudo guardar</string>
+    <string name="task_save_retry">Reintentar</string>
+    <string name="delete_note_title">¿Eliminar la nota?</string>
+    <string name="delete_note_message">Esta acción no se puede deshacer.</string>
+    <string name="task_has_notes">Tiene notas</string>
+    <string name="err_backup_notes">La copia de seguridad contiene notas no válidas.</string>
 </resources>
