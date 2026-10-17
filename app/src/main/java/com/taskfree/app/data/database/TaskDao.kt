@@ -74,6 +74,9 @@ interface TaskDao {
     @Update
     suspend fun update(task: Task): Int
 
+    @Query("UPDATE Task SET text = :text WHERE id = :id AND text != :text")
+    suspend fun updateTitle(id: Int, text: String): Int
+
     @Query("""
         UPDATE Task
         SET singleCategoryPageOrder = :singleCategoryPageOrder,
@@ -92,6 +95,7 @@ WHERE id = :id
   AND completedDate IS NULL
   AND status = 'TODO'
   AND isArchived = 0
+  AND NOT EXISTS (SELECT 1 FROM TaskNote WHERE taskId = Task.id)
 """
     )
     suspend fun deleteTodoOccurrence(id: Int): Int

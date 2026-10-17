@@ -76,6 +76,7 @@ fun TaskListContent(
     )
 
     val taskUi by taskVm.uiState.collectAsState()
+    val noteCounts by taskVm.noteCounts.collectAsState()
     val allTasksUnfiltered by taskVm.allTasksUnfiltered.collectAsState()
     val uiState by categoriesVm.uiState.collectAsState()
 
@@ -293,6 +294,7 @@ fun TaskListContent(
                                 .padding(horizontal = 8.dp, vertical = 2.dp)) {
                             TaskRow(
                                 task = twci.task,
+                                hasNotes = (noteCounts[twci.task.id] ?: 0) > 0,
                                 isDragging = isDragging,
                                 showCategory = true,
                                 category = twci.category,

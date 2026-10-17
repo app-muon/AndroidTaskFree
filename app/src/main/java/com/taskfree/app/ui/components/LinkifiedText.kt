@@ -120,12 +120,15 @@ fun AutoLinkedText(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = LocalContentColor.current,
+    maxLines: Int = Int.MAX_VALUE,
+    onTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit = {},
     linkStyle: SpanStyle = SpanStyle(
         color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline
     )
 ) {
     val text = remember(raw) { linkified(raw, linkStyle) }
-    Text(text, modifier = modifier, style = style, color = color)
+    Text(text, modifier = modifier, style = style, color = color, maxLines = maxLines,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, onTextLayout = onTextLayout)
 }
 
 // New overload for AnnotatedString

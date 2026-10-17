@@ -400,4 +400,20 @@ When you set up a new phone, enter your 8-word recovery phrase to unlock the dat
     <string name="backup_setup_failed">Automatic backup setup failed.</string>
     <string name="backup_folder_change_failed">The backup folder could not be changed. Your previous folder is still selected.</string>
     <string name="backup_error_settings">TaskFree could not record the save safely. Saving is paused. Force stop and reopen TaskFree to reload the saved settings.</string>
+    <string name="add_note">Add a note</string>
+    <string name="write_note">Write a note…</string>
+    <string name="notes_show_all">Show all (%1$d)</string>
+    <string name="notes_show_fewer">Show fewer</string>
+    <string name="note_expand">Show more</string>
+    <string name="note_collapse">Show less</string>
+    <string name="note_edited">edited</string>
+    <string name="edit_note">Edit note</string>
+    <string name="note_limit_reached">2,000-character limit reached</string>
+    <string name="title_limit_reached">100-character limit reached</string>
+    <string name="task_save_failed">Couldn\'t save</string>
+    <string name="task_save_retry">Retry</string>
+    <string name="delete_note_title">Delete note?</string>
+    <string name="delete_note_message">This action cannot be undone.</string>
+    <string name="task_has_notes">Has notes</string>
+    <string name="err_backup_notes">The backup contains invalid notes.</string>
 </resources>

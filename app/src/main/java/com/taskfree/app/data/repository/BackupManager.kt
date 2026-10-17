@@ -35,14 +35,16 @@ object BackupManager {
     }
 
     suspend fun snapshot(database: AppDatabase): Backup {
-        val (categories, tasks) = database.withTransaction {
-            database.categoryDao().getAllNow() to database.taskDao().getAllNow()
+        val (categories, tasks, notes) = database.withTransaction {
+            Triple(database.categoryDao().getAllNow(), database.taskDao().getAllNow(),
+                database.taskNoteDao().getAllNow())
         }
         return Backup(
             app_version = BuildConfig.VERSION_NAME,
             exported_at = Instant.now().toString(),
             categories = categories.sortedBy { it.id },
-            tasks = tasks.sortedBy { it.id }
+            tasks = tasks.sortedBy { it.id },
+            notes = notes.sortedBy { it.id }
         )
     }
 
@@ -73,8 +75,10 @@ object BackupManager {
         withContext(Dispatchers.Default) { BackupCrypto.decrypt(source.bytes, phrase)?.let(::parse) }
 
     /** Atomically replaces all data. */
-    suspend fun restore(backup: Backup, taskRepo: TaskRepository) =
-        taskRepo.replaceAll(backup.categories, backup.tasks)
+    suspend fun restore(backup: Backup, taskRepo: TaskRepository) {
+        validate(backup)
+        taskRepo.replaceAll(backup.categories, backup.tasks, backup.notes)
+    }
 
     private fun parse(bytes: ByteArray): Backup {
         val text = bytes.decodeToString().removePrefix(BYTE_ORDER_MARK)
@@ -105,8 +109,14 @@ object BackupManager {
         : Exception()
 
     private fun validate(b: Backup) {
-        if (b.version != "1.0")
+        if (b.version !in setOf("1.0", "1.1"))
             throw BackupValidationException(R.string.err_backup_version)
+
+        try {
+            validateBackupNotes(b.tasks, b.notes)
+        } catch (e: IllegalArgumentException) {
+            throw BackupValidationException(R.string.err_backup_notes).apply { initCause(e) }
+        }
 
         val catIds = b.categories.map { it.id }
         requireUnique(catIds) { BackupValidationException(R.string.err_cat_duplicate_id) }

@@ -226,3 +226,19 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
     }
 }
 
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `TaskNote` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `text` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `editedAt` INTEGER,
+                FOREIGN KEY(`taskId`) REFERENCES `Task`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_TaskNote_taskId` ON `TaskNote` (`taskId`)")
+    }
+}
+

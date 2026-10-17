@@ -1,5 +1,8 @@
 # CLI commands to test backup
 
+For task notes, database version 20, backup version 1.1, and focused autosave and
+encryption checks, see [task notes validation](docs/task-notes.md).
+
 ## Archive and recoverable encryption validation
 
 Use a disposable emulator only: `ResetAppStateRule` deletes app data, including
