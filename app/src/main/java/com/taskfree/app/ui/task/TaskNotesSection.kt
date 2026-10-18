@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.ui.components.AutoLinkedText
 import com.taskfree.app.ui.components.ConfirmDialog
+import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.formatDateTime
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
@@ -77,7 +78,8 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
         if (lineHeight.isSp) ((noteActionHeight - lineHeight.toDp()) / 2).coerceAtLeast(0.dp) else 0.dp
     }
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    // The same side padding as the panel's other rows, so the notes line up with their headings.
+    Column(Modifier.fillMaxWidth().padding(horizontal = PanelConstants.HORIZONTAL_PADDING, vertical = 4.dp)) {
         if (state.hasError) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.task_save_failed), color = MaterialTheme.colorScheme.error,
@@ -106,9 +108,10 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
                 }
             }
         } else {
+            // No start padding, so the link's text lines up with the notes below it.
             TextButton(onClick = { onTextFocus(); vm.focusText(TaskTextField.Composer) },
                 modifier = Modifier.height(noteActionHeight).testTag("add-note"),
-                colors = buttonColors, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                colors = buttonColors, contentPadding = PaddingValues(end = 8.dp)) {
                 Text(stringResource(R.string.add_note))
             }
         }
@@ -222,10 +225,10 @@ internal fun TaskTextEditor(
             },
         textStyle = LocalTextStyle.current.copy(color = colors.focusedTextColor),
         cursorBrush = SolidColor(if (limitReached) colors.errorCursorColor else colors.cursorColor),
-        singleLine = title,
-        // The composer starts one line high and grows with its text.
+        // The composer and title start one line high and grow with their text. A title's line breaks become spaces.
+        singleLine = false,
         minLines = if (field is TaskTextField.Note) 2 else 1,
-        maxLines = if (title) 1 else 5,
+        maxLines = 5,
         keyboardOptions = KeyboardOptions(imeAction = if (title) ImeAction.Done else ImeAction.Default),
         keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); vm.blurText(field) }),
         interactionSource = interactions,
@@ -234,7 +237,7 @@ internal fun TaskTextEditor(
                 value = value.text,
                 innerTextField = innerTextField,
                 enabled = true,
-                singleLine = title,
+                singleLine = false,
                 visualTransformation = VisualTransformation.None,
                 interactionSource = interactions,
                 isError = limitReached,

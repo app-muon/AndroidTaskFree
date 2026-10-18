@@ -1,22 +1,32 @@
 // ui/task/TaskOptionsPanel.kt
 package com.taskfree.app.ui.task
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -25,13 +35,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskfree.app.R
@@ -42,22 +58,24 @@ import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.category.CategoryViewModel
 import com.taskfree.app.ui.category.CategoryVmFactory
 import com.taskfree.app.ui.components.ActionItem
-import com.taskfree.app.ui.components.AutoLinkedText
 import com.taskfree.app.ui.components.CategoryPill
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.EditCancelRow
-import com.taskfree.app.ui.components.EditableMetaRow
 import com.taskfree.app.ui.components.IconOptionPill
 import com.taskfree.app.ui.components.LabelledOptionPill
+import com.taskfree.app.ui.components.MetaRow
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.RecurrencePill
 import com.taskfree.app.ui.components.TaskDatesRow
+import com.taskfree.app.ui.components.TaskFieldHeading
+import com.taskfree.app.ui.components.TrailingEditIcon
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.launchTimePicker
+import com.taskfree.app.ui.components.linkified
 import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.showDatePicker
 import com.taskfree.app.ui.mapper.backgroundColor
@@ -300,7 +318,7 @@ fun TaskOptionsPanel(
 
         editState.recurrence != Recurrence.NONE -> listOf(
             ActionItem(
-                label = stringResource(R.string.archive_task_action),
+                label = stringResource(R.string.archive_task_yes_dialog_button),
                 icon = Icons.Default.Archive,
                 iconTint = colors.darkRed,
                 onClick = { onArchive(taskForLiveActions, ArchiveMode.Single) }),
@@ -313,35 +331,54 @@ fun TaskOptionsPanel(
 
         else -> listOf(
             ActionItem(
-                label = stringResource(R.string.archive_task_action),
+                label = stringResource(R.string.archive_task_yes_dialog_button),
                 icon = Icons.Default.Archive,
                 iconTint = colors.darkRed,
                 onClick = { onArchive(taskForLiveActions, ArchiveMode.Single) })
         )
     }
 
-    /* ---------- “go to category” pill ---------- */
+    /* ---------- clone, archive and delete: small buttons on one row, delete last ---------- */
+    val otherActions = listOfNotNull(
+        if (categoryDeleted) null else ActionItem(
+            label = stringResource(R.string.clone_task_action),
+            icon = Icons.Default.Add,
+            onClick = { onClone(taskForLiveActions) }
+        )
+    ) + archiveActions + ActionItem(
+        // Its confirmation says the task is deleted permanently.
+        label = stringResource(R.string.delete_yes_dialog_button),
+        icon = Icons.Default.Delete,
+        iconTint = colors.brightRed,
+        onClick = { onDeletePermanently(taskSnapshot) }
+    )
+    val otherActionsRow = ActionItem(
+        onClick = {},
+        dismissOnClick = false,
+        labelContent = {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH)) {
+                otherActions.forEach { action ->
+                    TextButton(
+                        onClick = { taskVm.closeSheet { action.onClick() } },
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = action.icon!!,
+                            contentDescription = null,
+                            tint = action.iconTint ?: colors.surfaceText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(action.labelText!!, color = colors.surfaceText)
+                    }
+                }
+            }
+        }
+    )
+
+    /* ---------- “go to category” arrow ---------- */
     val categoryExists = allCategories.any { it.id == currentCategory.id }
     val gotoCategoryEnabled = categoryExists && currentFilterCatId != currentCategory.id
-    val gotoCategoryAction =
-        ActionItem(icon = Icons.AutoMirrored.Filled.List, enabled = gotoCategoryEnabled, onClick = {
-            onNavigateToCategory(currentCategory.id)
-        }, labelContent = {
-            val alpha = if (gotoCategoryEnabled) 1f else 0.4f
-            Row(
-                verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(alpha)
-            ) {
-                Text(
-                    text = stringResource(R.string.go_to_category_action),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.surfaceText,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                CategoryPill(
-                    category = currentCategory, big = true, selected = true
-                )
-            }
-        })
 
     /* ---------- build the sheet ---------- *//* ---------- editable metadata top section ---------- */
     PanelActionList(
@@ -355,10 +392,11 @@ fun TaskOptionsPanel(
                     }
             ) {
                 /* --- TITLE ROW --- */
-                EditableMetaRow(
-                    label = "",
+                MetaRow(
+                    colors = colors,
                     modifier = Modifier.testTag("task-title-row"),
-                    value = {
+                    headlineContent = { TaskFieldHeading("") },
+                    supportingContent = {
                         if (sheet.active == TaskTextField.Title) {
                             TaskTextEditor(
                                 value = sheet.title.value,
@@ -369,30 +407,34 @@ fun TaskOptionsPanel(
                                 onTextFocus = { editState.exitEditMode() }
                             )
                         } else {
-                            AutoLinkedText(
-                                raw = sheet.title.value.text.trim().ifBlank { sheet.title.saved },
-                                style = MaterialTheme.typography.titleLarge,
-                                color = colors.surfaceText
+                            TitleWithEditIcon(
+                                title = sheet.title.value.text.trim().ifBlank { sheet.title.saved },
+                                color = colors.surfaceText,
+                                onEdit = { editState.exitEditMode(); taskVm.focusText(TaskTextField.Title) }
                             )
                         }
-                    },
-                    currentField = sheet.active == TaskTextField.Title,
-                    onEdit = { editState.exitEditMode(); taskVm.focusText(TaskTextField.Title) },
-                    colors = colors
+                    }
                 )
+                if (sheet.active == TaskTextField.Title) {
+                    EditCancelRow(
+                        onCancel = { taskVm.cancelTitleEdit(); focusManager.clearFocus() },
+                        colors = colors
+                    )
+                }
+
+                TaskNotesSection(sheet, taskVm, onTextFocus = { editState.exitEditMode() })
 
                 /* --- DUE DATE ROW --- */
-                EditableMetaRow(
+                // Due, notification, repeat and category have no pencil: tapping the row opens its choices.
+                MetaRow(
                     colors = colors,
-                    label = stringResource(R.string.due),
-                    value = {
-                        Text(
-                            editState.currentDueChoice.resultLabel(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    modifier = Modifier.clickable(enabled = editState.editingField != EditingField.DUE) {
+                        focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.DUE)
                     },
-                    currentField = editState.editingField == EditingField.DUE,
-                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.DUE) }
+                    headlineContent = { TaskFieldHeading(stringResource(R.string.due)) },
+                    supportingContent = {
+                        LabelledOptionPill(label = editState.currentDueChoice.resultLabel(), selected = true)
+                    }
                 )
 
                 if (editState.editingField == EditingField.DUE) {
@@ -442,17 +484,15 @@ fun TaskOptionsPanel(
                 }
 
                 /* --- NOTIFICATION ROW --- */
-                EditableMetaRow(
+                MetaRow(
                     colors = colors,
-                    label = stringResource(R.string.notification_heading),
-                    value = {
-                        Text(
-                            editState.currentNotifyOption.resultLabel(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    modifier = Modifier.clickable(enabled = editState.editingField != EditingField.NOTIFY) {
+                        focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.NOTIFY)
                     },
-                    currentField = editState.editingField == EditingField.NOTIFY,
-                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.NOTIFY) }
+                    headlineContent = { TaskFieldHeading(stringResource(R.string.notification_heading)) },
+                    supportingContent = {
+                        LabelledOptionPill(label = editState.currentNotifyOption.resultLabel(), selected = true)
+                    }
                 )
 
                 if (editState.editingField == EditingField.NOTIFY) {
@@ -503,19 +543,20 @@ fun TaskOptionsPanel(
                 }
 
                 /* --- RECURRENCE ROW --- */
-                EditableMetaRow(
+                MetaRow(
                     colors = colors,
-                    label = stringResource(R.string.repeat),
-                    value = {
-                        Text(
-                            if (editState.recurrence == Recurrence.NONE)
+                    modifier = Modifier.clickable(enabled = editState.editingField != EditingField.RECURRENCE) {
+                        focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.RECURRENCE)
+                    },
+                    headlineContent = { TaskFieldHeading(stringResource(R.string.repeat)) },
+                    supportingContent = {
+                        LabelledOptionPill(
+                            label = if (editState.recurrence == Recurrence.NONE)
                                 stringResource(R.string.no_recurrence_label)
                             else editState.recurrence.displayName(),
-                            style = MaterialTheme.typography.bodyMedium
+                            selected = true
                         )
-                    },
-                    currentField = editState.editingField == EditingField.RECURRENCE,
-                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.RECURRENCE) }
+                    }
                 )
 
                 if (editState.editingField == EditingField.RECURRENCE) {
@@ -547,16 +588,37 @@ fun TaskOptionsPanel(
                         ValidationRecurrenceErrorText(editState.recurrenceError!!)
                     }
                 }
-                EditableMetaRow(
-                    colors = colors,
-                    label = stringResource(R.string.category),
-                    value = {
-                        CategoryPill(
-                            category = editState.selectedCategory, selected = true
-                        )
-                    },
-                    currentField = editState.editingField == EditingField.CATEGORY,
-                    onEdit = { focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.CATEGORY) })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MetaRow(
+                        colors = colors,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = editState.editingField != EditingField.CATEGORY) {
+                                focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.CATEGORY)
+                            },
+                        headlineContent = { TaskFieldHeading(stringResource(R.string.category)) },
+                        supportingContent = {
+                            CategoryPill(
+                                category = editState.selectedCategory, selected = true
+                            )
+                        }
+                    )
+                    // The arrow opens the category's tasks; it is hidden while choosing a category.
+                    if (gotoCategoryEnabled && editState.editingField != EditingField.CATEGORY) {
+                        IconButton(
+                            onClick = { taskVm.closeSheet { onNavigateToCategory(currentCategory.id) } },
+                            modifier = Modifier
+                                .padding(end = PanelConstants.HORIZONTAL_PADDING)
+                                .size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "${stringResource(R.string.go_to_category_action).trim()} ${currentCategory.title}",
+                                tint = colors.surfaceText
+                            )
+                        }
+                    }
+                }
 
                 if (editState.editingField == EditingField.CATEGORY) {
                     FlowRow(
@@ -587,31 +649,15 @@ fun TaskOptionsPanel(
                     )
                 }
 
-                TaskNotesSection(sheet, taskVm, onTextFocus = { editState.exitEditMode() })
-
                 /* --- CREATION AND COMPLETION DATES (read-only) --- */
 
                 TaskDatesRow(taskSnapshot)
                 HorizontalDivider(color = Color.Gray)
             }
 
-        }, actions = (listOf(quickDateAction) + statusActions + listOfNotNull(
-            gotoCategoryAction,
-            if (categoryDeleted) null else ActionItem(
-                label = stringResource(R.string.clone_task_action),
-                icon = Icons.Default.Add,
-                onClick = { onClone(taskForLiveActions) }
-            ),
-            ActionItem(
-                label = stringResource(R.string.delete_task_permanently_action),
-                icon = Icons.Default.Delete,
-                iconTint = colors.brightRed,
-                onClick = { onDeletePermanently(taskSnapshot) }
-            )
-        ).plus(archiveActions).mapIndexed { i, action ->
+        }, actions = (listOf(quickDateAction) + statusActions +
             // A line separates the date and status changes from the task's other actions.
-            if (i == 0) action.copy(dividerAbove = true) else action
-        }).map { action ->
+            otherActionsRow.copy(dividerAbove = true)).map { action ->
             if (!action.dismissOnClick) action else action.copy(
                 dismissOnClick = false,
                 onClick = { taskVm.closeSheet { action.onClick() } }
@@ -619,3 +665,27 @@ fun TaskOptionsPanel(
         }, onDismiss = { dismiss() }
     )
 }
+
+/** The title with its pencil after the last word, so a title of several lines doesn't push the pencil onto a line of its own. */
+@Composable
+private fun TitleWithEditIcon(title: String, color: Color, onEdit: () -> Unit) {
+    val linkStyle = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)
+    val text = remember(title, linkStyle) {
+        buildAnnotatedString {
+            append(linkified(title, linkStyle))
+            appendInlineContent(EDIT_ICON_ID)
+        }
+    }
+    // The size of TrailingEditIcon (an 8dp gap and a 24dp icon), whatever the text scale.
+    val placeholder = with(LocalDensity.current) {
+        Placeholder(32.dp.toSp(), 24.dp.toSp(), PlaceholderVerticalAlign.TextCenter)
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        color = color,
+        inlineContent = mapOf(EDIT_ICON_ID to InlineTextContent(placeholder) { TrailingEditIcon(onEdit) })
+    )
+}
+
+private const val EDIT_ICON_ID = "edit"

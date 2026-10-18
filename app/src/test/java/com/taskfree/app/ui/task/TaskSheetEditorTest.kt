@@ -380,6 +380,24 @@ class TaskSheetEditorTest {
         assertEquals("y".repeat(TASK_TITLE_LIMIT), repo.taskById(task.id)!!.text)
     }
 
+    @Test fun `Cancel puts back the title from before editing, whether or not a pause saved the edit`() = runTest {
+        open()
+        type(TaskTextField.Title, "Unsaved")
+        editor.cancelTitle().join()
+        advanceTimeBy(2_000)
+        settle()
+        assertEquals("Original", repo.taskById(task.id)!!.text)
+        assertEquals("Original", editor.state.value!!.title.value.text)
+        assertNull(editor.state.value!!.active)
+        type(TaskTextField.Title, "Saved by the pause")
+        advanceTimeBy(1_001)
+        settle()
+        assertEquals("Saved by the pause", repo.taskById(task.id)!!.text)
+        editor.cancelTitle().join()
+        assertEquals("Original", repo.taskById(task.id)!!.text)
+        assertEquals("Original", editor.state.value!!.title.value.text)
+    }
+
     @Test fun `a line break pasted into the title is saved as a space`() = runTest {
         open()
         type(TaskTextField.Title, "Line one\nline two")
