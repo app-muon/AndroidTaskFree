@@ -63,6 +63,8 @@ internal class TaskSheetEditor(
     private var submission: Submission? = null
     private var retryClose: (() -> Unit)? = null
     private var retryAction: (() -> Unit)? = null
+    /** The title as it was when editing it began, which Cancel puts back. */
+    private var titleBeforeEdit: String? = null
 
     private class Submission(val text: String) {
         var attempted = false
@@ -120,6 +122,7 @@ internal class TaskSheetEditor(
         val s = state.value ?: return
         if (s.active == field) return
         flushEdits()
+        if (field == TaskTextField.Title) titleBeforeEdit = s.title.value.text
         change {
             val note = (field as? TaskTextField.Note)?.let { key ->
                 it.notes.firstOrNull { n -> n.id == key.id }
@@ -131,6 +134,18 @@ internal class TaskSheetEditor(
 
     fun blur(field: TaskTextField) {
         if (state.value?.active == field) focus(null)
+    }
+
+    /** Stops editing the title and puts back its earlier text, saving that again if a pause already saved the edit. */
+    fun cancelTitle(): Job {
+        val s = state.value ?: return queue.submit {}
+        if (s.active != TaskTextField.Title) return queue.submit {}
+        val before = titleBeforeEdit ?: s.title.saved
+        change {
+            it.copy(active = null, title = it.title.copy(value = TextFieldValue(before),
+                revision = it.title.revision + 1, limitReached = false))
+        }
+        return flushEdits()
     }
 
     fun edit(field: TaskTextField, value: TextFieldValue) {

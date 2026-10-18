@@ -77,6 +77,7 @@ class TaskViewModel(
 
     fun focusText(field: TaskTextField?) = sheetEditor.focus(field)
     fun blurText(field: TaskTextField) = sheetEditor.blur(field)
+    fun cancelTitleEdit() = sheetEditor.cancelTitle()
     fun editText(field: TaskTextField, value: TextFieldValue) = sheetEditor.edit(field, value)
     fun addNote() = sheetEditor.addNote()
     fun deleteNote(id: Int) = sheetEditor.deleteNote(id)
