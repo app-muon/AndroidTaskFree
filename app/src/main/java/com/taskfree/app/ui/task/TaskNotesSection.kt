@@ -47,6 +47,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
@@ -54,7 +58,9 @@ import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.ui.components.AutoLinkedText
 import com.taskfree.app.ui.components.ConfirmDialog
+import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.PanelConstants
+import com.taskfree.app.ui.components.TaskFieldHeading
 import com.taskfree.app.ui.components.formatDateTime
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
@@ -67,6 +73,8 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
     val locale = LocalConfiguration.current.locales[0]
     val zone = ZoneId.systemDefault()
     val colors = providePanelColors()
+    val composerVisible = state.active == TaskTextField.Composer || state.composer.text.isNotEmpty()
+    val addNoteLabel = stringResource(R.string.add_note)
     // The sheet's own button colour, as in EditCancelRow, rather than Material's default.
     val buttonColors = ButtonDefaults.textButtonColors(
         contentColor = colors.dialogButtonText,
@@ -80,6 +88,22 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
 
     // The same side padding as the panel's other rows, so the notes line up with their headings.
     Column(Modifier.fillMaxWidth().padding(horizontal = PanelConstants.HORIZONTAL_PADDING, vertical = 4.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(PanelConstants.SPACER_WIDTH),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TaskFieldHeading(stringResource(R.string.notes_heading))
+            if (!composerVisible) {
+                LabelledOptionPill(
+                    label = "+",
+                    modifier = Modifier.testTag("add-note").semantics {
+                        contentDescription = addNoteLabel
+                        role = Role.Button
+                    },
+                    onClick = { onTextFocus(); vm.focusText(TaskTextField.Composer) }
+                )
+            }
+        }
         if (state.hasError) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.task_save_failed), color = MaterialTheme.colorScheme.error,
@@ -90,11 +114,12 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
             }
         }
         // The composer opens on request and stays while it is focused or holds a draft.
-        if (state.active == TaskTextField.Composer || state.composer.text.isNotEmpty()) {
+        if (composerVisible) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Stays enabled while adding, keeping focus and the keyboard; the editor ignores input then.
                 TaskTextEditor(
                     value = state.composer,
+                    inputToken = state.composerInputToken,
                     field = TaskTextField.Composer,
                     active = state.active == TaskTextField.Composer,
                     limitReached = state.composerLimitReached,
@@ -107,13 +132,6 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
                     Text(stringResource(R.string.add_category_yes_dialog_button))
                 }
             }
-        } else {
-            // No start padding, so the link's text lines up with the notes below it.
-            TextButton(onClick = { onTextFocus(); vm.focusText(TaskTextField.Composer) },
-                modifier = Modifier.height(noteActionHeight).testTag("add-note"),
-                colors = buttonColors, contentPadding = PaddingValues(end = 8.dp)) {
-                Text(stringResource(R.string.add_note))
-            }
         }
         val visible = if (showAll) state.notes else state.notes.take(5)
         visible.forEach { note ->
@@ -125,7 +143,7 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
                 val draft = state.edits[note.id]
                 Column(Modifier.fillMaxWidth().padding(top = 2.dp).testTag("note-${note.id}")) {
                     if (editing && draft != null) {
-                        TaskTextEditor(draft.value, field, true, draft.limitReached, vm = vm,
+                        TaskTextEditor(draft.value, draft.inputToken, field, true, draft.limitReached, vm = vm,
                             onTextFocus = onTextFocus)
                         TextButton(onClick = { deleting = note.id }, colors = buttonColors) {
                             Text(stringResource(R.string.delete_yes_dialog_button))
@@ -181,6 +199,7 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
 @Composable
 internal fun TaskTextEditor(
     value: TextFieldValue,
+    inputToken: TaskTextInputToken,
     field: TaskTextField,
     active: Boolean,
     limitReached: Boolean,
@@ -205,7 +224,7 @@ internal fun TaskTextEditor(
     // OutlinedTextField's decoration with less vertical padding than its fixed 56dp minimum.
     BasicTextField(
         value = value,
-        onValueChange = { vm.editText(field, it) },
+        onValueChange = { vm.editText(field, it, inputToken) },
         modifier = modifier.fillMaxWidth().heightIn(max = 160.dp)
             .testTag(when (field) {
                 TaskTextField.Title -> "task-title-editor"
