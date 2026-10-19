@@ -25,6 +25,7 @@
     <string name="pending_status">¡Espera!</string>
     <string name="done_status">Hecho</string>
     <string name="set_as_for_task_status">Marcar como %1$s</string>
+    <string name="set_status">Cambiar estado</string>
 
     <!-- Categorías -->
     <string name="category">Categoría</string>
@@ -362,6 +363,7 @@
     <string name="backup_folder_change_failed">No se pudo cambiar la carpeta de copias. La carpeta anterior sigue seleccionada.</string>
     <string name="backup_error_settings">TaskFree no pudo registrar la copia de forma segura. Las copias están pausadas. Fuerza la detención y vuelve a abrir TaskFree para cargar los ajustes guardados.</string>
     <string name="add_note">Añadir una nota</string>
+    <string name="notes_heading">Notas</string>
     <string name="write_note">Escribe una nota…</string>
     <string name="notes_show_all">Mostrar todas (%1$d)</string>
     <string name="notes_show_fewer">Mostrar menos notas</string>

@@ -22,12 +22,16 @@ sealed interface TaskTextField {
     data class Note(val id: Int) : TaskTextField
 }
 
+/** Identifies the editor whose keyboard callbacks may still change this draft. */
+class TaskTextInputToken
+
 data class SavedText(
     val value: TextFieldValue,
     val saved: String,
     val revision: Long = 0,
     val failed: Boolean = false,
-    val limitReached: Boolean = false
+    val limitReached: Boolean = false,
+    val inputToken: TaskTextInputToken = TaskTextInputToken()
 )
 
 data class TaskSheetState(
@@ -37,6 +41,7 @@ data class TaskSheetState(
     val edits: Map<Int, SavedText> = emptyMap(),
     val active: TaskTextField? = null,
     val composer: TextFieldValue = TextFieldValue(),
+    val composerInputToken: TaskTextInputToken = TaskTextInputToken(),
     val composerLimitReached: Boolean = false,
     val submitting: Boolean = false,
     val submissionFailed: Boolean = false,
@@ -46,6 +51,12 @@ data class TaskSheetState(
     /** Unsaved text keeps the sheet open; a failed action only shows the error. */
     val hasTextError: Boolean get() = title.failed || edits.values.any { it.failed } || submissionFailed
     val hasError: Boolean get() = hasTextError || actionFailed
+
+    fun inputToken(field: TaskTextField): TaskTextInputToken? = when (field) {
+        TaskTextField.Title -> title.inputToken
+        TaskTextField.Composer -> composerInputToken
+        is TaskTextField.Note -> edits[field.id]?.inputToken
+    }
 }
 
 /** Owned by TaskViewModel, never by a composable. Only the current sheet retains drafts. */
@@ -143,13 +154,15 @@ internal class TaskSheetEditor(
         val before = titleBeforeEdit ?: s.title.saved
         change {
             it.copy(active = null, title = it.title.copy(value = TextFieldValue(before),
-                revision = it.title.revision + 1, limitReached = false))
+                revision = it.title.revision + 1, limitReached = false, inputToken = TaskTextInputToken()))
         }
         return flushEdits()
     }
 
-    fun edit(field: TaskTextField, value: TextFieldValue) {
+    fun edit(field: TaskTextField, value: TextFieldValue, inputToken: TaskTextInputToken) {
         val s = state.value ?: return
+        // Removing a focused field can finish IME composition with its old text after a reset.
+        if (s.inputToken(field) !== inputToken) return
         if (field == TaskTextField.Composer) {
             if (s.submitting) return
             if (value.text.length > TASK_NOTE_LIMIT) {
@@ -271,7 +284,7 @@ internal class TaskSheetEditor(
             if (submission === attempt) {
                 submission = null
                 // A saved note returns the section to its "Add a note" link.
-                change { it.copy(composer = TextFieldValue(), submitting = false,
+                change { it.copy(composer = TextFieldValue(), composerInputToken = TaskTextInputToken(), submitting = false,
                     submissionFailed = false, composerLimitReached = false,
                     active = it.active.takeUnless { active -> active == TaskTextField.Composer }) }
             }

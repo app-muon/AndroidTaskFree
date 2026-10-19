@@ -140,6 +140,9 @@ class TaskViewModelTest {
         vm.sheetState.first { it?.taskId == id }
     }
 
+    private fun TaskViewModel.editText(field: TaskTextField, value: TextFieldValue) =
+        editText(field, value, sheetState.value!!.inputToken(field)!!)
+
     @Test
     fun `immediate completion and clone await title flush and inherit no notes`() = vmTest {
         val id = addDaily(realToday.plusDays(3))

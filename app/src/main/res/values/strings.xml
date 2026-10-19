@@ -25,6 +25,7 @@
     <string name="done_status">Done</string>
     <!-- Title with %1$s replaced by task status (e.g. "Done") -->
     <string name="set_as_for_task_status">Set as %1$s</string>
+    <string name="set_status">Set status</string>
     <!--Categories-->
     <string name="category">Category</string>
     <string name="categories">Categories</string>
@@ -401,6 +402,7 @@ When you set up a new phone, enter your 8-word recovery phrase to unlock the dat
     <string name="backup_folder_change_failed">The backup folder could not be changed. Your previous folder is still selected.</string>
     <string name="backup_error_settings">TaskFree could not record the save safely. Saving is paused. Force stop and reopen TaskFree to reload the saved settings.</string>
     <string name="add_note">Add a note</string>
+    <string name="notes_heading">Notes</string>
     <string name="write_note">Write a note…</string>
     <string name="notes_show_all">Show all (%1$d)</string>
     <string name="notes_show_fewer">Show fewer</string>

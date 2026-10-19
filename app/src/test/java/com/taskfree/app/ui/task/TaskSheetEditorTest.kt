@@ -47,6 +47,17 @@ class TaskSheetEditorTest {
         editor.focus(key)
         editor.edit(key, TextFieldValue(text, TextRange(text.length)))
     }
+    private fun TaskSheetEditor.edit(key: TaskTextField, value: TextFieldValue) =
+        edit(key, value, state.value!!.inputToken(key)!!)
+
+    private fun inputCallback(key: TaskTextField): (TextFieldValue) -> Unit {
+        val token = editor.state.value!!.inputToken(key)!!
+        return { editor.edit(key, it, token) }
+    }
+
+    private fun composing(text: String) =
+        TextFieldValue(text, TextRange(text.length), TextRange(0, text.length))
+
     private suspend fun settle() { queue.submit {}.join() }
     private fun notes() = db.taskNoteDao()
 
@@ -98,6 +109,82 @@ class TaskSheetEditorTest {
         editor.flushEdits().join()
         assertNotNull(notes().byId(note.id)!!.editedAt)
         assertEquals(note.createdAt, notes().byId(note.id)!!.createdAt)
+    }
+
+    @Test fun `late composition callback after Add cannot restore or resubmit the draft`() = runTest {
+        open()
+        editor.focus(TaskTextField.Composer)
+        val onChange = inputCallback(TaskTextField.Composer)
+        val draft = composing("Submit once")
+        onChange(draft)
+        editor.addNote().join()
+
+        // BasicTextField finishes composition when the successful Add removes it.
+        onChange(draft.copy(composition = null))
+        assertEquals("", editor.state.value!!.composer.text)
+        assertNull(editor.state.value!!.active)
+        editor.background().join()
+        editor.close {}.join()
+        assertEquals(listOf("Submit once"), notes().getAllNow().map { it.text })
+        assertNull(notes().getAllNow().single().editedAt)
+    }
+
+    @Test fun `background submission rejects old composer callbacks while another editor stays usable`() = runTest {
+        open()
+        editor.focus(TaskTextField.Composer)
+        val onComposerChange = inputCallback(TaskTextField.Composer)
+        val draft = composing("Background note")
+        onComposerChange(draft)
+        editor.focus(TaskTextField.Title)
+        val onTitleChange = inputCallback(TaskTextField.Title)
+        editor.background().join()
+
+        onComposerChange(draft.copy(composition = null))
+        onTitleChange(TextFieldValue("Updated title"))
+        assertEquals("", editor.state.value!!.composer.text)
+        assertEquals(TaskTextField.Title, editor.state.value!!.active)
+        editor.background().join()
+        editor.close {}.join()
+        assertEquals("Updated title", repo.taskById(task.id)!!.text)
+        assertEquals(listOf("Background note"), notes().getAllNow().map { it.text })
+    }
+
+    @Test fun `old composer callbacks cannot overwrite a new draft or a reopened sheet`() = runTest {
+        open()
+        editor.focus(TaskTextField.Composer)
+        val oldChange = inputCallback(TaskTextField.Composer)
+        val draft = composing("First")
+        oldChange(draft)
+        editor.addNote().join()
+        type(TaskTextField.Composer, "Second")
+        oldChange(draft.copy(composition = null))
+        assertEquals("Second", editor.state.value!!.composer.text)
+        val secondChange = inputCallback(TaskTextField.Composer)
+        editor.close {}.join()
+
+        editor.open(task)
+        type(TaskTextField.Composer, "First") // Intentionally repeating text is still allowed.
+        secondChange(TextFieldValue("Second"))
+        assertEquals("First", editor.state.value!!.composer.text)
+        editor.close {}.join()
+        assertEquals(listOf("First", "Second", "First"), notes().getAllNow().map { it.text })
+    }
+
+    @Test fun `a failed submission keeps the existing input callback usable for corrections`() = runTest {
+        open()
+        editor.focus(TaskTextField.Composer)
+        val onChange = inputCallback(TaskTextField.Composer)
+        onChange(composing("Original draft"))
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_note BEFORE INSERT ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        editor.addNote().join()
+        assertTrue(editor.state.value!!.submissionFailed)
+        onChange(composing("Corrected draft"))
+        assertEquals("Corrected draft", editor.state.value!!.composer.text)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_note")
+        editor.addNote().join()
+        onChange(TextFieldValue("Corrected draft"))
+        editor.close {}.join()
+        assertEquals(listOf("Corrected draft"), notes().getAllNow().map { it.text })
     }
 
     @Test fun `one second pause and subsequent close write normalized title only once`() = runTest {
@@ -396,6 +483,33 @@ class TaskSheetEditorTest {
         editor.cancelTitle().join()
         assertEquals("Original", repo.taskById(task.id)!!.text)
         assertEquals("Original", editor.state.value!!.title.value.text)
+    }
+
+    @Test fun `late composition callbacks cannot undo Cancel or overwrite the next title edit`() = runTest {
+        open()
+        for (autosave in listOf(false, true)) {
+            editor.focus(TaskTextField.Title)
+            val oldChange = inputCallback(TaskTextField.Title)
+            val draft = composing("Cancelled title")
+            oldChange(draft)
+            if (autosave) {
+                advanceTimeBy(1_001)
+                settle()
+                assertEquals("Cancelled title", repo.taskById(task.id)!!.text)
+            }
+            editor.cancelTitle()
+            oldChange(draft.copy(composition = null))
+            advanceTimeBy(1_001)
+            settle()
+            assertEquals("Original", editor.state.value!!.title.value.text)
+            assertEquals("Original", repo.taskById(task.id)!!.text)
+
+            type(TaskTextField.Title, "New edit")
+            oldChange(draft.copy(composition = null))
+            editor.flushEdits().join()
+            assertEquals("New edit", repo.taskById(task.id)!!.text)
+            editor.cancelTitle().join()
+        }
     }
 
     @Test fun `a line break pasted into the title is saved as a space`() = runTest {

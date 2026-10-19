@@ -185,11 +185,23 @@ class SmokeTest {
         dismissTipIfShown()
 
         compose.onNode(taskRow("Water plants")).performClick()
-        val setDone = str(R.string.set_as_for_task_status, str(R.string.done_status))
+        val setDone = hasText(str(R.string.done_status)) and hasAnyAncestor(isDialog())
         waitFor(isDialog())
         compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
-            .performScrollToNode(hasText(setDone))
-        compose.onNodeWithText(setDone).performClick()
+            .performScrollToNode(setDone)
+        compose.onNode(hasText(str(R.string.to_do_status)) and hasAnyAncestor(isDialog()))
+            .assertIsNotEnabled()
+        if (InstrumentationRegistry.getArguments().getString("captureScreenshots") == "true") {
+            val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            try {
+                File(ctx.externalCacheDir, "task-status-actions.png").outputStream().use {
+                    screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            } finally {
+                screenshot.recycle()
+            }
+        }
+        compose.onNode(setDone).performClick()
 
         compose.waitUntil(10_000) {
             runBlocking { reset.db().taskDao().taskById(id)?.status } == TaskStatus.DONE
@@ -496,6 +508,7 @@ class SmokeTest {
         waitFor(isDialog())
         compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
             .performScrollToNode(hasText(str(R.string.archive_series_action)))
+        captureArchiveScreenshot("task-action-pills")
         compose.onNodeWithText(str(R.string.archive_series_action)).performClick()
         waitFor(hasText(str(R.string.are_you_sure_you_want_to_archive_series)))
         captureArchiveScreenshot("archive-series-confirmation")

@@ -2,10 +2,14 @@ package com.taskfree.app.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.view.inputmethod.InputMethodManager
+import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -71,8 +75,18 @@ class TaskNotesUiTest {
         compose.onNodeWithTag("add-note").assertExists()
     }
     private fun closeSheet() {
-        compose.onNode(hasText(str(R.string.close_yes_dialog_button)) and hasAnyAncestor(isDialog()))
-            .performClick()
+        // The IME can cover Close on smaller devices; dismiss it before injecting the tap.
+        val close = compose.onNode(hasText(str(R.string.close_yes_dialog_button)) and hasAnyAncestor(isDialog()))
+        val view = (close.fetchSemanticsNode().root as ViewRootForTest).view
+        compose.runOnUiThread {
+            context.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(view.windowToken, 0)
+        }
+        compose.waitUntil(10_000) {
+            !compose.runOnUiThread {
+                ViewCompat.getRootWindowInsets(view)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            }
+        }
+        close.performClick()
     }
     private fun awaitClosed() = compose.waitUntil(10_000) {
         compose.onAllNodes(hasTestTag("task-title-row")).fetchSemanticsNodes().isEmpty()
@@ -101,8 +115,9 @@ class TaskNotesUiTest {
         assertComposerClosed()
     }
 
-    @Test fun addReturnsToTheAddANoteLink() {
+    @Test fun addReturnsToTheAddANoteButton() {
         launch()
+        compose.onNodeWithTag("add-note").assertContentDescriptionEquals(str(R.string.add_note))
         typeDraft("First")
         compose.onNodeWithText(str(R.string.add_category_yes_dialog_button)).performClick()
         waitFor(hasTestTag("add-note"))
