@@ -42,7 +42,7 @@ import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.ArchivePill
-import com.taskfree.app.ui.components.CategoryPill
+import com.taskfree.app.ui.components.CategoryTag
 import com.taskfree.app.ui.components.DragHandle
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.fromTask
@@ -326,11 +326,7 @@ fun ReorderableCollectionItemScope.TaskRow(
                     if (task.isArchived) add { MetaBox { ArchivePill(big = false) } }
                     if (showCategory) add {
                         MetaBox {
-                            CategoryPill(
-                                category = category,
-                                big = false,
-                                selected = true
-                            )
+                            CategoryTag(category = category)
                         }
                     }
                     if (dueLabel.isNotBlank()) add {
