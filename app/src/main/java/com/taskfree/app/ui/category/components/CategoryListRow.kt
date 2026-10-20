@@ -1,9 +1,11 @@
 // CategoryListRow.kt
 package com.taskfree.app.ui.category.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,16 +26,17 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.DragHandle
-import com.taskfree.app.ui.components.InfoPill
 import com.taskfree.app.ui.mapper.backgroundColor
 import com.taskfree.app.ui.mapper.displayName
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -121,12 +124,12 @@ fun ReorderableCollectionItemScope.CategoryListRow(
                     color = colorResource(R.color.surface_colour)
                 )
 
-                StatusCountPills(counts)
+                StatusCountStrip(counts)
             }
 
             Spacer(Modifier.width(8.dp))
 
-            // Hidden but still taking its space while sorted A/Z, so the pills stay lined up
+            // Hidden but still taking its space while sorted A/Z, so the counts stay lined up
             DragHandle(
                 show = showHandle,
                 modifier = Modifier.draggableHandle(enabled = showHandle)
@@ -135,23 +138,29 @@ fun ReorderableCollectionItemScope.CategoryListRow(
     }
 }
 
-/** One pill per status, in a consistent order; wrap if necessary and dim zeros. */
+/** A single flat strip of equal-width status segments, with subdued zeros. */
 @Composable
-private fun StatusCountPills(counts: Map<TaskStatus, Int>) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
+private fun StatusCountStrip(counts: Map<TaskStatus, Int>) {
+    val countStyle = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
+    // Size every segment for the widest count and keep the strip together when the outer row wraps.
+    Row(modifier = Modifier.width(IntrinsicSize.Max)) {
         TaskStatus.entries.forEach { status ->
             val count = counts[status] ?: 0
             val description = "$count ${status.displayName()}"
-            InfoPill(
-                title = count.toString(),
-                selectedFillColor = status.backgroundColor(),
-                selected = count > 0,
-                border = count == 0,
+            val statusColor = status.backgroundColor()
+            val segmentColor = if (count == 0) lerp(statusColor, Color.Gray, 0.75f) else statusColor
+            Text(
+                text = count.toString(),
+                style = countStyle,
+                color = Color.White.copy(alpha = if (count == 0) 0.65f else 1f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier
-                    .widthIn(min = 22.dp)
+                    .weight(1f)
+                    .widthIn(min = 24.dp)
+                    .background(segmentColor)
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
                     .semantics { contentDescription = description }
             )
         }
