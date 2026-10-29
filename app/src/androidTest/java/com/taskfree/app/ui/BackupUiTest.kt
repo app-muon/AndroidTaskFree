@@ -1,6 +1,7 @@
 package com.taskfree.app.ui
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.view.accessibility.AccessibilityEvent
@@ -9,16 +10,29 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.core.app.ActivityOptionsCompat
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -26,12 +40,18 @@ import com.taskfree.app.Prefs
 import com.taskfree.app.R
 import com.taskfree.app.ResetAppStateRule
 import com.taskfree.app.data.backup.*
+import com.taskfree.app.data.entities.Category
+import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.repository.BackupManager
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.ui.admin.BackupFileDialog
 import com.taskfree.app.ui.admin.BackupMigrationBanner
 import com.taskfree.app.ui.admin.ToolsViewModel
 import com.taskfree.app.ui.components.formatDateTime
+import com.taskfree.app.ui.onboarding.LocalTipManager
+import com.taskfree.app.ui.onboarding.TipManager
+import com.taskfree.app.util.AppDateProvider
+import com.taskfree.app.util.DateProvider
 import kotlinx.coroutines.*
 import org.junit.After
 import org.junit.Before
@@ -41,9 +61,12 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import java.io.File
 import java.time.Instant
+import java.time.Clock
+import java.time.Duration
 import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 
 @RunWith(AndroidJUnit4::class)
 class BackupUiTest {
@@ -55,6 +78,7 @@ class BackupUiTest {
     private val ctx get() = app
     private val folder = Uri.parse("content://test/tree/backups")
     private val time = Instant.parse("2026-10-10T12:00:00Z")
+    @Volatile private var now = time
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var finish: CountDownLatch? = null
     private lateinit var saver: BackupSaver
@@ -83,9 +107,14 @@ class BackupUiTest {
     }
 
     @Before fun prepare() {
+        AppDateProvider.setForTesting(DateProvider(object : Clock() {
+            override fun getZone(): ZoneId = ZoneId.systemDefault()
+            override fun withZone(zone: ZoneId): Clock = Clock.fixed(now, zone)
+            override fun instant(): Instant = now
+        }))
         val db = reset.db()
         Prefs.savePhrase(app, listOf("apple", "brick", "cloud", "delta", "eagle", "flame", "grape", "house"))
-        saver = BackupSaver(app, file, { db }, { time }, 1_000, object : BackupSettingsStore {
+        saver = BackupSaver(app, file, { db }, { now }, 1_000, object : BackupSettingsStore {
             override fun load() = disk
             override fun commit(settings: BackupSettings?): Boolean {
                 if (commitWorks) disk = settings
@@ -99,6 +128,7 @@ class BackupUiTest {
         finish?.countDown()
         scope.coroutineContext[Job]!!.children.toList().joinAll()
         scope.cancel()
+        AppDateProvider.reset()
     }
 
     private fun str(id: Int, vararg args: Any) = ctx.getString(id, *args)
@@ -192,8 +222,7 @@ class BackupUiTest {
         capture("backup-current-pair")
     }
 
-    @Test fun retryBanner_opensRecoveryPanelAndClearsAfterRecoveryOrDisable() {
-        runBlocking { saver.enable(folder); writeFailure = java.io.IOException(); saver.save(true) }
+    private fun showBanner() {
         val db = reset.db()
         val vm = ToolsViewModel(TaskRepository(db), db)
         compose.setContent {
@@ -203,6 +232,64 @@ class BackupUiTest {
                 BackupFileDialog(vm, visible, onShow = { visible = true }, onDismiss = { visible = false })
             }
         }
+    }
+
+    @Test fun offBanner_opensPanelAndStaysUntilFirstSaveSucceeds() {
+        showBanner()
+        compose.onNodeWithText(str(R.string.backup_warning_off))
+            .assertIsDisplayed().assertHasClickAction().assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNode(hasText(str(R.string.backup_file_title)) and hasAnyAncestor(isDialog())).assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        blockWrites()
+        compose.onNodeWithText(str(R.string.backup_warning_off)).assertIsDisplayed()
+        finish!!.countDown()
+        compose.waitUntil(10_000) { !saver.status.value.saving }
+        compose.onNodeWithText(str(R.string.backup_warning_off)).assertDoesNotExist()
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertDoesNotExist()
+    }
+
+    @Test fun staleBanner_opensPanelAndStaysUntilSuccessfulSave() {
+        runBlocking { saver.enable(folder) }
+        now = time.plus(Duration.ofDays(2))
+        showBanner()
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertIsDisplayed().performClick()
+        compose.onNode(hasText(str(R.string.backup_file_title)) and hasAnyAncestor(isDialog())).assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        blockWrites()
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertIsDisplayed()
+        finish!!.countDown()
+        compose.waitUntil(10_000) { !saver.status.value.saving }
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertDoesNotExist()
+    }
+
+    @Test fun hiddenBanner_checksAgeEveryMinuteOnlyWhileResumedAndRefreshesOnReturn() {
+        runBlocking { saver.enable(folder) }
+        val owner = object : LifecycleOwner {
+            override val lifecycle = LifecycleRegistry(this)
+        }
+        compose.runOnUiThread { owner.lifecycle.currentState = Lifecycle.State.RESUMED }
+        compose.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+                MaterialTheme { BackupMigrationBanner(onOpenBackup = {}) }
+            }
+        }
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertDoesNotExist()
+        compose.runOnIdle { now = time.plus(Duration.ofHours(24)).plusMillis(1) }
+        compose.mainClock.advanceTimeBy(60_000)
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertIsDisplayed()
+        compose.runOnIdle {
+            owner.lifecycle.currentState = Lifecycle.State.CREATED
+            now = time
+        }
+        compose.mainClock.advanceTimeBy(60_000)
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertIsDisplayed()
+        compose.runOnIdle { owner.lifecycle.currentState = Lifecycle.State.RESUMED }
+        compose.onNodeWithText(str(R.string.backup_warning_stale)).assertDoesNotExist()
+    }
+
+    @Test fun retryBanner_opensRecoveryPanelAndClearsAfterRecoveryOrDisable() {
+        runBlocking { saver.enable(folder); writeFailure = java.io.IOException(); saver.save(true) }
+        showBanner()
         compose.onNodeWithText(str(R.string.backup_retry_notice)).assertIsDisplayed()
         compose.onNodeWithText(str(R.string.backup_file_title)).performClick()
         singleFolderAction(R.string.backup_choose_folder)
@@ -218,6 +305,68 @@ class BackupUiTest {
         compose.onNodeWithText(str(R.string.backup_retry_notice)).assertIsDisplayed()
         runBlocking { saver.disable() }
         compose.onNodeWithText(str(R.string.backup_retry_notice)).assertDoesNotExist()
+        compose.onNodeWithText(str(R.string.backup_warning_off)).assertIsDisplayed()
+    }
+
+    @Test fun warningBanners_onBothMainScreensInEachLanguageThemeAndTextSize() {
+        reset.seed {
+            val category = categoryDao().insertAll(listOf(Category(title = "Home", color = 0xFF3F51B5))).single().toInt()
+            taskDao().insert(Task(categoryId = category, text = "Check backup files",
+                due = AppDateProvider.current.today(), singleCategoryPageOrder = 0))
+        }
+        val tips = TipManager(app)
+        var configuration by mutableStateOf(Configuration(app.resources.configuration))
+        compose.setContent {
+            val density = LocalDensity.current.density
+            val activityContext = LocalContext.current
+            val context = remember(activityContext, configuration) {
+                android.view.ContextThemeWrapper(activityContext, 0).apply { applyOverrideConfiguration(configuration) }
+            }
+            CompositionLocalProvider(
+                LocalContext provides context,
+                LocalConfiguration provides configuration,
+                LocalDensity provides Density(density, configuration.fontScale),
+                LocalTipManager provides tips
+            ) {
+                val dark = configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+                MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+                    AppNav()
+                }
+            }
+        }
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Check backup files").fetchSemanticsNodes().isNotEmpty() }
+        // A task onboarding tip can race the initial Room load.
+        if (compose.onAllNodesWithText(str(R.string.got_it_confirmation)).fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText(str(R.string.got_it_confirmation)).performClick()
+        }
+        for (stale in listOf(false, true)) {
+            if (stale) {
+                runBlocking { saver.enable(folder) }
+                compose.runOnIdle { now = time.plus(Duration.ofDays(2)) }
+                compose.mainClock.advanceTimeBy(60_000)
+            }
+            for (language in listOf("en", "es")) for (dark in listOf(false, true)) for (scale in listOf(1f, 2f)) {
+                val config = Configuration(app.resources.configuration).apply {
+                    setLocale(Locale.forLanguageTag(language))
+                    uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                        if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+                    fontScale = scale
+                }
+                compose.runOnIdle { configuration = config }
+                val resources = app.createConfigurationContext(config).resources
+                val warning = resources.getString(if (stale) R.string.backup_warning_stale else R.string.backup_warning_off)
+                for ((screen, tab) in listOf("tasks" to R.string.tasks_due, "categories" to R.string.categories)) {
+                    compose.onNodeWithContentDescription(resources.getString(tab)).performClick()
+                    compose.onNodeWithText(warning).assertIsDisplayed().assertHasClickAction().assertHeightIsAtLeast(48.dp)
+                    compose.onAllNodes(hasClickAction() and hasText(warning)).assertCountEquals(1)
+                    capture("backup-banner-$screen-${if (stale) "stale" else "off"}-$language-${if (dark) "dark" else "light"}-${scale.toInt()}x", panel = false)
+                    compose.onNodeWithText(warning).performClick()
+                    // Dialog windows use the device configuration, not the screen's test override.
+                    compose.onNode(isDialog()).assertIsDisplayed()
+                    InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+                }
+            }
+        }
     }
 
     @Test fun recoveryBanner_prioritizesRestartThenMigrationAndIgnoresHistoricalFolderError() {
@@ -250,13 +399,15 @@ class BackupUiTest {
         check(entered.await(10, TimeUnit.SECONDS))
     }
 
-    private fun capture(name: String) {
+    private fun capture(name: String, panel: Boolean = true) {
         if (InstrumentationRegistry.getArguments().getString("captureScreenshots") != "true") return
-        compose.onNode(hasText(str(R.string.backup_file_title)) and hasAnyAncestor(isDialog())).performScrollTo()
+        if (panel) compose.onNode(hasText(str(R.string.backup_file_title)) and hasAnyAncestor(isDialog())).performScrollTo()
         compose.waitForIdle()
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val bitmap = if (panel) InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            else compose.onRoot().captureToImage().asAndroidBitmap()
         try {
-            File(app.externalCacheDir, "$name-${locale.language}.png").outputStream().use {
+            val filename = if (panel) "$name-${locale.language}" else name
+            File(app.externalCacheDir, "$filename.png").outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
         } finally { bitmap.recycle() }

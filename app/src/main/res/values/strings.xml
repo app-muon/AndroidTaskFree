@@ -277,6 +277,8 @@ When you set up a new phone, enter your 8-word recovery phrase to unlock the dat
     <string name="backup_file_title">Backup files</string>
     <string name="backup_file_intro">Keep two encrypted copies of your tasks in a folder on this phone. TaskFree updates them in turn after changes and when you leave the app. Your recovery phrase unlocks them.\n\nChoose a dedicated folder such as Downloads/TaskFree. Android does not allow the Downloads root. To keep copies off this phone, configure a sync app to upload both files.</string>
     <string name="backup_off">Off</string>
+    <string name="backup_warning_off">Automatic backup is off</string>
+    <string name="backup_warning_stale">No backup saved in 24 hours</string>
     <string name="backup_saving">Saving…</string>
     <string name="backup_saved_at">Saved %1$s</string>
     <string name="backup_not_saved_yet">Not saved yet</string>

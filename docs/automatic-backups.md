@@ -109,12 +109,21 @@ unchanged. The common limit is **20 MiB (20,971,520 bytes) per final file**, inc
 the encrypted format's 62-byte overhead. Oversized automatic saves and plain exports
 are rejected before opening an output stream. Import uses the same final-file limit.
 
-Both task and category screens share a persistent warning above bottom navigation.
-It prioritizes restart-required state, then single-file migration, then a current `FAILED`
-save. Retryable failures explain that saving failed and will be retried. Its action and Tools
-open the same backup panel; the picker host remains composed when the panel closes.
-Historical folder-operation errors do not trigger this warning. Successful recovery or
-disabling backup clears the corresponding warning through normal state transitions.
+Both task and category screens share a persistent banner above bottom navigation.
+Red banners prioritize restart-required state, then single-file migration, then any saved
+backup error. Retryable failures explain that saving failed and will be retried.
+Otherwise an amber banner says **Automatic backup is off**, including on an empty fresh
+installation, or **No backup saved in 24 hours** when configured without a successful save
+or when the last save is strictly more than 24 hours old. Exactly 24 hours and future save
+times count as recent. An old backup triggers the warning even if nothing has changed.
+Warnings remain during saving and clear only when the resulting status is healthy and recent.
+Disabling backup replaces a saved-error banner with the off warning.
+The entire amber strip opens **Backup files**, with one accessible click target and an action
+that wraps below the message when space is limited. Age is checked on status changes,
+foreground entry, and every minute while resumed; the timer stops in the background.
+Its action and Tools open the same backup panel; the picker host remains composed when the
+panel closes. Historical folder-operation errors stay in the panel and do not override the
+banner rules. There is no dismissal or new backup scheduling behavior.
 Tools also uses warning styling for migration.
 The panel has one folder action: **Choose backup folder** for migration/damage/current `FAILED`, **Choose
 folder again** for lost access, otherwise **Change folder**, with phrase review separate.
@@ -161,6 +170,41 @@ reset ordering, cleanup of candidate files while excluding managed/legacy files,
 uncertain commits, compatible fingerprints and commit counts. Repository checks cover
 one enclosing snapshot transaction, recorded synchronously with both table reads, and plain/encrypted final files immediately
 below, at, and above the limit.
+
+## Backup warning validation, October 29, 2026
+
+- `:app:testDebugUnitTest --tests com.taskfree.app.ui.admin.BackupBannerTest`: all seven
+  tests passed, including the strict 24-hour boundary, future timestamps, error priority,
+  historical folder errors, and warnings during saving.
+- `:app:compileDebugAndroidTestKotlin`, `:app:assembleDebug`, and
+  `:app:assembleDebugAndroidTest` passed.
+- All 19 `BackupUiTest` cases passed across the initial run and focused reruns on a
+  disposable API 28 emulator. Three existing panel tests needed a taller viewport to
+  find offscreen lazy-list rows; their helpers were left unchanged. The existing API 36.1
+  Espresso incompatibility described below also reproduced.
+- The screen test checked all 32 combinations of Tasks/Categories, off/stale,
+  English/Spanish, light/dark, and 1×/2× text on a 360dp-wide screen. Each warning had a
+  single click target of at least 48dp and opened the panel. Screenshots confirmed the
+  wrapping message/action and both warning palettes. The lifecycle test verified minute
+  updates while resumed, no timer updates while backgrounded, and immediate refresh on return.
+- Unrelated existing large-text limitations remain: bottom navigation labels truncate,
+  and the Spanish Today filter can wrap one letter per line at 2× text.
+
+| Screenshot | Configuration |
+| --- | --- |
+| [Tasks, backup off](backup-banner-tasks-off-en-light-1x.png) | English, light, 1× |
+| [Categories, backup off](backup-banner-categories-off-es-dark-2x.png) | Spanish, dark, 2× |
+| [Tasks, stale backup](backup-banner-tasks-stale-es-light-2x.png) | Spanish, light, 2× |
+| [Categories, stale backup](backup-banner-categories-stale-en-dark-1x.png) | English, dark, 1× |
+
+To reproduce all 32 screenshots on a disposable emulator with both debug APKs installed:
+
+```powershell
+adb -s emulator-5582 shell am instrument -w -e captureScreenshots true -e class 'com.taskfree.app.ui.BackupUiTest#warningBanners_onBothMainScreensInEachLanguageThemeAndTextSize' com.taskfree.app.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+The test supplies the clock and screen configurations; no device language/theme changes
+are needed. Images are saved to `/sdcard/Android/data/com.taskfree.app/cache/backup-banner-*.png`.
 
 ## Export safety and visible recovery validation, October 12, 2026
 
