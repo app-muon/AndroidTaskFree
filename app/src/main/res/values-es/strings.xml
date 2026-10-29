@@ -235,6 +235,8 @@
     <string name="backup_file_title">Archivos de copia</string>
     <string name="backup_file_intro">Guarda dos copias cifradas de tus tareas en una carpeta de este teléfono. TaskFree las actualiza por turnos tras los cambios y al salir de la app. Tu frase de recuperación las desbloquea.\n\nElige una carpeta dedicada, como Descargas/TaskFree. Android no permite elegir la raíz de Descargas. Para guardar copias fuera del teléfono, configura una app de sincronización que suba ambos archivos.</string>
     <string name="backup_off">Desactivada</string>
+    <string name="backup_warning_off">La copia de seguridad automática está desactivada</string>
+    <string name="backup_warning_stale">No se ha guardado ninguna copia en 24 horas</string>
     <string name="backup_saving">Guardando…</string>
     <string name="backup_saved_at">Guardada %1$s</string>
     <string name="backup_not_saved_yet">Aún no se ha guardado</string>
