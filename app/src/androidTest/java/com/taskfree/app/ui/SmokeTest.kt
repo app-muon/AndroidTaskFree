@@ -25,6 +25,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -142,6 +149,100 @@ class SmokeTest {
     }
 
     /* ---------- tests ---------- */
+
+    @Test
+    fun draggingTasksPersistsOrderAfterReopening() {
+        val category = seedCategory()
+        val first = seedTask(category, "Drag task A", 0)
+        val second = seedTask(category, "Drag task B", 1)
+        launch()
+        waitFor(taskRow("Drag task B"))
+        dismissTipIfShown()
+        dragBelow(taskRow("Drag task A"), taskRow("Drag task B"))
+        compose.waitUntil(10_000) {
+            runBlocking { reset.db().taskDao().getAllNow().sortedBy { it.allCategoryPageOrder }.map { it.id } } ==
+                listOf(second, first)
+        }
+        scenario!!.recreate()
+        waitFor(taskRow("Drag task B"))
+        assertTrue(compose.onNode(taskRow("Drag task B")).fetchSemanticsNode().boundsInRoot.top <
+            compose.onNode(taskRow("Drag task A")).fetchSemanticsNode().boundsInRoot.top)
+    }
+
+    @Test
+    fun draggingCategoriesPersistsOrderAcrossNavigation() {
+        reset.seed {
+            categoryDao().insertAll(listOf(Category(1, "Drag category A", 0, 0),
+                Category(2, "Drag category B", 0, 1)))
+        }
+        seedTask(1, "Existing task")
+        launch()
+        waitFor(taskRow("Existing task"))
+        dismissTipIfShown()
+        compose.onNodeWithText(str(R.string.categories)).performClick()
+        val first = hasClickAction() and hasText("Drag category A")
+        val second = hasClickAction() and hasText("Drag category B")
+        waitFor(second)
+        dragBelow(first, second)
+        compose.waitUntil(10_000) {
+            runBlocking { reset.db().categoryDao().getAllNow().sortedBy { it.categoryPageOrder }.map { it.id } } ==
+                listOf(2, 1)
+        }
+        compose.onNodeWithText(str(R.string.tasks_due)).performClick()
+        waitFor(taskRow("Existing task"))
+        compose.onNodeWithText(str(R.string.categories)).performClick()
+        waitFor(second)
+        assertTrue(compose.onNode(second).fetchSemanticsNode().boundsInRoot.top <
+            compose.onNode(first).fetchSemanticsNode().boundsInRoot.top)
+    }
+
+    private fun dragBelow(first: SemanticsMatcher, second: SemanticsMatcher) {
+        val start = compose.onNode(first).fetchSemanticsNode().boundsInRoot
+        val target = compose.onNode(second).fetchSemanticsNode().boundsInRoot
+        // Both rows place the drag handle at the trailing edge.
+        val x = start.right - start.width * 0.06f
+        compose.onRoot().performTouchInput {
+            swipe(Offset(x, start.center.y), Offset(x, target.center.y + target.height * 0.25f), 800)
+        }
+    }
+
+    @Test
+    fun dateAndTimePickersSaveTaskAndBackDismissesDetails() {
+        val category = seedCategory()
+        seedTask(category, "Existing task")
+        launch()
+        waitFor(taskRow("Existing task"))
+        dismissTipIfShown()
+        compose.onNodeWithText(str(R.string.add_task_button_label)).performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("Picker task")
+        compose.onNodeWithText(str(R.string.date_picker)).performScrollTo().performClick()
+        confirmMaterialPicker("confirm_button")
+        compose.onNodeWithText(str(R.string.tomorrow)).performScrollTo().performClick()
+        compose.onNodeWithText(str(R.string.time_picker)).performScrollTo().performClick()
+        confirmMaterialPicker("material_timepicker_ok_button")
+        captureArchiveScreenshot("dependency-picker")
+        waitFor(hasText(str(R.string.notification_time_with_time, "09:00")))
+        compose.onNodeWithText(str(R.string.save_yes_dialog_button)).performClick()
+        compose.waitUntil(10_000) {
+            runBlocking { reset.db().taskDao().getAllNow().any { it.text == "Picker task" } }
+        }
+        val saved = runBlocking { reset.db().taskDao().getAllNow().single { it.text == "Picker task" } }
+        val tomorrow = LocalDate.now().plusDays(1)
+        assertEquals(tomorrow, saved.due)
+        assertEquals(tomorrow.atTime(9, 0).atZone(java.time.ZoneId.systemDefault()).toInstant(), saved.reminderTime)
+        compose.onNode(taskRow("Existing task")).performClick()
+        waitFor(isDialog())
+        androidx.test.espresso.Espresso.pressBack()
+        waitForGone(isDialog())
+        compose.onNode(taskRow("Existing task")).assertIsDisplayed()
+    }
+
+    private fun confirmMaterialPicker(button: String) {
+        // Resolve IDs from the target APK, not the test APK's copy of Material resources.
+        val id = ctx.resources.getIdentifier(button, "id", ctx.packageName)
+        check(id != 0)
+        onView(withId(id)).perform(click())
+    }
 
     @Test
     fun firstLaunch_addCategoryFromEmptyState() {
@@ -586,7 +687,7 @@ class SmokeTest {
         automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
         compose.waitUntil(10_000) { scenario!!.state == Lifecycle.State.CREATED }
         ctx.getSystemService(android.app.ActivityManager::class.java).appTasks
-            .first { it.taskInfo.id == taskId }.moveToFront()
+            .first { it.taskInfo?.id == taskId }.moveToFront()
         compose.waitUntil(10_000) { scenario!!.state == Lifecycle.State.RESUMED }
         waitFor(taskRow("Preserved during rotation"))
 
