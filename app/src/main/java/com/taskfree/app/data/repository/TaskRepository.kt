@@ -109,6 +109,15 @@ class TaskRepository(
         insertLiveTask(input, originalCreatedAt = createdAt, occurrenceCreatedAt = createdAt)
     }
 
+    suspend fun cloneTask(sourceTaskId: Int, input: TaskInput): Int? = database.withTransaction {
+        if (database.taskDao().taskById(sourceTaskId) == null) return@withTransaction null
+        val id = createTask(input)
+        val notes = database.taskNoteDao()
+        // Insert oldest first so generated IDs preserve display order when timestamps tie.
+        notes.insertAll(notes.getForTaskNow(sourceTaskId).map { it.copy(id = 0, taskId = id) })
+        id
+    }
+
     private suspend fun insertLiveTask(
         input: TaskInput,
         // Required even when null: a legacy recurrence must keep its unknown original date.

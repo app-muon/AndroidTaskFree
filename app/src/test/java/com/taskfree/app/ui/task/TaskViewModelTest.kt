@@ -41,6 +41,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -144,9 +145,9 @@ class TaskViewModelTest {
         editText(field, value, sheetState.value!!.inputToken(field)!!)
 
     @Test
-    fun `immediate completion and clone await title flush and inherit no notes`() = vmTest {
+    fun `completion starts without notes while cloning copies them and both await title flush`() = vmTest {
         val id = addDaily(realToday.plusDays(3))
-        repo.addNote(id, "Source only")
+        val note = repo.addNote(id, "Source note")!!
         openSheet(id)
         vm.focusText(TaskTextField.Title)
         vm.editText(TaskTextField.Title, TextFieldValue("Newest title"))
@@ -157,7 +158,108 @@ class TaskViewModelTest {
         vm.clone(id, "%1\$s (copy)").join()
         val clone = repo.snapshot().single { it.id !in listOf(id, next.id) }
         assertEquals("Newest title (copy)", clone.text)
-        assertTrue(repo.observeNotes(clone.id).first().isEmpty())
+        val copy = repo.observeNotes(clone.id).first().single()
+        assertTrue(copy.id != note.id)
+        assertEquals(note.copy(id = copy.id, taskId = clone.id), copy)
+        assertEquals(TaskStatus.TODO, clone.status)
+        assertNull(clone.completedDate)
+    }
+
+    @Test
+    fun `immediate clone includes pending title and note edits`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        val note = repo.addNote(id, "Original note")!!
+        openSheet(id)
+        vm.sheetState.first { it!!.notes.isNotEmpty() }
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Latest title"))
+        vm.focusText(TaskTextField.Note(note.id))
+        vm.editText(TaskTextField.Note(note.id), TextFieldValue("Latest note\nSecond line"))
+
+        vm.clone(id, "%1\$s (copy)").join()
+
+        val clone = repo.snapshot().single { it.id != id }
+        assertEquals("Latest title (copy)", clone.text)
+        val copy = repo.observeNotes(clone.id).first().single()
+        assertEquals("Latest note\nSecond line", copy.text)
+        assertEquals(note.createdAt, copy.createdAt)
+        assertEquals(clock.instant(), copy.editedAt)
+        assertEquals(setOf(id, clone.id), alarmTaskIds().toSet())
+    }
+
+    @Test
+    fun `failed title or note save blocks cloning until saved and requested again`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        val note = repo.addNote(id, "Original note")!!
+        openSheet(id)
+        vm.sheetState.first { it!!.notes.isNotEmpty() }
+        val alarmsBefore = alarms.scheduledAlarms.toList()
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_title BEFORE UPDATE OF text ON Task BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.focusText(TaskTextField.Title)
+        vm.editText(TaskTextField.Title, TextFieldValue("Latest title"))
+        vm.clone(id, "%1\$s (copy)").join()
+        assertTrue(vm.sheetState.value!!.title.failed)
+        assertEquals(1, repo.snapshot().size)
+        assertEquals(alarmsBefore, alarms.scheduledAlarms)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_title")
+
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_edit BEFORE UPDATE ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.focusText(TaskTextField.Note(note.id))
+        vm.editText(TaskTextField.Note(note.id), TextFieldValue("Latest note"))
+        vm.clone(id, "%1\$s (copy)").join()
+        assertTrue(vm.sheetState.value!!.edits.getValue(note.id).failed)
+        assertEquals(1, repo.snapshot().size)
+        assertEquals(alarmsBefore, alarms.scheduledAlarms)
+        assertEquals("Original note", db.taskNoteDao().byId(note.id)!!.text)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_edit")
+
+        vm.retryTextSave().join()
+        assertFalse(vm.sheetState.value!!.hasError)
+        assertEquals(1, repo.snapshot().size)
+        vm.clone(id, "%1\$s (copy)").join()
+        val clone = repo.snapshot().single { it.id != id }
+        assertEquals("Latest title (copy)", clone.text)
+        assertEquals("Latest note", repo.observeNotes(clone.id).first().single().text)
+        assertEquals(2, db.taskNoteDao().getAllNow().size)
+        assertEquals(setOf(id, clone.id), alarmTaskIds().toSet())
+    }
+
+    @Test
+    fun `failed note copy leaves no cloned task partial notes or new alarm`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        listOf("First", "Second", "Third").forEach { repo.addNote(id, it) }
+        val tasksBefore = repo.snapshot()
+        val notesBefore = db.taskNoteDao().getAllNow()
+        val alarmsBefore = alarms.scheduledAlarms.toList()
+        db.openHelper.writableDatabase.execSQL("""
+            CREATE TRIGGER fail_copy BEFORE INSERT ON TaskNote
+            WHEN NEW.taskId <> $id AND NEW.text = 'Second'
+            BEGIN SELECT RAISE(ABORT, 'injected'); END
+        """.trimIndent())
+
+        vm.clone(id, "%1\$s (copy)").join()
+
+        assertEquals(tasksBefore, repo.snapshot())
+        assertEquals(notesBefore, db.taskNoteDao().getAllNow())
+        assertEquals(alarmsBefore, alarms.scheduledAlarms)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_copy")
+        vm.clone(id, "%1\$s (copy)").join()
+        val clone = repo.snapshot().single { it.id != id }
+        assertEquals(listOf("Third", "Second", "First"), repo.observeNotes(clone.id).first().map { it.text })
+        assertEquals(setOf(id, clone.id), alarmTaskIds().toSet())
+    }
+
+    @Test
+    fun `cloning a deleted source creates no task or alarm`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        repo.addNote(id, "Removed")
+        vm.deletePermanently(repo.taskById(id)!!).join()
+
+        vm.clone(id, "%1\$s (copy)").join()
+
+        assertTrue(repo.snapshot().isEmpty())
+        assertTrue(db.taskNoteDao().getAllNow().isEmpty())
+        assertTrue(alarms.scheduledAlarms.isEmpty())
     }
 
     @Test
@@ -215,7 +317,7 @@ class TaskViewModelTest {
     }
 
     @Test
-    fun `replacement confirmation remains behind sheet on failure and Retry performs close`() = vmTest {
+    fun `clone confirmation waits for a failed draft save and copies the draft once after Retry`() = vmTest {
         val id = addDaily(realToday.plusDays(3))
         openSheet(id)
         val original = vm.dialogs.value as TaskDialogs.Options
@@ -224,11 +326,36 @@ class TaskViewModelTest {
         vm.setDialog(TaskDialogs.ConfirmClone(original.task))
         vm.sheetState.first { it!!.submissionFailed }
         assertTrue(vm.dialogs.value is TaskDialogs.Options)
+        assertEquals(1, repo.snapshot().size)
         db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_note")
         vm.retryTextSave().join()
         assertTrue(vm.dialogs.value is TaskDialogs.ConfirmClone)
         assertNull(vm.sheetState.value)
         assertEquals(1, db.taskNoteDao().getAllNow().size)
+        vm.clone(id, "%1\$s (copy)").join()
+        val clone = repo.snapshot().single { it.id != id }
+        assertEquals(listOf("Keep composer"), repo.observeNotes(id).first().map { it.text })
+        assertEquals(listOf("Keep composer"), repo.observeNotes(clone.id).first().map { it.text })
+        assertEquals(2, db.taskNoteDao().getAllNow().size)
+    }
+
+    @Test
+    fun `clone confirmation and pending Add share one draft save`() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        openSheet(id)
+        val original = vm.dialogs.value as TaskDialogs.Options
+        vm.editText(TaskTextField.Composer, TextFieldValue("Draft\nSecond line"))
+        vm.addNote()
+        vm.setDialog(TaskDialogs.ConfirmClone(original.task))
+        vm.dialogs.first { it is TaskDialogs.ConfirmClone }
+        assertNull(vm.sheetState.value)
+        assertEquals(1, db.taskNoteDao().getAllNow().size)
+
+        vm.clone(id, "%1\$s (copy)").join()
+
+        val clone = repo.snapshot().single { it.id != id }
+        assertEquals(listOf("Draft\nSecond line"), repo.observeNotes(clone.id).first().map { it.text })
+        assertEquals(2, db.taskNoteDao().getAllNow().size)
     }
 
     @Test

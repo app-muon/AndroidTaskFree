@@ -206,21 +206,25 @@ class TaskViewModel(
         createAndSchedule(TaskInput(text, due.date, rec, categoryId, intendedReminder), notify)
     }
 
-    fun clone(taskId: Int, titleTemplate: String) = launchIO(taskId, needsTitle = true) {
+    fun clone(taskId: Int, titleTemplate: String) = launchIO(taskId, needsTitle = true, needsNotes = true) {
         val current = repo.taskById(taskId) ?: return@launchIO
         val notify = NotificationOption.fromTask(current)
-        createAndSchedule(
+        val id = repo.cloneTask(
+            taskId,
             TaskInput(
                 titleTemplate.format(current.text), current.due, current.recurrence,
                 current.categoryId, notify.toInstant(current.due)
-            ),
-            notify
-        )
+            )
+        ) ?: return@launchIO
+        scheduleCreatedTask(id, notify)
     }
 
     private suspend fun createAndSchedule(input: TaskInput, notify: NotificationOption) {
         val id = repo.createTask(input)
+        scheduleCreatedTask(id, notify)
+    }
 
+    private suspend fun scheduleCreatedTask(id: Int, notify: NotificationOption) {
         // Evaluate scheduling policy using the created task snapshot
         val task = repo.taskById(id) ?: return
         when (val result = task.resolveReminderInstant(notify, task.due)) {
@@ -429,21 +433,26 @@ class TaskViewModel(
 
     /**
      * Enqueue the captured edits and await them before a mutation reads the task. Only an
-     * operation that copies the title ([needsTitle]) is skipped when the title fails to save.
+     * operation that copies text ([needsTitle], [needsNotes]) requires those saves to succeed.
      */
-    private fun launchIO(taskId: Int? = null, needsTitle: Boolean = false, block: suspend () -> Unit): Job {
+    private fun launchIO(
+        taskId: Int? = null,
+        needsTitle: Boolean = false,
+        needsNotes: Boolean = false,
+        block: suspend () -> Unit
+    ): Job {
         val flush = if (sheetState.value?.taskId == taskId && taskId != null)
-            sheetEditor.prepareFlush() else null
+            sheetEditor.prepareFlush(requireNotes = needsNotes) else null
         return mutations.submit {
-            val titleSaved = flush == null || flush()
-            if (titleSaved || !needsTitle) {
+            val textSaved = flush == null || flush()
+            if (textSaved || (!needsTitle && !needsNotes)) {
                 try {
                     withContext(io) { block() }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Log.e("TaskViewModel", "Task operation failed", e)
-                    sheetEditor.actionFailed { launchIO(taskId, needsTitle, block) }
+                    sheetEditor.actionFailed { launchIO(taskId, needsTitle, needsNotes, block) }
                 }
             }
         }

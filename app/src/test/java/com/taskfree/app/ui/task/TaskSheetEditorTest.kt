@@ -251,6 +251,32 @@ class TaskSheetEditorTest {
         assertEquals("Final keystroke", notes().byId(note.id)!!.text)
     }
 
+    @Test fun `flush can require note saves while other actions still only require the title`() = runTest {
+        open()
+        val note = repo.addNote(task.id, "Existing")!!
+        editor.state.first { it!!.notes.isNotEmpty() }
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_edit BEFORE UPDATE ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        type(TaskTextField.Note(note.id), "Latest\nline")
+        var saved = false
+        val ordinaryFlush = editor.prepareFlush()
+        queue.submit { saved = ordinaryFlush() }.join()
+        assertTrue(saved)
+        assertTrue(editor.state.value!!.edits.getValue(note.id).failed)
+
+        val cloneFlush = editor.prepareFlush(requireNotes = true)
+        queue.submit { saved = cloneFlush() }.join()
+        assertFalse(saved)
+        assertEquals("Existing", notes().byId(note.id)!!.text)
+        assertEquals("Latest\nline", editor.state.value!!.edits.getValue(note.id).value.text)
+
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_edit")
+        val retryFlush = editor.prepareFlush(requireNotes = true)
+        queue.submit { saved = retryFlush() }.join()
+        assertTrue(saved)
+        assertFalse(editor.state.value!!.hasError)
+        assertEquals("Latest\nline", notes().byId(note.id)!!.text)
+    }
+
     @Test fun `failed insertion keeps close open and Retry inserts once`() = runTest {
         open()
         db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_note BEFORE INSERT ON TaskNote BEGIN SELECT RAISE(ABORT, 'injected'); END")

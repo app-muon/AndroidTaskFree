@@ -25,6 +25,10 @@ local.properties
 # Keystore files
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.pepk
+*.pem
 gradle.properties
 
 # Log files

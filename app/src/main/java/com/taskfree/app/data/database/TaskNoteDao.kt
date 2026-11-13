@@ -20,6 +20,9 @@ interface TaskNoteDao {
     @Query("SELECT * FROM TaskNote ORDER BY id")
     suspend fun getAllNow(): List<TaskNote>
 
+    @Query("SELECT * FROM TaskNote WHERE taskId = :taskId ORDER BY createdAt ASC, id ASC")
+    suspend fun getForTaskNow(taskId: Int): List<TaskNote>
+
     @Query("SELECT * FROM TaskNote WHERE id = :id")
     suspend fun byId(id: Int): TaskNote?
 

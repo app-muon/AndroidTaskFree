@@ -203,19 +203,19 @@ internal class TaskSheetEditor(
     }
 
     /** Capture text synchronously, before enqueuing any dependent task mutation. */
-    fun prepareFlush(exit: Boolean = true): suspend () -> Boolean {
+    fun prepareFlush(exit: Boolean = true, requireNotes: Boolean = false): suspend () -> Boolean {
         debounce?.cancel()
         val s = state.value ?: return { true }
         val token = session
         val fields = s.textFields()
         return save@{
             if (token != session) return@save true
-            var titleSaved = true
+            var requiredSaved = true
             for ((key, draft) in fields) {
                 val ok = saveField(key, draft, exit)
-                if (key == TaskTextField.Title) titleSaved = ok
+                if (key == TaskTextField.Title || requireNotes) requiredSaved = requiredSaved && ok
             }
-            titleSaved
+            requiredSaved
         }
     }
 
