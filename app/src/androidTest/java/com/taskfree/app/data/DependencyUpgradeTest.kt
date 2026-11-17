@@ -135,7 +135,7 @@ class DependencyUpgradeTest {
         assertEquals(notes, db.taskNoteDao().getAllNow().sortedBy { it.id })
         db.openHelper.readableDatabase.query("PRAGMA user_version").use {
             assertTrue(it.moveToFirst())
-            assertEquals(20, it.getInt(0))
+            assertEquals(21, it.getInt(0))
         }
         db.openHelper.readableDatabase.query("PRAGMA integrity_check").use {
             assertTrue(it.moveToFirst())

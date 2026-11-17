@@ -12,7 +12,7 @@ import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskNote
 
-@Database(entities = [Category::class, Task::class, TaskNote::class], version = 20, exportSchema = false)
+@Database(entities = [Category::class, Task::class, TaskNote::class], version = 21, exportSchema = false)
 @TypeConverters(TaskStatusConverter::class, LocalDateConverter::class, InstantConverter::class,
     RecurrenceConverter::class)
 abstract class AppDatabase : RoomDatabase() {

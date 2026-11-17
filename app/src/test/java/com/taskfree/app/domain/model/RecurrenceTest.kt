@@ -17,7 +17,7 @@ class RecurrenceTest {
     private val dates = datesAt(today)
 
     private fun Recurrence.next(base: LocalDate, on: LocalDate = today) =
-        calculateNextValidDueDate(base, datesAt(on))
+        RepeatRule(this).calculateNextValidDueDate(base, on)
 
     @Test
     fun `from parses every enum name`() {
@@ -32,7 +32,7 @@ class RecurrenceTest {
 
     @Test
     fun `NONE never produces a next date`() {
-        assertNull(Recurrence.NONE.calculateNextValidDueDate(today, dates))
+        assertNull(RepeatRule(Recurrence.NONE).calculateNextValidDueDate(today, today))
     }
 
     @Test

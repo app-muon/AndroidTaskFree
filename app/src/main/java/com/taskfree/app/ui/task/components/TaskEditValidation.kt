@@ -6,11 +6,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.domain.model.NotificationValidationResult
-import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.RecurrenceValidationResult
 import com.taskfree.app.domain.model.validateNotification
 import com.taskfree.app.domain.model.validateRecurrenceDate
@@ -22,23 +22,28 @@ import com.taskfree.app.ui.task.TaskEditState
 import com.taskfree.app.ui.task.TaskViewModel
 import com.taskfree.app.ui.task.toFieldEdit
 import com.taskfree.app.ui.theme.providePanelColors
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun ValidationRecurrenceErrorText(
     result: RecurrenceValidationResult
 ) {
+    val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+        .withLocale(LocalConfiguration.current.locales[0])
     val errorText = when (result) {
         is RecurrenceValidationResult.NotWeekday -> stringResource(
-            R.string.incompatibility_not_weekday, result.date
+            R.string.incompatibility_not_weekday, result.date.format(formatter)
         )
 
         is RecurrenceValidationResult.NotWeekend -> stringResource(
-            R.string.incompatibility_not_weekend, result.date
+            R.string.incompatibility_not_weekend, result.date.format(formatter)
         )
 
         is RecurrenceValidationResult.MissingDueDate -> stringResource(
             R.string.a_due_date_is_required_for_recurring_tasks
         )
+        RecurrenceValidationResult.InvalidRule -> stringResource(R.string.repeat_invalid)
 
         else -> ""
     }
@@ -82,7 +87,7 @@ fun ValidationNotificationErrorText(
 fun commitDue(
     candidate: DueChoice, state: TaskEditState, task: Task, vm: TaskViewModel
 ) {
-    val v = validateRecurrenceDate(state.recurrence, candidate)
+    val v = validateRecurrenceDate(state.repeatRule, candidate.date)
     if (v is RecurrenceValidationResult.Ok) {
         // If due is being cleared, also clear notification
         val clearingDue = candidate.date == null
@@ -97,39 +102,17 @@ fun commitDue(
             task.id, TaskViewModel.TaskEdits(
                 due = candidate.date.toFieldEdit(),             // Set(...) or Clear
                 notify = notifyEdit
-            )
+            ),
+            onResult = { result ->
+                if (result.isSuccess) {
+                    state.clearErrors()
+                    state.exitEditMode()
+                }
+            }
         )
 
-        // Update local UI state so the preview reflects the change immediately
-        state.updateDue(candidate)
-        if (clearingDue && state.currentNotifyOption != NotificationOption.None) {
-            state.updateNotification(NotificationOption.None)
-            state.clearErrors() // also clears notify error if it was shown
-        } else {
-            state.clearErrors()
-        }
-        state.exitEditMode()
     } else {
         state.setDueError(v)
-    }
-}
-
-// Handles RECURRENCE changes coming from any RepeatChip
-fun commitRecurrence(
-    candidate: Recurrence, state: TaskEditState, task: Task, vm: TaskViewModel
-) {
-    val validation = validateRecurrenceDate(candidate, state.currentDueChoice)
-    if (validation is RecurrenceValidationResult.Ok) {
-        vm.applyEdits(
-            task.id, TaskViewModel.TaskEdits(
-                recurrence = FieldEdit.Set(candidate)
-            )
-        )
-        state.updateRecurrence(candidate)
-        state.clearErrors()
-        state.exitEditMode()
-    } else {
-        state.setRecurrenceError(validation)
     }
 }
 

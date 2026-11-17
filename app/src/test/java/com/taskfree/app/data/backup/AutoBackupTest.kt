@@ -1,5 +1,9 @@
 package com.taskfree.app.data.backup
 
+import com.taskfree.app.domain.model.TaskInput
+
+import com.taskfree.app.domain.model.RepeatRule
+
 import android.app.Application
 import android.net.Uri
 import android.os.Looper
@@ -232,8 +236,7 @@ class AutoBackupTest {
     @Test fun `note-only add edit and delete trigger the automatic backup watcher`() = runBlocking {
         val category = db.insertCategory("Home")
         val repo = TaskRepository(db)
-        val id = repo.createTask(com.taskfree.app.domain.model.TaskInput("Task", null,
-            com.taskfree.app.domain.model.Recurrence.NONE, category))
+        val id = repo.createTask(com.taskfree.app.domain.model.TaskInput("Task", null, RepeatRule(com.taskfree.app.domain.model.Recurrence.NONE), category))
         saver.enable(folder)
         AutoBackup.onForeground(app)
         finishSaves(watching = true)

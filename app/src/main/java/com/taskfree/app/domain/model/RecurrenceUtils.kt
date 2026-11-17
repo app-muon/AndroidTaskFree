@@ -1,57 +1,26 @@
 package com.taskfree.app.domain.model
 
-import android.util.Log
-import androidx.annotation.StringRes
-import com.taskfree.app.R
-import com.taskfree.app.util.AppDateProvider
-import com.taskfree.app.util.DateProvider
-import java.time.DayOfWeek
 import java.time.LocalDate
 
-@StringRes
-fun Recurrence.labelResId(): Int = when (this) {
-    Recurrence.NONE -> R.string.no_recurrence_label
-    Recurrence.DAILY -> R.string.daily_recurrence
-    Recurrence.WEEKLY -> R.string.weekly_recurrence
-    Recurrence.WEEKDAYS -> R.string.recurrence_on_weekdays
-    Recurrence.WEEKENDS -> R.string.recurrence_on_weekends
-    Recurrence.MONTHLY -> R.string.monthly_recurrence
-    Recurrence.QUARTERLY -> R.string.quarterly_recurrence
-    Recurrence.YEARLY -> R.string.yearly_recurrence
+private fun RepeatRule.nextDate(base: LocalDate): LocalDate? = when (recurrence) {
+    Recurrence.NONE -> null
+    Recurrence.DAILY -> base.plusDays(interval.toLong())
+    Recurrence.WEEKLY -> base.plusWeeks(interval.toLong())
+    Recurrence.MONTHLY -> base.plusMonths(interval.toLong())
+    Recurrence.WEEKDAYS -> generateSequence(base.plusDays(1)) { it.plusDays(1) }
+        .first { it.dayOfWeek.value in 1..5 }
+    Recurrence.WEEKENDS -> generateSequence(base.plusDays(1)) { it.plusDays(1) }
+        .first { it.dayOfWeek.value in 6..7 }
+    Recurrence.QUARTERLY -> base.plusMonths(3)
+    Recurrence.YEARLY -> base.plusYears(1)
 }
 
-private fun recurrenceNextDate(recurrence: Recurrence, baseDate: LocalDate): LocalDate? {
-    return when (recurrence) {
-        Recurrence.NONE -> null
-        Recurrence.DAILY -> baseDate.plusDays(1)
-        Recurrence.WEEKLY -> baseDate.plusDays(7)
-        Recurrence.WEEKDAYS -> generateSequence(baseDate.plusDays(1)) { it.plusDays(1) }.first { it.dayOfWeek.value in 1..5 }
-        Recurrence.WEEKENDS -> generateSequence(baseDate.plusDays(1)) { it.plusDays(1) }.first { it.dayOfWeek == DayOfWeek.SATURDAY || it.dayOfWeek == DayOfWeek.SUNDAY }
-        // This single line correctly handles all the monthly recurrence cases,
-        // including the day adjustment for months with fewer days than the original month.
-        Recurrence.MONTHLY -> baseDate.plusMonths(1)
-        Recurrence.QUARTERLY -> baseDate.plusMonths(3)
-        Recurrence.YEARLY -> baseDate.plusYears(1)
-    }
-}
-
-fun Recurrence.calculateNextValidDueDate(
-    baseDate: LocalDate,
-    dateProvider: DateProvider = AppDateProvider.current
-): LocalDate? {
-
-    // Keep jumping forward until we get a date that's at least tomorrow
-    val tomorrow = dateProvider.today().plusDays(1)
+/** Walk each step to retain month-end clamping and the existing 3,000-step cutoff. */
+fun RepeatRule.calculateNextValidDueDate(baseDate: LocalDate, today: LocalDate): LocalDate? {
     var next = baseDate
-    Log.d(
-        "Recurrence",
-        "Calculating next due date from base: $baseDate, tomorrow is: $tomorrow"
-    )
-
     repeat(3000) {
-        next = recurrenceNextDate(this, next) ?: return null
-        if (!next.isBefore(tomorrow)) return next
+        next = nextDate(next) ?: return null
+        if (next.isAfter(today)) return next
     }
-    Log.d("Recurrence", "Too many iterations something has gone wrong")
     return null
 }

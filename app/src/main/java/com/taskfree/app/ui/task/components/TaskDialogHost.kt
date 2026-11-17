@@ -1,13 +1,23 @@
 package com.taskfree.app.ui.task.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
-import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.ConfirmArchive
 import com.taskfree.app.ui.components.ConfirmDeletion
 import com.taskfree.app.ui.components.ConfirmDialog
+import com.taskfree.app.ui.components.DueChoice
+import com.taskfree.app.ui.components.DueChoiceSaver
 import com.taskfree.app.ui.task.TaskOptionsPanel
 import com.taskfree.app.ui.task.TaskViewModel
 
@@ -19,7 +29,53 @@ internal fun TaskDialogHost(
     taskVm: TaskViewModel,
     currentFilterCatId: Int?,
     onNavigateToCategory: (Int) -> Unit,
+    onRestored: () -> Unit = {},
+    onModalState: (Boolean) -> Unit = {},
 ) {
+    // Save only navigation identity; task contents are always reloaded from Room.
+    var savedKind by rememberSaveable { mutableStateOf("") }
+    var savedTaskId by rememberSaveable { mutableIntStateOf(0) }
+    var savedCategoryId by rememberSaveable { mutableIntStateOf(0) }
+    var savedDue by rememberSaveable(stateSaver = DueChoiceSaver) { mutableStateOf<DueChoice>(DueChoice.None) }
+    var restored by remember { mutableStateOf(false) }
+    // Retain Repeat independently so a deleted parent cannot discard its unsuccessful draft.
+    var repeatTaskId by rememberSaveable { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        if (dialogs == TaskDialogs.None) {
+            taskVm.restoreDialog(savedKind, savedTaskId, savedCategoryId, savedDue)
+        }
+        restored = true
+    }
+    SideEffect {
+        onModalState(dialogs != TaskDialogs.None || repeatTaskId != null)
+        if (restored) {
+            onRestored()
+            when (dialogs) {
+                is TaskDialogs.Options -> {
+                    savedKind = "options"
+                    savedTaskId = dialogs.task.task.id
+                }
+                is TaskDialogs.Add -> {
+                    savedKind = "add"
+                    savedCategoryId = dialogs.category.id
+                    savedDue = dialogs.dueChoice
+                }
+                is TaskDialogs.ConfirmArchive -> {
+                    savedKind = if (dialogs.mode == ArchiveMode.Series) "archive_series" else "archive_single"
+                    savedTaskId = dialogs.task.task.id
+                }
+                is TaskDialogs.ConfirmClone -> {
+                    savedKind = "clone"
+                    savedTaskId = dialogs.task.task.id
+                }
+                is TaskDialogs.ConfirmPermanentDelete -> {
+                    savedKind = "delete"
+                    savedTaskId = dialogs.task.task.id
+                }
+                else -> savedKind = ""
+            }
+        }
+    }
     when (dialogs) {
         is TaskDialogs.None -> Unit
 
@@ -27,7 +83,6 @@ internal fun TaskDialogHost(
             NewTaskDialog(
                 initialText = "",
                 initialDue = dialogs.dueChoice,
-                initialRecurrence = Recurrence.NONE,
                 initialCategory = dialogs.category,
                 allCategories = allCategories,
                 onSave = { text, due, rec, catId, notify ->
@@ -54,6 +109,9 @@ internal fun TaskDialogHost(
                 },
 
                 onNavigateToCategory = { catId ->
+                    // Navigation can dispose this composition before its next SideEffect.
+                    savedKind = ""
+                    savedTaskId = 0
                     setDialogs(TaskDialogs.None)
                     onNavigateToCategory(catId)
                 },
@@ -70,7 +128,8 @@ internal fun TaskDialogHost(
                     setDialogs(TaskDialogs.None)
                 },
 
-                currentFilterCatId = currentFilterCatId
+                currentFilterCatId = currentFilterCatId,
+                onOpenRepeat = { repeatTaskId = it }
             )
         }
 
@@ -111,5 +170,15 @@ internal fun TaskDialogHost(
             )
         }
 
+    }
+    repeatTaskId?.let { id ->
+        key(id) {
+            ExistingRepeatDialog(
+                taskId = id,
+                vm = taskVm,
+                onEditCurrent = { repeatTaskId = it },
+                onDismiss = { repeatTaskId = null; taskVm.resetRepeatSave() }
+            )
+        }
     }
 }

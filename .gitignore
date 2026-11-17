@@ -34,6 +34,9 @@ gradle.properties
 # Log files
 *.log
 
+# Local work files and design artifacts.
+/work/
+
 # OS-specific files
 .DS_Store
 Thumbs.db

@@ -62,6 +62,7 @@ import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.TaskFieldHeading
 import com.taskfree.app.ui.components.formatDateTime
+import com.taskfree.app.ui.mapper.messageResId
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import java.time.ZoneId
@@ -106,9 +107,12 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
         }
         if (state.hasError) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.task_save_failed), color = MaterialTheme.colorScheme.error,
+                Text(stringResource(if (state.hasTextError) R.string.task_save_failed
+                    else state.actionFailureReason?.messageResId() ?: R.string.task_save_failed), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.weight(1f))
-                TextButton(onClick = { vm.retryTextSave() }, enabled = !state.closing, colors = buttonColors) {
+                if (state.hasTextError || state.canRetryAction) TextButton(
+                    onClick = { vm.retryTextSave() }, enabled = !state.closing, colors = buttonColors
+                ) {
                     Text(stringResource(R.string.task_save_retry))
                 }
             }

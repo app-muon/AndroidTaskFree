@@ -4,7 +4,6 @@
     <string name="tasks_due">Tasks due</string>
     <!-- Used as title for the recurrence section -->
     <string name="repeat">Repeat</string>
-    <string name="no_recurrence_label">No</string>
     <string name="daily_recurrence">Daily</string>
     <string name="weekly_recurrence">Weekly</string>
     <string name="recurrence_on_weekdays">Weekdays</string>

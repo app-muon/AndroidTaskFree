@@ -20,11 +20,13 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,13 +70,22 @@ private sealed interface BackupStep {
 
 /** The "Backup files" panel and its flows. It stays composed while the panel is closed. */
 @Composable
-fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDismiss: () -> Unit) {
+fun BackupFileDialog(
+    vm: ToolsViewModel,
+    show: Boolean,
+    onShow: () -> Unit,
+    onDismiss: () -> Unit,
+    onModalState: (Boolean) -> Unit = {}
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = providePanelColors()
     val status by AutoBackup.status(ctx).collectAsState()
     var step by remember { mutableStateOf<BackupStep?>(null) }
     var restoreStep by remember { mutableStateOf<RestoreStep?>(null) }
+    var pickingDocument by rememberSaveable { mutableStateOf(false) }
+    var loadingRestore by remember { mutableStateOf(false) }
+    SideEffect { onModalState(show || step != null || restoreStep != null || pickingDocument || loadingRestore) }
 
     fun showSetupResult(result: AutoBackup.EnableResult) {
         val message = when (result) {
@@ -88,6 +99,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
     fun enableFolder(uri: Uri) = showSetupResult(AutoBackup.enable(ctx, uri))
 
     val pickFolder = rememberLauncherForActivityResult(OpenDocumentTree()) { uri ->
+        pickingDocument = false
         if (uri != null) {
             val rejection = AutoBackup.setupRejection(ctx)
             when {
@@ -98,13 +110,22 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
         }
     }
     val openFile = rememberLauncherForActivityResult(OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            runCatching { openBackup(ctx, uri) }
-                .onSuccess { restoreStep = it }
-                .onFailure { showRestoreError(ctx, it) }
+        pickingDocument = false
+        if (uri != null) {
+            loadingRestore = true
+            scope.launch {
+                try {
+                    runCatching { openBackup(ctx, uri) }
+                        .onSuccess { restoreStep = it }
+                        .onFailure { showRestoreError(ctx, it) }
+                } finally {
+                    loadingRestore = false
+                }
+            }
         }
     }
     val exportFile = rememberLauncherForActivityResult(CreateDocument("application/json")) { uri ->
+        pickingDocument = false
         if (uri != null) scope.launch {
             runCatching {
                 vm.exportBackup(ctx.contentResolver, uri)
@@ -120,11 +141,15 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
     }
 
     fun phraseUnavailable() = Prefs.isEncrypted(ctx) && Prefs.loadPhrase(ctx) == null
+    fun pickBackupFolder() {
+        pickingDocument = true
+        pickFolder.launch(null)
+    }
     fun chooseFolder() {
         when {
             phraseUnavailable() -> step = BackupStep.NoPhrase
             Prefs.loadPhrase(ctx) == null -> step = BackupStep.ShowPhrase(thenPickFolder = true)
-            else -> pickFolder.launch(null)
+            else -> pickBackupFolder()
         }
     }
     fun reviewPhrase() {
@@ -164,7 +189,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
                 add(ActionItem(label = stringResource(R.string.view_recovery_phrase), icon = Icons.Outlined.Lock,
                     onClick = { step = BackupStep.ViewPhrase }))
             add(ActionItem(label = stringResource(R.string.restore_from_file), icon = Icons.Outlined.Restore,
-                onClick = { openFile.launch(arrayOf("*/*")) }))
+                onClick = { pickingDocument = true; openFile.launch(arrayOf("*/*")) }))
             add(ActionItem(label = stringResource(R.string.backup_export_unencrypted), icon = Icons.Outlined.FileDownload,
                 onClick = { step = BackupStep.ConfirmExport }))
         }
@@ -189,7 +214,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
                 confirmEnabled = status.canMutate,
                 onConfirmed = {
                     step = null
-                    if (current.thenPickFolder) pickFolder.launch(null) else AutoBackup.usePhrase(ctx)
+                    if (current.thenPickFolder) pickBackupFolder() else AutoBackup.usePhrase(ctx)
                 },
                 onCancel = { step = null }
             )
@@ -207,7 +232,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
             },
             onNo = {
                 step = null
-                pickFolder.launch(null)
+                pickBackupFolder()
             },
             onDismiss = {
                 step = null
@@ -231,6 +256,7 @@ fun BackupFileDialog(vm: ToolsViewModel, show: Boolean, onShow: () -> Unit, onDi
             yesMessage = stringResource(R.string.backup_export_yes),
             onYes = {
                 step = null
+                pickingDocument = true
                 exportFile.launch("taskapp_backup_" + LocalDateTime.now()
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm")) + ".json")
             },

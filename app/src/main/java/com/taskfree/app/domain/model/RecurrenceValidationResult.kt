@@ -1,62 +1,24 @@
-// Recurrence
 package com.taskfree.app.domain.model
 
-import com.taskfree.app.ui.components.DueChoice
-import com.taskfree.app.ui.components.DueKind
-import com.taskfree.app.ui.components.kind
-import java.time.DayOfWeek
-import java.time.format.DateTimeFormatter
-
+import java.time.LocalDate
 
 sealed class RecurrenceValidationResult {
     data object Ok : RecurrenceValidationResult()
     data object MissingDueDate : RecurrenceValidationResult()
-    data class NotWeekday(val date: String) : RecurrenceValidationResult()
-    data class NotWeekend(val date: String) : RecurrenceValidationResult()
+    data object InvalidRule : RecurrenceValidationResult()
+    data class NotWeekday(val date: LocalDate) : RecurrenceValidationResult()
+    data class NotWeekend(val date: LocalDate) : RecurrenceValidationResult()
 }
 
-/**
- * Checks if a recurrence type is compatible with the given due date.
- *
- * @param recurrence The recurrence pattern to check
- * @param dueChoice The date to check for compatibility, as a DueChoice object
- * @return True if the combination is compatible, false otherwise
- */
-fun validateRecurrenceDate(
-    recurrence: Recurrence, dueChoice: DueChoice,
-): RecurrenceValidationResult {
-
-    if (dueChoice.kind == DueKind.NONE) {
-        return if (recurrence == Recurrence.NONE) {
-            RecurrenceValidationResult.Ok
-        } else {
-            RecurrenceValidationResult.MissingDueDate
-        }
-    }
-    // Define the error message based on the invalid selection
-
-    if (recurrence in listOf(
-            Recurrence.NONE, Recurrence.DAILY, Recurrence.WEEKLY, Recurrence.MONTHLY, Recurrence.QUARTERLY, Recurrence.YEARLY
-        )
-    ) {
-        return RecurrenceValidationResult.Ok
-    }
-
-    val dueDate = dueChoice.date ?: return RecurrenceValidationResult.MissingDueDate
-    val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
-    val formatted = dueDate.format(dateFormatter)
-
-    return when (recurrence) {
-        Recurrence.WEEKDAYS -> if (dueDate.dayOfWeek.value in 1..5) RecurrenceValidationResult.Ok
-        else RecurrenceValidationResult.NotWeekday(formatted)
-
-        Recurrence.WEEKENDS -> if (dueDate.dayOfWeek in listOf(
-                DayOfWeek.SATURDAY,
-                DayOfWeek.SUNDAY
-            )
-        ) RecurrenceValidationResult.Ok
-        else RecurrenceValidationResult.NotWeekend(formatted)
-
+fun validateRecurrenceDate(rule: RepeatRule?, dueDate: LocalDate?): RecurrenceValidationResult {
+    if (rule == null) return RecurrenceValidationResult.InvalidRule
+    if (rule.recurrence == Recurrence.NONE) return RecurrenceValidationResult.Ok
+    if (dueDate == null) return RecurrenceValidationResult.MissingDueDate
+    return when {
+        rule.recurrence == Recurrence.WEEKDAYS && dueDate.dayOfWeek.value > 5 ->
+            RecurrenceValidationResult.NotWeekday(dueDate)
+        rule.recurrence == Recurrence.WEEKENDS && dueDate.dayOfWeek.value < 6 ->
+            RecurrenceValidationResult.NotWeekend(dueDate)
         else -> RecurrenceValidationResult.Ok
     }
 }

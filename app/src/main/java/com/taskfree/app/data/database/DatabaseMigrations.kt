@@ -242,3 +242,9 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
     }
 }
 
+
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE Task ADD COLUMN recurrenceInterval INTEGER NOT NULL DEFAULT 1")
+    }
+}

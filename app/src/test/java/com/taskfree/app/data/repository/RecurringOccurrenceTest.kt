@@ -2,6 +2,7 @@ package com.taskfree.app.data.repository
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
@@ -42,7 +43,7 @@ class RecurringOccurrenceTest {
     fun tearDown() = db.close()
 
     private suspend fun daily() = repo.createTask(
-        TaskInput("Water plants", dayOne, Recurrence.DAILY, db.insertCategory())
+        TaskInput("Water plants", dayOne, RepeatRule(Recurrence.DAILY), db.insertCategory())
     )
 
     @Test
@@ -67,8 +68,12 @@ class RecurringOccurrenceTest {
         val id = daily()
         val nextId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
         val otherCategory = db.insertCategory("Other")
-        repo.updateTaskDetails(repo.taskById(id)!!, "Edited", null, Recurrence.NONE, otherCategory, null)
-        repo.updateTaskDetails(repo.taskById(nextId)!!, "Next edited", dayOne.plusDays(9), Recurrence.WEEKLY, otherCategory, null)
+        repo.updateTaskDetails(id) {
+            TaskInput("Edited", dayOne, RepeatRule(Recurrence.DAILY), otherCategory, null)
+        }
+        repo.updateTaskDetails(nextId) {
+            TaskInput("Next edited", dayOne.plusDays(9), RepeatRule(Recurrence.WEEKLY), otherCategory, null)
+        }
         clock.advance(Duration.ofDays(3))
 
         assertEquals(nextId, repo.updateTaskStatus(id, TaskStatus.TODO).nextDeletedId)
@@ -81,10 +86,9 @@ class RecurringOccurrenceTest {
             val id = daily()
             val nextId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
             val otherCategory = db.insertCategory("Other")
-            repo.updateTaskDetails(
-                repo.taskById(nextId)!!, "Edited successor", dayOne.plusDays(9),
-                Recurrence.WEEKLY, otherCategory, clock.instant().plusSeconds(3600)
-            )
+            repo.updateTaskDetails(nextId) {
+                TaskInput("Edited successor", dayOne.plusDays(9), RepeatRule(Recurrence.WEEKLY), otherCategory, clock.instant().plusSeconds(3600))
+            }
             repo.updateTaskStatus(nextId, status)
             val saved = repo.taskById(nextId)!!
             val count = repo.snapshot().size
@@ -204,7 +208,9 @@ class RecurringOccurrenceTest {
         val snapshot = repo.taskById(id)!!
         val otherCategory = db.insertCategory("Other")
         val newDue = dayOne.plusDays(4)
-        repo.updateTaskDetails(snapshot, "Edited", newDue, Recurrence.WEEKLY, otherCategory, null)
+        repo.updateTaskDetails(snapshot.id) {
+            TaskInput("Edited", newDue, RepeatRule(Recurrence.WEEKLY), otherCategory, null)
+        }
         val edited = repo.taskById(id)!!
 
         val nextId = repo.archiveSingleOccurrence(snapshot)!!
@@ -219,7 +225,9 @@ class RecurringOccurrenceTest {
     fun `series archive and unarchive preserve saved edits`() = runTest {
         val id = daily()
         val snapshot = repo.taskById(id)!!
-        repo.updateTaskDetails(snapshot, "Edited", null, Recurrence.NONE, snapshot.categoryId, null)
+        repo.updateTaskDetails(snapshot.id) {
+            TaskInput("Edited", null, RepeatRule(Recurrence.NONE), snapshot.categoryId, null)
+        }
         val edited = repo.taskById(id)!!
         repo.archiveTask(snapshot)
         assertEquals(edited.copy(isArchived = true), repo.taskById(id))

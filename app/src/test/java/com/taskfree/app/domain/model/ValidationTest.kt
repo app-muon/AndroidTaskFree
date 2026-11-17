@@ -10,6 +10,9 @@ import org.junit.Test
 import java.time.LocalDate
 
 class ValidationTest {
+    private fun validateRecurrenceDate(recurrence: Recurrence, due: DueChoice) =
+        com.taskfree.app.domain.model.validateRecurrenceDate(RepeatRule(recurrence), due.date)
+
 
     // Tuesday 2026-10-06
     @get:Rule
@@ -48,7 +51,7 @@ class ValidationTest {
     @Test
     fun `WEEKDAYS rejects a weekend date with a formatted message`() {
         assertEquals(
-            RecurrenceValidationResult.NotWeekday("Sat, Oct 10"),
+            RecurrenceValidationResult.NotWeekday(LocalDate.of(2026, 10, 10)),
             validateRecurrenceDate(Recurrence.WEEKDAYS, saturday)
         )
         assertEquals(
@@ -60,7 +63,7 @@ class ValidationTest {
     @Test
     fun `WEEKENDS rejects a weekday date`() {
         assertEquals(
-            RecurrenceValidationResult.NotWeekend("Wed, Oct 7"),
+            RecurrenceValidationResult.NotWeekend(LocalDate.of(2026, 10, 7)),
             validateRecurrenceDate(Recurrence.WEEKENDS, wednesday)
         )
         assertEquals(
@@ -85,7 +88,7 @@ class ValidationTest {
             validateRecurrenceDate(Recurrence.WEEKDAYS, DueChoice.Today)
         )
         assertEquals(
-            RecurrenceValidationResult.NotWeekend("Tue, Oct 6"),
+            RecurrenceValidationResult.NotWeekend(LocalDate.of(2026, 10, 6)),
             validateRecurrenceDate(Recurrence.WEEKENDS, DueChoice.Today)
         )
     }

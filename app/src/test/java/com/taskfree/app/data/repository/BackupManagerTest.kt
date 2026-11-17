@@ -1,6 +1,8 @@
 // data/repository/BackupManagerTest.kt
 package com.taskfree.app.data.repository
 
+import com.taskfree.app.domain.model.RepeatRule
+
 import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
@@ -139,7 +141,7 @@ class BackupManagerTest {
         seed()
         val root = Json.parseToJsonElement(BackupManager.buildJson(db).decodeToString()).jsonObject
 
-        assertEquals("1.1", root["version"]!!.jsonPrimitive.content)
+        assertEquals("1.2", root["version"]!!.jsonPrimitive.content)
         assertEquals(BuildConfig.VERSION_NAME, root["app_version"]!!.jsonPrimitive.content)
         val cats = root["categories"]!!.jsonArray.map { it.jsonObject }
         assertFalse("isDeleted" in cats.single { it["title"]!!.jsonPrimitive.content == "Home" })
@@ -215,7 +217,7 @@ class BackupManagerTest {
     @Test
     fun `backup preserves occurrence links even when the child precedes its parent`() = runTest {
         val category = db.insertCategory()
-        val id = taskRepo.createTask(TaskInput("Water plants", today, Recurrence.DAILY, category))
+        val id = taskRepo.createTask(TaskInput("Water plants", today, RepeatRule(Recurrence.DAILY), category))
         val nextId = taskRepo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
         val exported = json.decodeFromString(Backup.serializer(), BackupManager.buildJson(db).decodeToString())
         val reordered = exported.copy(tasks = exported.tasks.sortedByDescending { it.id })
@@ -412,4 +414,75 @@ class BackupManagerTest {
             assertEquals(before.notes, db.taskNoteDao().getAllNow())
         }
     }
+    @Test fun customIntervalsRoundTripInPlainAndEncryptedBackups() = runTest {
+        val category = db.insertCategory()
+        for (rec in listOf(Recurrence.DAILY, Recurrence.WEEKLY, Recurrence.MONTHLY)) {
+            for (n in listOf(2, 99)) taskRepo.createTask(
+                TaskInput("$rec $n", today, com.taskfree.app.domain.model.RepeatRule(rec, n), category))
+        }
+        val expected = taskRepo.snapshot().sortedBy { it.id }
+        val bytes = BackupManager.buildJson(db)
+        val root = Json.parseToJsonElement(bytes.decodeToString()).jsonObject
+        assertEquals("1.2", root["version"]!!.jsonPrimitive.content)
+        assertTrue(root["tasks"]!!.jsonArray.all { "recurrenceInterval" in it.jsonObject })
+        for (encrypted in listOf(false, true)) {
+            val encoded = if (encrypted) BackupCrypto.encrypt(bytes, BackupCrypto.deriveKey(phrase)) else bytes
+            val source = BackupManager.read(ctx, uriFor(encoded))
+            val parsed = when (source) {
+                is BackupSource.Plain -> source.backup
+                is BackupSource.Encrypted -> BackupManager.unlock(source, phrase)!!
+            }
+            taskRepo.replaceAll(emptyList(), emptyList())
+            BackupManager.restore(parsed, taskRepo)
+            assertEquals(expected, taskRepo.snapshot().sortedBy { it.id })
+        }
+    }
+
+    @Test fun legacyFormatsWithoutIntervalDefaultToOne() = runTest {
+        seed()
+        val modern = BackupManager.buildJson(db).decodeToString()
+        for (version in listOf("1.0", "1.1")) {
+            val legacy = modern.replace("\"version\":\"1.2\"", "\"version\":\"$version\"")
+                .replace(Regex(",?\"recurrenceInterval\":1,?")) { match ->
+                    if (match.value.startsWith(",") && match.value.endsWith(",")) "," else ""
+                }
+            val parsed = (BackupManager.read(ctx, uriFor(legacy.toByteArray())) as BackupSource.Plain).backup
+            assertEquals(version, parsed.version)
+            assertTrue(parsed.tasks.all { it.recurrenceInterval == 1 })
+        }
+    }
+
+    @Test fun invalidRepeatRulesNeverReplaceExistingData() = runTest {
+        seed()
+        val before = taskRepo.snapshot()
+        val original = BackupManager.snapshot(db)
+        val first = original.tasks.first()
+        for ((rec, n) in listOf(Recurrence.DAILY to 0, Recurrence.MONTHLY to 100,
+            Recurrence.WEEKLY to -2, Recurrence.WEEKENDS to 2, Recurrence.NONE to 3)) {
+            val bad = original.copy(tasks = original.tasks.map {
+                if (it.id == first.id) it.copy(recurrence = rec, recurrenceInterval = n) else it
+            })
+            assertFails<BackupValidationException> { importFile(uriFor(bad), taskRepo) }
+            assertFails<BackupValidationException> { BackupManager.restore(bad, taskRepo) }
+            assertEquals(before, taskRepo.snapshot())
+        }
+    }
+
+    @Test fun previousReaderRejectsNewVersionBeforeIgnoringIntervals() = runTest {
+        val category = db.insertCategory()
+        taskRepo.createTask(TaskInput("Every three weeks", today,
+            com.taskfree.app.domain.model.RepeatRule(Recurrence.WEEKLY, 3), category))
+        // The previous reader ignored unknown fields, then applied this exact version gate.
+        val previous = Json { ignoreUnknownKeys = true }.decodeFromString(
+            PreviousBackupHeader.serializer(), BackupManager.buildJson(db).decodeToString())
+        val error = assertFails<BackupValidationException> {
+            if (previous.version !in setOf("1.0", "1.1"))
+                throw BackupValidationException(R.string.err_backup_version)
+        }
+        assertEquals(R.string.err_backup_version, error.resId)
+    }
+
 }
+
+@kotlinx.serialization.Serializable
+private data class PreviousBackupHeader(val version: String = "1.1")

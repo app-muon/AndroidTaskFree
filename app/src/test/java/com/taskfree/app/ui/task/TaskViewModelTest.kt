@@ -3,6 +3,8 @@ package com.taskfree.app.ui.task
 
 import android.app.AlarmManager
 import android.app.Application
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Looper
 import androidx.compose.ui.text.input.TextFieldValue
 import com.taskfree.app.data.entities.TASK_TITLE_LIMIT
@@ -14,8 +16,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.R
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.repository.TaskRepository
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.domain.model.TaskEditFailureReason
 import com.taskfree.app.notifications.AlarmReceiver
 import com.taskfree.app.notifications.NotificationScheduler
 import com.taskfree.app.testutil.MainDispatcherRule
@@ -35,6 +39,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -131,7 +136,7 @@ class TaskViewModelTest {
     }
 
     private suspend fun addDaily(due: LocalDate): Int {
-        vm.add("Stretch", DueChoice.Other(due), Recurrence.DAILY, cat, NotificationOption.Morning).join()
+        vm.add("Stretch", DueChoice.Other(due), RepeatRule(Recurrence.DAILY), cat, NotificationOption.Morning).join()
         return repo.snapshot().single().id
     }
 
@@ -423,7 +428,7 @@ class TaskViewModelTest {
 
     @Test
     fun `clone reads saved edits and starts fresh dates with the localized name`() = vmTest {
-        vm.add("Stretch", DueChoice.Other(realToday), Recurrence.DAILY, cat, NotificationOption.None).join()
+        vm.add("Stretch", DueChoice.Other(realToday), RepeatRule(Recurrence.DAILY), cat, NotificationOption.None).join()
         val source = repo.snapshot().single()
         val originalCreatedAt = source.originalCreatedAt
         clock.advance(Duration.ofHours(1))
@@ -446,7 +451,7 @@ class TaskViewModelTest {
             TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
             val due = realToday.plusDays(10)
             vm.add(
-                "Call", DueChoice.Other(due), Recurrence.NONE, cat,
+                "Call", DueChoice.Other(due), RepeatRule(Recurrence.NONE), cat,
                 NotificationOption.Other(LocalTime.of(0, 30))
             ).join()
             val source = repo.snapshot().single()
@@ -473,7 +478,7 @@ class TaskViewModelTest {
     fun `adding a task with a future reminder schedules an alarm`() = vmTest {
         val due = realToday.plusDays(10)
 
-        vm.add("Dentist", DueChoice.Other(due), Recurrence.NONE, cat, NotificationOption.Morning).join()
+        vm.add("Dentist", DueChoice.Other(due), RepeatRule(Recurrence.NONE), cat, NotificationOption.Morning).join()
 
         val task = repo.snapshot().single()
         assertEquals(localAt(due, 9), task.reminderTime)
@@ -485,7 +490,7 @@ class TaskViewModelTest {
     fun `a past reminder is kept but only warned about`() = vmTest {
         val due = LocalDate.of(2020, 1, 1)
 
-        vm.add("Old", DueChoice.Other(due), Recurrence.NONE, cat, NotificationOption.Noon).join()
+        vm.add("Old", DueChoice.Other(due), RepeatRule(Recurrence.NONE), cat, NotificationOption.Noon).join()
 
         assertEquals(localAt(due, 12), repo.snapshot().single().reminderTime)
         assertTrue(alarms.scheduledAlarms.isEmpty())
@@ -545,7 +550,7 @@ class TaskViewModelTest {
 
     @Test
     fun `clearing the due date clears the reminder and its alarm`() = vmTest {
-        vm.add("Call", DueChoice.Other(realToday.plusDays(5)), Recurrence.NONE, cat, NotificationOption.Morning).join()
+        vm.add("Call", DueChoice.Other(realToday.plusDays(5)), RepeatRule(Recurrence.NONE), cat, NotificationOption.Morning).join()
         val id = repo.snapshot().single().id
 
         vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Clear)).join()
@@ -559,7 +564,7 @@ class TaskViewModelTest {
     @Test
     fun `changing the reminder time reschedules the alarm`() = vmTest {
         val due = realToday.plusDays(5)
-        vm.add("Call", DueChoice.Other(due), Recurrence.NONE, cat, NotificationOption.Morning).join()
+        vm.add("Call", DueChoice.Other(due), RepeatRule(Recurrence.NONE), cat, NotificationOption.Morning).join()
         val id = repo.snapshot().single().id
 
         vm.applyEdits(id, TaskViewModel.TaskEdits(notify = FieldEdit.Set(NotificationOption.Afternoon))).join()
@@ -570,7 +575,7 @@ class TaskViewModelTest {
 
     @Test
     fun `deleting a task cancels its alarm`() = vmTest {
-        vm.add("Call", DueChoice.Other(realToday.plusDays(5)), Recurrence.NONE, cat, NotificationOption.Morning).join()
+        vm.add("Call", DueChoice.Other(realToday.plusDays(5)), RepeatRule(Recurrence.NONE), cat, NotificationOption.Morning).join()
         val task = repo.snapshot().single()
 
         vm.deletePermanently(task).join()
@@ -651,4 +656,147 @@ class TaskViewModelTest {
         assertEquals(listOf(b, c, a), repo.snapshot().sortedBy { it.allCategoryPageOrder }.map { it.id })
         assertEquals(listOf(0, 1, 2), repo.snapshot().map { it.allCategoryPageOrder }.sorted())
     }
+    @Test fun repeatSaveKeepsDraftOnFailureAndReconcilesOnlyAfterPersistence() = vmTest {
+        val due = realToday.plusDays(4)
+        val id = addDaily(due)
+        openSheet(id)
+        val oldAlarm = alarms.scheduledAlarms.single().triggerAtMs
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_repeat BEFORE UPDATE ON Task BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.saveRepeat(id, RepeatRule(Recurrence.WEEKLY, 3), due.plusDays(2))
+        vm.repeatSave.first { !it.saving && it.failed }
+        assertEquals(due, repo.taskById(id)!!.due)
+        assertEquals(oldAlarm, alarms.scheduledAlarms.single().triggerAtMs)
+        assertNull(vm.repeatSave.value.saved)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_repeat")
+        vm.saveRepeat(id, RepeatRule(Recurrence.WEEKLY, 3), due.plusDays(2))
+        val saved = vm.repeatSave.first { it.saved != null }.saved!!
+        assertEquals(3, saved.recurrenceInterval)
+        assertEquals(due.plusDays(2), saved.baseDate)
+        // The unconfined success collector resumes inline before alarm reconciliation.
+        // Await a no-op in the same mutation queue so the entire save operation finishes.
+        vm.updateTaskOrder(emptyList()).join()
+        assertEquals(saved.reminderTime!!.toEpochMilli(), alarms.scheduledAlarms.single().triggerAtMs)
+        assertEquals(saved, (vm.dialogs.value as TaskDialogs.Options).task.task)
+    }
+
+    @Test fun staleRepeatSaveDoesNotRedirectAndOpeningRepeatDoesNotSubmitComposer() = vmTest {
+        val id = addDaily(realToday.plusDays(2))
+        openSheet(id)
+        vm.focusText(TaskTextField.Composer)
+        vm.editText(TaskTextField.Composer, TextFieldValue("Unfinished note"))
+        vm.focusText(null) // Repeat opens without closing the parent.
+        runCurrent()
+        assertTrue(db.taskNoteDao().getAllNow().isEmpty())
+        assertEquals("Unfinished note", vm.sheetState.value!!.composer.text)
+        val child = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
+        val before = repo.taskById(child)!!
+        vm.saveRepeat(id, RepeatRule(Recurrence.MONTHLY, 2), realToday.plusDays(4))
+        vm.repeatSave.first { it.failed }
+        assertEquals(before, repo.taskById(child))
+        assertEquals(child, vm.editableRepeatTask(id)!!.id)
+    }
+
+    @Test fun duplicateRepeatSubmissionsAreIgnoredWhileQueued() = vmTest {
+        val id = addDaily(realToday.plusDays(3))
+        vm.saveRepeat(id, RepeatRule(Recurrence.WEEKLY, 2), realToday.plusDays(4))
+        vm.saveRepeat(id, RepeatRule(Recurrence.MONTHLY, 99), realToday.plusDays(6))
+        val saved = vm.repeatSave.first { it.saved != null }.saved!!
+        assertEquals(Recurrence.WEEKLY, saved.recurrence)
+        assertEquals(2, saved.recurrenceInterval)
+    }
+
+    @Test fun postponeRetryReportsSuccessToOriginalCompletionCallback() = vmTest {
+        val due = realToday.plusDays(3)
+        val id = addDaily(due)
+        openSheet(id)
+        val outcomes = mutableListOf<Boolean>()
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_postpone BEFORE UPDATE ON Task BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Set(due.plusDays(1)))) {
+            outcomes += it.isSuccess
+        }.join()
+        assertEquals(listOf(false), outcomes)
+        assertEquals(due, repo.taskById(id)!!.due)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_postpone")
+        vm.retryTextSave().join()
+        assertEquals(listOf(false, true), outcomes)
+        assertEquals(due.plusDays(1), repo.taskById(id)!!.due)
+    }
+
+    @Test fun quickDateRetryRetainsItsSessionAndDoesNotRestoreACompletedSheet() = vmTest {
+        val due = realToday.plusDays(3)
+        val id = addDaily(due)
+        openSheet(id)
+        val session = vm.sheetState.value!!.sessionId
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_quick BEFORE UPDATE ON Task BEGIN SELECT RAISE(ABORT, 'injected'); END")
+        vm.saveQuickDate(repo.taskById(id)!!, due.plusDays(1))
+        vm.updateTaskOrder(emptyList()).join()
+        assertEquals(TaskEditFailureReason.STORAGE, vm.quickDateSaves.value[id]!!.failureReason)
+        assertTrue(vm.sheetState.value!!.canRetryAction)
+        vm.restoreDialog("options", id, cat, DueChoice.None) // Retained VM during rotation.
+        assertEquals(session, vm.sheetState.value!!.sessionId)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_quick")
+        vm.retryTextSave().join()
+        vm.dialogs.first { it == TaskDialogs.None }
+        assertEquals(due.plusDays(1), repo.taskById(id)!!.due)
+        assertFalse(vm.quickDateSaves.value[id]!!.saving)
+        vm.restoreDialog("options", id, cat, DueChoice.None) // Older saved UI identity must not reopen it.
+        assertEquals(TaskDialogs.None, vm.dialogs.value)
+    }
+
+    @Test fun pendingQuickDateRejectsDuplicatesAndCannotCloseTheNextSheet() = vmTest {
+        val due = realToday.plusDays(3)
+        val id = addDaily(due)
+        val other = db.insertTask(task(cat, "Another task"))
+        vm.viewModelScope.cancel()
+        vm = TaskViewModel(app, repo, DateProvider(clock), StandardTestDispatcher(testScheduler))
+        openSheet(id)
+        val original = repo.taskById(id)!!
+        vm.saveQuickDate(original, due.plusDays(1))
+        assertTrue(vm.quickDateSaves.value[id]!!.saving)
+        vm.saveQuickDate(original, due.plusDays(2))
+        vm.setDialog(TaskDialogs.Options(repo.taskWithCategory(other)!!))
+        vm.sheetState.first { it?.taskId == other }
+        vm.updateTaskOrder(emptyList()).join()
+        assertEquals(other, (vm.dialogs.value as TaskDialogs.Options).task.task.id)
+        assertEquals(due.plusDays(1), repo.taskById(id)!!.due)
+        assertFalse(vm.quickDateSaves.value[id]!!.saving)
+    }
+
+    @Test fun reminderFailureAfterCommitReportsSuccessWithoutOfferingWriteRetry() = vmTest {
+        var rejectAlarmAccess = false
+        val context = object : ContextWrapper(app) {
+            override fun getSystemService(name: String): Any? {
+                if (rejectAlarmAccess && name == Context.ALARM_SERVICE) throw SecurityException("Injected alarm failure")
+                return super.getSystemService(name)
+            }
+        }
+        vm.viewModelScope.cancel()
+        vm = TaskViewModel(context, repo, DateProvider(clock), main.dispatcher)
+        val due = realToday.plusDays(3)
+        val id = addDaily(due)
+        latestToast() // Deliver the initial scheduling toast before injecting the later failure.
+        openSheet(id)
+        rejectAlarmAccess = true
+        val outcomes = mutableListOf<Boolean>()
+        vm.applyEdits(id, TaskViewModel.TaskEdits(due = FieldEdit.Set(due.plusDays(1)))) {
+            outcomes += it.isSuccess
+        }.join()
+        assertEquals(listOf(true), outcomes)
+        assertEquals(due.plusDays(1), repo.taskById(id)!!.due)
+        assertEquals(repo.taskById(id), (vm.dialogs.value as TaskDialogs.Options).task.task)
+        assertEquals(org.robolectric.shadows.ShadowLog.getLogsForTag("TaskViewModel")
+            .joinToString("\n") { "${it.msg}: ${it.throwable}" },
+            app.getString(R.string.task_saved_reminder_failed), latestToast())
+        assertFalse(vm.sheetState.value!!.hasError)
+        assertFalse(vm.sheetState.value!!.canRetryAction)
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER reject_rewrite BEFORE UPDATE ON Task BEGIN SELECT RAISE(ABORT, 'unexpected retry'); END")
+        vm.retryTextSave().join()
+        assertFalse(vm.sheetState.value!!.hasError)
+        assertEquals(listOf(true), outcomes)
+    }
+
 }

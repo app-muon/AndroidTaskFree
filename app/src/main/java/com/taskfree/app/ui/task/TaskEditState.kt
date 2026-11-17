@@ -9,20 +9,21 @@ import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.NotificationValidationResult
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.RecurrenceValidationResult
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.DueChoiceSaver
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.NotificationOptionSaver
 import com.taskfree.app.util.AppDateProvider
 
-enum class EditingField { NONE, TITLE, DUE, NOTIFY, RECURRENCE, CATEGORY }
+enum class EditingField { NONE, TITLE, DUE, NOTIFY, CATEGORY }
 
 
 class TaskEditState(
     title: String = "",
     currentDueChoice: DueChoice = DueChoice.from(AppDateProvider.current.today()),
     currentNotifyOption: NotificationOption = NotificationOption.None,
-    recurrence: Recurrence = Recurrence.NONE,
+    repeatRule: RepeatRule? = RepeatRule(Recurrence.NONE),
     selectedCategory: Category,
     editingField: EditingField = EditingField.NONE,
 ) {
@@ -32,7 +33,7 @@ class TaskEditState(
         private set
     var currentNotifyOption by mutableStateOf(currentNotifyOption)
         private set
-    var recurrence by mutableStateOf(recurrence)
+    var repeatRule by mutableStateOf(repeatRule)
         private set
     var selectedCategory by mutableStateOf(selectedCategory)
         private set
@@ -43,24 +44,16 @@ class TaskEditState(
     private var _dueError by mutableStateOf<RecurrenceValidationResult?>(null)
     val dueError: RecurrenceValidationResult? get() = _dueError
 
-    private var _recurrenceError by mutableStateOf<RecurrenceValidationResult?>(null)
-    val recurrenceError: RecurrenceValidationResult? get() = _recurrenceError
-
     private var _notifyError by mutableStateOf<NotificationValidationResult?>(null)
     val notifyError: NotificationValidationResult? get() = _notifyError
 
     fun clearErrors() {
         _dueError = null
-        _recurrenceError = null
         _notifyError = null
     }
 
     fun setDueError(error: RecurrenceValidationResult) {
         _dueError = error
-    }
-
-    fun setRecurrenceError(error: RecurrenceValidationResult) {
-        _recurrenceError = error
     }
 
     fun setNotifyError(error: NotificationValidationResult) {
@@ -79,8 +72,8 @@ class TaskEditState(
         currentNotifyOption = opt
     }
 
-    fun updateRecurrence(newRecurrence: Recurrence) {
-        recurrence = newRecurrence
+    fun updateRepeatRule(rule: RepeatRule?) {
+        repeatRule = rule
     }
 
     fun updateCategory(category: Category) {
@@ -101,7 +94,8 @@ val TaskEditStateSaver = Saver<TaskEditState, Map<String, Any?>>(save = { state 
         "title" to state.title,
         "due" to with(DueChoiceSaver) { save(state.currentDueChoice) },
         "notify" to with(NotificationOptionSaver) { save(state.currentNotifyOption) }, // NEW
-        "rec" to state.recurrence.name,
+        "rec" to state.repeatRule?.recurrence?.name,
+        "interval" to state.repeatRule?.interval,
         "catId" to state.selectedCategory.id              // just the FK
     )
 }, restore = { m ->
@@ -113,7 +107,7 @@ val TaskEditStateSaver = Saver<TaskEditState, Map<String, Any?>>(save = { state 
         currentNotifyOption = with(NotificationOptionSaver) {        // NEW
             restore(m["notify"] as List<Any?>)!!
         },
-        recurrence = Recurrence.valueOf(m["rec"] as String),
+        repeatRule = (m["rec"] as? String)?.let { RepeatRule.fromStoredOrNull(Recurrence.valueOf(it), m["interval"] as? Int ?: 1) },
         selectedCategory = Category(id = m["catId"] as Int, title = "", color = 0)
     )
 })

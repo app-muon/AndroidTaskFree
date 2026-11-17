@@ -7,21 +7,30 @@ import com.taskfree.app.BuildConfig
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.database.TaskDao
 import com.taskfree.app.data.entities.Category
-import com.taskfree.app.data.entities.Task
-import com.taskfree.app.data.entities.TaskNote
 import com.taskfree.app.data.entities.TASK_NOTE_LIMIT
 import com.taskfree.app.data.entities.TASK_TITLE_LIMIT
+import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.TaskNote
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
+import com.taskfree.app.data.entities.repeatRule
+import com.taskfree.app.data.entities.repeatRuleOrNull
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.RecurrenceValidationResult
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.TaskInput
+import com.taskfree.app.domain.model.TaskEditException
+import com.taskfree.app.domain.model.TaskEditFailureReason
 import com.taskfree.app.domain.model.TaskStatus
+import com.taskfree.app.domain.model.baseDateAfterEdit
 import com.taskfree.app.domain.model.calculateNextValidDueDate
+import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
 import com.taskfree.app.util.sameLocalTimeOn
-import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 data class UpdateResult(val nextCreatedId: Int? = null, val nextDeletedId: Int? = null)
 
@@ -39,6 +48,11 @@ class TaskRepository(
     suspend fun snapshot(): List<Task> = database.taskDao().getAllNow()
 
     suspend fun taskById(id: Int): Task? = database.taskDao().taskById(id)
+
+    suspend fun taskWithCategory(taskId: Int) = database.taskDao().taskWithCategoryInfoById(taskId)
+
+    suspend fun activeCategory(categoryId: Int) =
+        database.categoryDao().get(categoryId).first()
 
     fun observeNotes(taskId: Int) = database.taskNoteDao().observe(taskId)
 
@@ -71,6 +85,7 @@ class TaskRepository(
     suspend fun replaceAll(cats: List<Category>, tasks: List<Task>, notes: List<TaskNote> = emptyList()) {
         requireNoLiveTasksInDeletedCategories(cats, tasks)
         validateBackupNotes(tasks, notes)
+        validateBackupRepeatRules(tasks)
 
         if (BuildConfig.DEBUG) {
             Log.d("Backup", "replaceAll cats=${cats.size} tasks=${tasks.size}")
@@ -110,8 +125,13 @@ class TaskRepository(
     }
 
     suspend fun cloneTask(sourceTaskId: Int, input: TaskInput): Int? = database.withTransaction {
-        if (database.taskDao().taskById(sourceTaskId) == null) return@withTransaction null
-        val id = createTask(input)
+        val source = database.taskDao().taskById(sourceTaskId) ?: return@withTransaction null
+        val createdAt = dates.nowInstant()
+        val id = insertLiveTask(
+            input, originalCreatedAt = createdAt, occurrenceCreatedAt = createdAt,
+            preserveLegacyDate = input.dueDate != null && input.dueDate == source.due &&
+                input.repeatRule == source.repeatRule
+        )
         val notes = database.taskNoteDao()
         // Insert oldest first so generated IDs preserve display order when timestamps tie.
         notes.insertAll(notes.getForTaskNow(sourceTaskId).map { it.copy(id = 0, taskId = id) })
@@ -123,25 +143,29 @@ class TaskRepository(
         // Required even when null: a legacy recurrence must keep its unknown original date.
         originalCreatedAt: Instant?,
         occurrenceCreatedAt: Instant = dates.nowInstant(),
-        sourceTaskId: Int? = null
+        sourceTaskId: Int? = null,
+        preserveLegacyDate: Boolean = false
     ): Int {
-        require(input.title.isNotBlank()) { "Task title cannot be blank" }
+        if (input.title.isBlank()) throw TaskEditException(TaskEditFailureReason.VALIDATION)
         val trimmedTitle = sanitizeTaskTitle(input.title)
-        val baseDate = if (input.recurrence != Recurrence.NONE) {
-            requireNotNull(input.dueDate) { "Recurring tasks must have a dueDate" }
-            input.dueDate
-        } else null
+        val rule = input.repeatRule
+        val due = input.dueDate
+        if (!preserveLegacyDate && validateRecurrenceDate(rule, due) != RecurrenceValidationResult.Ok) {
+            throw TaskEditException(TaskEditFailureReason.VALIDATION)
+        }
+        val baseDate = if (rule.recurrence != Recurrence.NONE) due else null
 
         requireActiveCategory(input.categoryId)
         val task = Task(
             categoryId = input.categoryId,
             text = trimmedTitle,
-            due = input.dueDate,
+            due = due,
             baseDate = baseDate,
             singleCategoryPageOrder = maxPositionInCategory(input.categoryId) + 1,
             allCategoryPageOrder = database.taskDao().maxTodoOrder()?.plus(1) ?: 0,
             completedDate = null,
-            recurrence = input.recurrence,
+            recurrence = rule.recurrence,
+            recurrenceInterval = rule.interval,
             status = TaskStatus.TODO,
             isArchived = false,
             reminderTime = input.reminderTime,
@@ -226,12 +250,12 @@ class TaskRepository(
         ) return null
 
         val baseDate = requireNotNull(task.baseDate) { "Recurring task has no base date" }
-        val nextDueDate = task.recurrence.calculateNextValidDueDate(baseDate, dates) ?: return null
+        val nextDueDate = task.repeatRule.calculateNextValidDueDate(baseDate, dates.today()) ?: return null
         return insertLiveTask(
             TaskInput(
                 title = task.text,
                 dueDate = nextDueDate,
-                recurrence = task.recurrence,
+                repeatRule = task.repeatRule,
                 categoryId = task.categoryId,
                 reminderTime = task.reminderTime?.sameLocalTimeOn(nextDueDate)
             ),
@@ -281,30 +305,63 @@ class TaskRepository(
         return UpdateResult(createdId, deletedId)
     }
 
-    suspend fun updateTaskDetails(
-        task: Task,
-        newTitle: String,
-        newDueDate: LocalDate?,
-        newRecurrence: Recurrence,
-        newCategoryId: Int,
-        newReminderTime: Instant?
-    ) {
-        database.withTransaction {
-            val current = requireNotNull(database.taskDao().taskById(task.id))
-            if (!current.isArchived) {
-                requireActiveCategory(newCategoryId)
+    /** Follow explicit links only. Opening an editor never creates an occurrence. */
+    suspend fun editableRepeatTask(taskId: Int): Task? = database.withTransaction {
+        var current = database.taskDao().taskById(taskId) ?: return@withTransaction null
+        val visited = mutableSetOf<Int>()
+        while (visited.add(current.id)) {
+            val next = database.taskDao().findNextInstanceId(current.id)
+            if (next == null) return@withTransaction current.takeIf {
+                it.status != TaskStatus.DONE && !it.isArchived &&
+                    database.categoryDao().isActive(it.categoryId)
             }
-            database.taskDao().update(current.copy(
-                // An unchanged title is not revalidated, so a stored legacy title can't block other edits.
-                text = if (newTitle == current.text) current.text else validateTaskTitle(newTitle),
-                due = newDueDate,
-                baseDate = if (newRecurrence != Recurrence.NONE) newDueDate else null,
-                categoryId = newCategoryId,
-                recurrence = newRecurrence,
-                reminderTime = newReminderTime
-            ))
-            database.categoryDao().deleteDeletedWithoutTasks()
+            current = database.taskDao().taskById(next) ?: return@withTransaction null
         }
+        null
+    }
+
+    /**
+     * Resolve edits against the latest row inside the transaction. Only detail fields are
+     * copied; occurrence links, status, order and creation dates always remain authoritative.
+     */
+    suspend fun updateTaskDetails(
+        taskId: Int,
+        requireEditableRepeat: Boolean = false,
+        edit: (Task) -> TaskInput
+    ): Task = database.withTransaction {
+        val current = database.taskDao().taskById(taskId)
+            ?: throw TaskEditException(TaskEditFailureReason.MISSING_TASK)
+        val input = edit(current)
+        val rule = input.repeatRule
+        if (requireEditableRepeat || rule != current.repeatRuleOrNull) {
+            if (editableRepeatTask(taskId)?.id != taskId) {
+                throw TaskEditException(TaskEditFailureReason.STALE_REPEAT_TARGET)
+            }
+        }
+        if (!current.isArchived) requireActiveCategory(input.categoryId)
+        val due = input.dueDate
+        // Preserve legacy schedules when an unrelated field is edited.
+        if (requireEditableRepeat || rule != current.repeatRuleOrNull || due != current.due ||
+            (rule.recurrence != Recurrence.NONE && due == null)) {
+            if (validateRecurrenceDate(rule, due) != RecurrenceValidationResult.Ok) {
+                throw TaskEditException(TaskEditFailureReason.VALIDATION)
+            }
+        }
+        val reminder = if (due != current.due) {
+            due?.let { input.reminderTime?.sameLocalTimeOn(it) }
+        } else input.reminderTime
+        val updated = current.copy(
+            text = if (input.title == current.text) current.text else validateTaskTitle(input.title),
+            due = due,
+            baseDate = rule.baseDateAfterEdit(due, current.recurrence, current.due, current.baseDate),
+            categoryId = input.categoryId,
+            recurrence = rule.recurrence,
+            recurrenceInterval = rule.interval,
+            reminderTime = reminder
+        )
+        database.taskDao().update(updated)
+        database.categoryDao().deleteDeletedWithoutTasks()
+        updated
     }
 
     suspend fun archiveTasksCompletedBeforeToday(): Int {
@@ -354,8 +411,8 @@ class TaskRepository(
     }
 
     private suspend fun requireActiveCategory(categoryId: Int) {
-        require(database.categoryDao().isActive(categoryId)) {
-            "Category $categoryId is deleted or missing"
+        if (!database.categoryDao().isActive(categoryId)) {
+            throw TaskEditException(TaskEditFailureReason.INACTIVE_CATEGORY)
         }
     }
 
@@ -381,7 +438,7 @@ internal fun validateNoteText(text: String): String = text.trim().also {
 
 /** A title is one line, as on creation, but is never silently truncated. */
 internal fun validateTaskTitle(text: String): String = text.trim().replace(Regex("[\\r\\n]+"), " ").also {
-    require(it.isNotBlank() && it.length <= TASK_TITLE_LIMIT) { "Invalid task title" }
+    if (it.isBlank() || it.length > TASK_TITLE_LIMIT) throw TaskEditException(TaskEditFailureReason.VALIDATION)
 }
 
 internal fun validateBackupNotes(tasks: List<Task>, notes: List<TaskNote>) {
@@ -389,4 +446,8 @@ internal fun validateBackupNotes(tasks: List<Task>, notes: List<TaskNote>) {
     require(notes.all { it.id > 0 && it.taskId in taskIds }) { "Invalid note reference" }
     require(notes.map { it.id }.toSet().size == notes.size) { "Duplicate note ID" }
     notes.forEach { validateNoteText(it.text) }
+}
+
+internal fun validateBackupRepeatRules(tasks: List<Task>) {
+    tasks.forEach { RepeatRule.validate(it.recurrence, it.recurrenceInterval) }
 }

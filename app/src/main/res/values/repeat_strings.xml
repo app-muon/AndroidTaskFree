@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="repeat_none">No repetition</string>
+    <string name="repeat_days">Days</string>
+    <string name="repeat_weeks">Weeks</string>
+    <string name="repeat_months">Months</string>
+    <string name="repeat_every">Every</string>
+    <plurals name="repeat_unit_days"><item quantity="one">day</item><item quantity="other">days</item></plurals>
+    <plurals name="repeat_unit_weeks"><item quantity="one">week</item><item quantity="other">weeks</item></plurals>
+    <plurals name="repeat_unit_months"><item quantity="one">month</item><item quantity="other">months</item></plurals>
+    <string name="repeat_interval_hint">Hold − or + to change faster.</string>
+    <string name="repeat_decrease_interval">Decrease repeat interval</string>
+    <string name="repeat_increase_interval">Increase repeat interval</string>
+    <string name="repeat_needs_date">This task needs a due date to repeat.</string>
+    <string name="repeat_choose_compatible_date">Choose a date that matches this repeat rule.</string>
+    <string name="repeat_done">Done</string>
+    <string name="repeat_preview">Next due if completed today</string>
+    <string name="repeat_edit_current">Edit current task\'s repeat</string>
+    <string name="repeat_editing_for">Editing repeat for: %1$s</string>
+    <string name="repeat_history_for">Repeat for this past occurrence: %1$s</string>
+    <string name="repeat_save_failed">Could not save. Your draft is kept. Choose Done to retry, or Cancel to close.</string>
+    <string name="repeat_due_date">Due date</string>
+    <string name="repeat_decrease_repeatedly">Decrease repeatedly</string>
+    <string name="repeat_increase_repeatedly">Increase repeatedly</string>
+    <string name="repeat_stale_draft">Your changes were not saved because this is no longer the current task. Your draft is shown here, but cannot be edited or saved. Close it or open the current task\'s stored repeat settings.</string>
+    <string name="repeat_invalid_repair">The stored repeat rule is invalid. This repair draft starts with No repetition. Choose a rule and select Done to save it. Cancel leaves the task unchanged.</string>
+    <string name="task_edit_validation_failed">Changes were not saved. Check the title and choose a due date compatible with the repeat rule.</string>
+    <string name="task_edit_missing">Changes were not saved because this task no longer exists. Close this editor.</string>
+    <string name="task_edit_inactive_category">Changes were not saved because the category is no longer available. Choose an active category or close this editor.</string>
+    <string name="task_edit_invalid_rule">Changes were not saved because the stored repeat rule is invalid. Open Repeat to repair it explicitly.</string>
+    <string name="task_saved_reminder_failed">Task saved, but its reminder could not be updated.</string>
+    <string name="notification_finish_editing">Finish or cancel the open dialog to view the task from your notification.</string>
+    <string name="notification_open_failed">Could not open the task. The notification request is still waiting.</string>
+    <string name="repeat_task_missing">This task is no longer available.</string>
+    <string name="repeat_load_failed">Could not load the task. Retry or close this dialog.</string>
+    <string name="repeat_invalid">Invalid repeat rule</string>
+    <string name="repeat_edit_action">Edit repetition</string>
+    <string name="notification_reminder">Reminder: %1$s</string>
+    <string name="notification_category">Category: %1$s</string>
+    <string name="notification_repeat">Repeats: %1$s</string>
+    <plurals name="repeat_every_days"><item quantity="one">Every %d day</item><item quantity="other">Every %d days</item></plurals>
+    <plurals name="repeat_every_weeks"><item quantity="one">Every %d week</item><item quantity="other">Every %d weeks</item></plurals>
+    <plurals name="repeat_every_months"><item quantity="one">Every %d month</item><item quantity="other">Every %d months</item></plurals>
+    <string name="err_backup_repeat">Invalid repeat rule in backup.</string>
+</resources>

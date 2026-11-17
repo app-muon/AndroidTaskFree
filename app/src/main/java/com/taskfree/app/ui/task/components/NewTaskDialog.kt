@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,14 +34,19 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.RecurrenceValidationResult
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.validateNotification
 import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.ui.components.CategoryPill
@@ -50,15 +56,16 @@ import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.NotificationOptionSaver
 import com.taskfree.app.ui.components.PanelConstants
-import com.taskfree.app.ui.components.RecurrencePill
 import com.taskfree.app.ui.components.TaskFieldHeading
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.dialogMaxHeight
 import com.taskfree.app.ui.components.dialogResponsiveWidth
-import com.taskfree.app.ui.components.isSameKindAs
+import com.taskfree.app.ui.components.kind
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.launchTimePicker
+import com.taskfree.app.ui.components.matchesDateOption
 import com.taskfree.app.ui.components.showDatePicker
+import com.taskfree.app.ui.mapper.displayName
 import com.taskfree.app.ui.theme.outlinedFieldColours
 import com.taskfree.app.ui.theme.providePanelColors
 import showTimePicker
@@ -67,13 +74,12 @@ import showTimePicker
 fun NewTaskDialog(
     initialText: String,
     initialDue: DueChoice = DueChoice.fromSpecial(DueChoice.Special.NONE),
-    initialRecurrence: Recurrence = Recurrence.NONE,
     initialCategory: Category,
     allCategories: List<Category>,
-    onSave: (String, DueChoice, Recurrence, Int, NotificationOption) -> Unit,
+    onSave: (String, DueChoice, RepeatRule, Int, NotificationOption) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var text by remember { mutableStateOf(initialText) }
+    var text by rememberSaveable { mutableStateOf(initialText) }
     var selectedDueChoice by rememberSaveable(stateSaver = DueChoiceSaver) {
         mutableStateOf(initialDue)
     }
@@ -85,12 +91,16 @@ fun NewTaskDialog(
         validateNotification(selectedDueChoice, selectedNotificationOption)
     }
 
-    var recurrence by remember { mutableStateOf(initialRecurrence) }
-    var selectedCategory by remember { mutableStateOf(initialCategory) }
+    var recurrenceName by rememberSaveable { mutableStateOf(Recurrence.NONE.name) }
+    var recurrenceInterval by rememberSaveable { mutableIntStateOf(1) }
+    val repeatRule = RepeatRule(Recurrence.valueOf(recurrenceName), recurrenceInterval)
+    var selectedCategoryId by rememberSaveable { mutableIntStateOf(initialCategory.id) }
+    var showRepeat by rememberSaveable { mutableStateOf(false) }
+    val today = rememberRepeatToday()
     val focusRequester = remember { FocusRequester() }
 
-    val validationRecurrenceResult = remember(selectedDueChoice, recurrence) {
-        validateRecurrenceDate(recurrence, selectedDueChoice)
+    val validationRecurrenceResult = remember(selectedDueChoice, repeatRule, today) {
+        validateRecurrenceDate(repeatRule, selectedDueChoice.date)
     }
 
     var pickTime by remember { mutableStateOf(false) }
@@ -133,6 +143,7 @@ fun NewTaskDialog(
             usePlatformDefaultWidth = false, dismissOnClickOutside = false
         )
     ) {
+        val focusManager = LocalFocusManager.current
         // Must live inside the Dialog so the text field is composed before focus is requested.
         LaunchedEffect(Unit) {
             if (text.isBlank()) {
@@ -190,12 +201,12 @@ fun NewTaskDialog(
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
                         allCategories.forEach { cat ->
-                            val selected = cat == selectedCategory
+                            val selected = cat.id == selectedCategoryId
                             CategoryPill(
                                 category = cat,
                                 big = false,
                                 selected = selected,
-                                onClick = { selectedCategory = cat })
+                                onClick = { selectedCategoryId = cat.id })
                         }
                     }
 
@@ -211,9 +222,10 @@ fun NewTaskDialog(
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
                         DueChoice.allChoices().forEach { due ->
-                            val selected = selectedDueChoice.isSameKindAs(due)
+                            val selected = selectedDueChoice.matchesDateOption(due)
                             LabelledOptionPill(
                                 due.choiceLabel(),
+                                modifier = Modifier.testTag("due_option_${due.kind}").semantics { this.selected = selected },
                                 big = false,
                                 selected = selected,
                                 onClick = {
@@ -249,14 +261,10 @@ fun NewTaskDialog(
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
 
-                        Recurrence.entries.forEach { recurrenceValue ->
-                            RecurrencePill(
-                                recurrence = recurrenceValue,
-                                selected = recurrenceValue == recurrence,
-                                onClick = {
-                                    recurrence = recurrenceValue
-                                })
-                        }
+                        TextButton(
+                            modifier = Modifier.testTag("open_repeat"),
+                            onClick = { focusManager.clearFocus(); keyboard?.hide(); showRepeat = true }
+                        ) { Text(repeatRule.displayName()) }
                     }
                     // Validation Error Display
                     ValidationRecurrenceErrorText(validationRecurrenceResult)
@@ -326,8 +334,8 @@ fun NewTaskDialog(
                                     onSave(
                                         text,
                                         selectedDueChoice,
-                                        recurrence,
-                                        selectedCategory.id,
+                                        repeatRule,
+                                        selectedCategoryId,
                                         selectedNotificationOption
                                     )
                                 }
@@ -343,4 +351,19 @@ fun NewTaskDialog(
             }
         }
     }
+    if (showRepeat) {
+        RepeatDialog(
+            initialRule = repeatRule,
+            initialDue = selectedDueChoice.date,
+            onDone = { rule, due ->
+                recurrenceName = rule.recurrence.name
+                recurrenceInterval = rule.interval
+                // Keep the committed date fixed; matchesDateOption supplies relative chip selection.
+                selectedDueChoice = due?.let { DueChoice.Other(it) } ?: DueChoice.None
+                showRepeat = false
+            },
+            onDismiss = { showRepeat = false }
+        )
+    }
+
 }

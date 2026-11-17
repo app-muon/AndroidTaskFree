@@ -132,4 +132,44 @@ class AlarmReceiverTest {
         shadowOf(Looper.getMainLooper()).idle()
         assertNull(ShadowToast.getTextOfLatestToast())
     }
+    @Test fun reminderIncludesCustomIntervalFromDatabaseProjection() = runBlocking {
+        RealDatabaseMigrator.start(app).join()
+        AppDatabaseFactory.getDatabase(app).taskDao().update(task.copy(
+            recurrence = com.taskfree.app.domain.model.Recurrence.WEEKLY, recurrenceInterval = 3))
+        AlarmReceiver().deliver(app, 1)
+        val body = notifications.allNotifications.single().extras
+            .getCharSequence(android.app.Notification.EXTRA_BIG_TEXT).toString()
+        assertTrue(body.contains("Every 3 weeks"))
+    }
+
+    @Test fun corruptRepeatRuleDoesNotSuppressReminder() = runBlocking {
+        RealDatabaseMigrator.start(app).join()
+        val invalid = task.copy(recurrence = com.taskfree.app.domain.model.Recurrence.WEEKLY,
+            recurrenceInterval = 0)
+        AppDatabaseFactory.getDatabase(app).taskDao().update(invalid)
+        AlarmReceiver().deliver(app, 1)
+        val notification = notifications.allNotifications.single()
+        assertEquals(app.getString(com.taskfree.app.R.string.notification_reminder, task.text),
+            notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
+        assertTrue(notification.extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT).toString()
+            .contains(app.getString(com.taskfree.app.R.string.repeat_invalid)))
+        assertEquals(0, AppDatabaseFactory.getDatabase(app).taskDao().taskById(1)!!.recurrenceInterval)
+    }
+
+    @Test fun spanishReminderUsesOneLanguageForAllPrefixes() = runBlocking {
+        RealDatabaseMigrator.start(app).join()
+        AppDatabaseFactory.getDatabase(app).taskDao().update(task.copy(
+            recurrence = com.taskfree.app.domain.model.Recurrence.WEEKLY, recurrenceInterval = 3))
+        val configuration = android.content.res.Configuration(app.resources.configuration).apply {
+            setLocale(java.util.Locale.forLanguageTag("es"))
+        }
+        val spanish = app.createConfigurationContext(configuration)
+        AlarmReceiver().deliver(spanish, 1)
+        val notification = notifications.allNotifications.single()
+        assertEquals("Recordatorio: Reminder", notification.extras
+            .getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
+        assertEquals("Repetición: Cada 3 semanas\nCategoría: Tasks", notification.extras
+            .getCharSequence(android.app.Notification.EXTRA_BIG_TEXT).toString())
+    }
+
 }

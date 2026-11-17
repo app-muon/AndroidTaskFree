@@ -34,12 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.taskfree.app.R
+import com.taskfree.app.ui.NotificationNavigation
 import com.taskfree.app.ui.admin.ToolsMenuDialog
 import com.taskfree.app.ui.admin.BackupFileDialog
 import com.taskfree.app.ui.admin.BackupMigrationBanner
 import com.taskfree.app.ui.admin.ToolsViewModel
 import com.taskfree.app.ui.admin.ToolsVmFactory
 import com.taskfree.app.ui.category.components.CategoryDialogHost
+import com.taskfree.app.ui.category.components.CategoryDialogsSaver
 import com.taskfree.app.ui.category.components.CategoryEmptyState
 import com.taskfree.app.ui.category.components.CategoryList
 import com.taskfree.app.ui.category.components.Dialogs
@@ -66,13 +68,25 @@ fun CategoryListScreen(navController: NavHostController) {
     var showBackup by rememberSaveable { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
-    var dialogs by remember { mutableStateOf<Dialogs>(Dialogs.None) }
+    var dialogs by rememberSaveable(stateSaver = CategoryDialogsSaver) { mutableStateOf<Dialogs>(Dialogs.None) }
     // A/Z only change what is shown; the saved drag order is left alone
     var categorySort by rememberSaveable { mutableStateOf(SortMode.USER) }
     val shownCategories = remember(uiState.categories, categorySort) {
         sortCategories(uiState.categories, categorySort)
     }
     val tipManager = LocalTipManager.current
+    val currentTip by tipManager.currentTip.collectAsState()
+    var toolsModalOpen by remember { mutableStateOf(true) }
+    var backupModalOpen by remember { mutableStateOf(true) }
+    NotificationNavigation(
+        ready = !uiState.isInitialLoadPending,
+        modalOpen = dialogs != Dialogs.None || showGlobalMenu || toolsModalOpen ||
+            showBackup || backupModalOpen || showEncryptWizard || showPhraseDialog || currentTip != null,
+        onOpen = { _, canOpen ->
+            if (canOpen()) navController.navigate("search") { launchSingleTop = true }
+            null // The resumed task destination opens and consumes the request.
+        }
+    )
     val resetTick by tipManager.resetTick.collectAsState()
     /* ------------- INSTRUCTIONS------------- */
     LaunchedEffect(uiState.isInitialLoadPending, resetTick) {
@@ -256,6 +270,7 @@ fun CategoryListScreen(navController: NavHostController) {
             setDialogs = { dialogs = it },
             onAdd = viewModel::add,
             onNavigateToCategory = { id ->
+                dialogs = Dialogs.None
                 navController.navigate("search?categoryId=$id")
             },
             onDelete = viewModel::delete,
@@ -267,11 +282,13 @@ fun CategoryListScreen(navController: NavHostController) {
             startEncryptFlow = { showEncryptWizard = true },
             showPhraseFlow = { showPhraseDialog = true },
             vm = adminVm,
+            onModalState = { toolsModalOpen = it },
             show = showGlobalMenu,
             onDismiss = { showGlobalMenu = false },
             onResetTips = { tipManager.resetTips() })
     }
-    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true }, onDismiss = { showBackup = false })
+    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true },
+        onDismiss = { showBackup = false }, onModalState = { backupModalOpen = it })
     if (showEncryptWizard) {
         EncryptWizard(onClose = { showEncryptWizard = false })
     }

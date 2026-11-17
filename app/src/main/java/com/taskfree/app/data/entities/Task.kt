@@ -13,11 +13,12 @@ import androidx.room.PrimaryKey
 import com.taskfree.app.data.serialization.InstantSerializer
 import com.taskfree.app.data.serialization.LocalDateSerializer
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.TaskStatus
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.UseSerializers
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 
 // ❷ Give Task a new column (default = NONE)
 @Serializable
@@ -49,6 +50,9 @@ data class Task(
     @ColumnInfo(defaultValue = "NONE")
     val recurrence: Recurrence = Recurrence.NONE,
 
+    @ColumnInfo(defaultValue = "1")
+    val recurrenceInterval: Int = 1,
+
     @ColumnInfo(defaultValue = "TODO")
     val status: TaskStatus = TaskStatus.TODO,
 
@@ -66,3 +70,10 @@ data class Task(
     /** The occurrence that generated this task. Manual additions and legacy rows have no link. */
     val sourceTaskId: Int? = null
 )
+
+/** Conversion from persisted fields to the complete validated rule. */
+val Task.repeatRule: RepeatRule get() = RepeatRule(recurrence, recurrenceInterval)
+
+/** Display boundaries must not fail because a persisted rule is damaged. */
+val Task.repeatRuleOrNull: RepeatRule?
+    get() = RepeatRule.fromStoredOrNull(recurrence, recurrenceInterval)

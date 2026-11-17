@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Backup(
-    val version: String = "1.1",
+    val version: String = "1.2",
     val app_version: String,
     val exported_at: String,
     val categories: List<Category>,

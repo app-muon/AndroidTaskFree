@@ -1,6 +1,8 @@
 // data/repository/CategoryRepositoryTest.kt
 package com.taskfree.app.data.repository
 
+import com.taskfree.app.domain.model.RepeatRule
+
 import androidx.compose.ui.graphics.toArgb
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
@@ -145,7 +147,7 @@ class CategoryRepositoryTest {
         val taskRepo = TaskRepository(db, datesAt(LocalDate.of(2026, 10, 6)))
 
         assertFails<IllegalArgumentException> {
-            taskRepo.createTask(TaskInput("x", null, Recurrence.NONE, id))
+            taskRepo.createTask(TaskInput("x", null, RepeatRule(Recurrence.NONE), id))
         }
     }
 }

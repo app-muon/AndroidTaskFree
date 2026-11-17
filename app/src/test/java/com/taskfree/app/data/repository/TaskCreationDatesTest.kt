@@ -2,6 +2,7 @@ package com.taskfree.app.data.repository
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
@@ -46,14 +47,14 @@ class TaskCreationDatesTest {
         val categoryId = db.insertCategory()
 
         for (recurrence in listOf(Recurrence.NONE, Recurrence.DAILY)) {
-            val id = repo.createTask(TaskInput("Water plants", today, recurrence, categoryId))
+            val id = repo.createTask(TaskInput("Water plants", today, RepeatRule(recurrence), categoryId))
             assertDates(id, createdAt, createdAt)
         }
     }
 
     @Test
     fun `completion and single archive carry the original date through generations`() = runTest {
-        val id = repo.createTask(TaskInput("Water plants", today, Recurrence.DAILY, db.insertCategory()))
+        val id = repo.createTask(TaskInput("Water plants", today, RepeatRule(Recurrence.DAILY), db.insertCategory()))
 
         clock.advance(Duration.ofDays(1))
         val secondId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
@@ -86,7 +87,7 @@ class TaskCreationDatesTest {
 
     @Test
     fun `undo then complete again timestamps only the recreated occurrence`() = runTest {
-        val id = repo.createTask(TaskInput("Stretch", today, Recurrence.DAILY, db.insertCategory()))
+        val id = repo.createTask(TaskInput("Stretch", today, RepeatRule(Recurrence.DAILY), db.insertCategory()))
         clock.advance(Duration.ofMinutes(10))
         val nextId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
         assertDates(nextId, createdAt, clock.instant())
@@ -103,7 +104,7 @@ class TaskCreationDatesTest {
 
     @Test
     fun `reusing an existing next occurrence preserves its timestamps`() = runTest {
-        val id = repo.createTask(TaskInput("Stretch", today, Recurrence.DAILY, db.insertCategory()))
+        val id = repo.createTask(TaskInput("Stretch", today, RepeatRule(Recurrence.DAILY), db.insertCategory()))
         val original = repo.taskById(id)!!
         clock.advance(Duration.ofMinutes(10))
         val nextId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
@@ -118,7 +119,7 @@ class TaskCreationDatesTest {
     @Test
     fun `edits recurrence changes ordering and lifecycle actions preserve both dates`() = runTest {
         val categoryId = db.insertCategory()
-        val id = repo.createTask(TaskInput("Stretch", today, Recurrence.DAILY, categoryId))
+        val id = repo.createTask(TaskInput("Stretch", today, RepeatRule(Recurrence.DAILY), categoryId))
         clock.advance(Duration.ofDays(1))
         val nextId = repo.updateTaskStatus(id, TaskStatus.DONE).nextCreatedId!!
         val occurrenceCreatedAt = clock.instant()
@@ -126,10 +127,9 @@ class TaskCreationDatesTest {
         clock.advance(Duration.ofDays(1))
 
         for (recurrence in listOf(Recurrence.WEEKLY, Recurrence.NONE, Recurrence.MONTHLY)) {
-            repo.updateTaskDetails(
-                repo.taskById(nextId)!!, "New title", today.plusDays(30), recurrence,
-                otherCategory, clock.instant().plusSeconds(3600)
-            )
+            repo.updateTaskDetails(nextId) {
+                TaskInput("New title", today.plusDays(30), RepeatRule(recurrence), otherCategory, clock.instant().plusSeconds(3600))
+            }
             assertDates(nextId, createdAt, occurrenceCreatedAt)
         }
         repo.updateTaskOrder(listOf(repo.taskById(nextId)!!.copy(allCategoryPageOrder = 9)))

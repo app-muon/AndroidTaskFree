@@ -12,9 +12,9 @@ import com.taskfree.app.data.entities.CategoryStatusCount
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
 import com.taskfree.app.domain.model.Recurrence
-import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 
 @Dao
@@ -186,7 +186,7 @@ WHERE id = :id
 
     @Query(
         """
-        SELECT Task.id, Task.text, Task.due, Task.recurrence, Task.reminderTime,
+        SELECT Task.id, Task.text, Task.due, Task.recurrence, Task.recurrenceInterval, Task.reminderTime,
                Category.title AS catTitle, Category.color AS catColor
         FROM Task
         JOIN Category ON Category.id = Task.categoryId
@@ -203,6 +203,7 @@ WHERE id = :id
         val text: String,
         val due: LocalDate?,
         val recurrence: Recurrence,
+        val recurrenceInterval: Int,
         val reminderTime: Instant?,
         val catTitle: String,
         val catColor: Long
@@ -210,6 +211,10 @@ WHERE id = :id
 
     @Query("SELECT * FROM Task")
     suspend fun getAllNow(): List<Task>
+
+    @Transaction
+    @Query("SELECT * FROM Task WHERE id = :id")
+    suspend fun taskWithCategoryInfoById(id: Int): TaskWithCategoryInfo?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(tasks: List<Task>): List<Long>

@@ -1,5 +1,7 @@
 package com.taskfree.app.data.database
 
+import com.taskfree.app.domain.model.RepeatRule
+
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
@@ -35,6 +37,9 @@ class CreationDatesMigrationTest {
 
     @Test
     fun `version 19 adds empty notes with an indexed cascading foreign key`() = runTest { assertUpgrade(19) }
+
+    @Test
+    fun `version 20 defaults interval to one without changing existing data`() = runTest { assertUpgrade(20) }
 
     private suspend fun assertUpgrade(fromVersion: Int) {
         val file = tmp.newFile("version17.db")
@@ -91,12 +96,19 @@ class CreationDatesMigrationTest {
                 old.execSQL("ALTER TABLE Task ADD COLUMN sourceTaskId INTEGER REFERENCES Task(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED")
                 old.execSQL("CREATE UNIQUE INDEX index_Task_sourceTaskId ON Task(sourceTaskId)")
             }
+            if (fromVersion >= 20) {
+                old.execSQL("""CREATE TABLE TaskNote (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    taskId INTEGER NOT NULL, text TEXT NOT NULL, createdAt INTEGER NOT NULL, editedAt INTEGER,
+                    FOREIGN KEY(taskId) REFERENCES Task(id) ON DELETE CASCADE)""")
+                old.execSQL("CREATE INDEX index_TaskNote_taskId ON TaskNote(taskId)")
+            }
             old.version = fromVersion
         }
 
         val context = ApplicationProvider.getApplicationContext<Context>()
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+            .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
             .allowMainThreadQueries()
             .build()
         try {
@@ -120,11 +132,11 @@ class CreationDatesMigrationTest {
                 ),
                 migrated.taskDao().getAllNow().sortedBy { it.id }
             )
-            assertEquals(20, migrated.openHelper.readableDatabase.version)
+            assertEquals(21, migrated.openHelper.readableDatabase.version)
             assertEquals(emptyList<com.taskfree.app.data.entities.TaskNote>(), migrated.taskNoteDao().getAllNow())
 
             val repo = TaskRepository(migrated, datesAt(today))
-            val newId = repo.createTask(TaskInput("New task", null, Recurrence.NONE, 1))
+            val newId = repo.createTask(TaskInput("New task", null, RepeatRule(Recurrence.NONE), 1))
             val added = repo.taskById(newId)!!
             assertNotNull(added.originalCreatedAt)
             assertEquals(added.originalCreatedAt, added.occurrenceCreatedAt)

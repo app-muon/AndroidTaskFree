@@ -1,9 +1,11 @@
 // ui/task/TaskOptionsPanel.kt
 package com.taskfree.app.ui.task
 
+import android.app.Application
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,8 +14,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -29,18 +31,16 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,13 +49,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
@@ -67,6 +70,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
+import com.taskfree.app.data.entities.repeatRuleOrNull
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.category.CategoryViewModel
@@ -82,15 +86,16 @@ import com.taskfree.app.ui.components.MetaRow
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
-import com.taskfree.app.ui.components.RecurrencePill
 import com.taskfree.app.ui.components.TaskDatesRow
 import com.taskfree.app.ui.components.TaskFieldHeading
 import com.taskfree.app.ui.components.TrailingEditIcon
 import com.taskfree.app.ui.components.choiceLabel
 import com.taskfree.app.ui.components.isSameKindAs
+import com.taskfree.app.ui.components.kind
 import com.taskfree.app.ui.components.launchDatePicker
 import com.taskfree.app.ui.components.launchTimePicker
 import com.taskfree.app.ui.components.linkified
+import com.taskfree.app.ui.components.matchesDateOption
 import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.showDatePicker
 import com.taskfree.app.ui.mapper.backgroundColor
@@ -101,11 +106,11 @@ import com.taskfree.app.ui.task.components.ValidationNotificationErrorText
 import com.taskfree.app.ui.task.components.ValidationRecurrenceErrorText
 import com.taskfree.app.ui.task.components.commitDue
 import com.taskfree.app.ui.task.components.commitNotification
-import com.taskfree.app.ui.task.components.commitRecurrence
 import com.taskfree.app.ui.task.components.quickDateKind
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.weekdayShortLabel
+import java.time.LocalDate
 import showTimePicker
 
 @Composable
@@ -117,7 +122,8 @@ fun TaskOptionsPanel(
     onClone: (Task) -> Unit,
     onDeletePermanently: (Task) -> Unit,
     onDismiss: () -> Unit,
-    currentFilterCatId: Int?
+    currentFilterCatId: Int?,
+    onOpenRepeat: (Int) -> Unit
 ) {
     val taskWithCategory = task ?: return
     val taskSnapshot = taskWithCategory.task
@@ -125,10 +131,9 @@ fun TaskOptionsPanel(
     val colors = providePanelColors()
     val sheetState by taskVm.sheetState.collectAsState()
     val sheet = sheetState ?: return
-    val focusManager = LocalFocusManager.current
     fun dismiss() { taskVm.closeSheet(onDismiss) }
 
-    val context = LocalContext.current.applicationContext as android.app.Application
+    val context = LocalContext.current.applicationContext as Application
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
     val pickerContext = LocalContext.current
     val uiState by categoriesVm.uiState.collectAsState()
@@ -138,20 +143,20 @@ fun TaskOptionsPanel(
         ?: DueChoice.fromSpecial(DueChoice.Special.NONE)
     val currentNotifyOption = NotificationOption.fromTask(taskSnapshot)
     val kind = quickDateKind(taskSnapshot)
-    fun applyPostponeDate(date: java.time.LocalDate) {
-        taskVm.applyEdits(
-            taskSnapshot.id,
-            TaskViewModel.TaskEdits(due = FieldEdit.Set(date))
-        )
+    val quickDateSaves by taskVm.quickDateSaves.collectAsState()
+    val quickDateState = quickDateSaves[taskSnapshot.id]
+    val quickDateSaving = quickDateState?.saving == true
+    val quickDateError = quickDateState?.takeIf { it.sessionId == sheet.sessionId }?.validation
+    fun applyPostponeDate(date: LocalDate) {
+        taskVm.saveQuickDate(taskSnapshot, date)
     }
-    fun showDueDatePicker(initialDate: java.time.LocalDate, minDate: java.time.LocalDate) {
+    fun showDueDatePicker(initialDate: LocalDate, minDate: LocalDate) {
         showDatePicker(
             context = pickerContext,
             initialDate = initialDate,
             minDate = minDate,
             onDateSelected = { picked ->
                 applyPostponeDate(picked)
-                dismiss()
             }
         )
     }
@@ -184,14 +189,15 @@ fun TaskOptionsPanel(
                             weekdayShortLabel(date)
                         }
                         LabelledOptionPill(
+                            enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                             label = label,
                             onClick = {
                                 applyPostponeDate(date)
-                                dismiss()
                             }
                         )
                     }
                     IconOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         icon = Icons.Default.DateRange,
                         contentDescription = stringResource(R.string.date_picker),
                         onClick = { showDueDatePicker(initialDate = tomorrow, minDate = tomorrow) }
@@ -218,18 +224,22 @@ fun TaskOptionsPanel(
                         modifier = Modifier.padding(end = PanelConstants.SPACER_WIDTH)
                     )
                     LabelledOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         label = stringResource(R.string.today),
-                        onClick = { applyPostponeDate(today); dismiss() }
+                        onClick = { applyPostponeDate(today) }
                     )
                     LabelledOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         label = stringResource(R.string.tomorrow),
-                        onClick = { applyPostponeDate(today.plusDays(1)); dismiss() }
+                        onClick = { applyPostponeDate(today.plusDays(1)) }
                     )
                     LabelledOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         label = stringResource(R.string.offset_weeks_format, 1),
-                        onClick = { applyPostponeDate(today.plusDays(7)); dismiss() }
+                        onClick = { applyPostponeDate(today.plusDays(7)) }
                     )
                     IconOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         icon = Icons.Default.DateRange,
                         contentDescription = stringResource(R.string.date_picker),
                         onClick = { showDueDatePicker(initialDate = today, minDate = today) }
@@ -268,11 +278,13 @@ fun TaskOptionsPanel(
                             else -> weekdayShortLabel(date)
                         }
                         LabelledOptionPill(
+                            enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                             label = label,
-                            onClick = { applyPostponeDate(date); dismiss() }
+                            onClick = { applyPostponeDate(date) }
                         )
                     }
                     IconOptionPill(
+                        enabled = !quickDateSaving && taskSnapshot.repeatRuleOrNull != null,
                         icon = Icons.Default.DateRange,
                         contentDescription = stringResource(R.string.date_picker),
                         onClick = { showDueDatePicker(initialDate = due, minDate = today) }
@@ -288,11 +300,18 @@ fun TaskOptionsPanel(
                 title = taskSnapshot.text,
                 currentDueChoice = currentDueChoice,
                 currentNotifyOption = currentNotifyOption,
-                recurrence = taskSnapshot.recurrence,
+                repeatRule = taskSnapshot.repeatRuleOrNull,
                 selectedCategory = allCategories.firstOrNull { it.id == taskSnapshot.categoryId }
                     ?: category
             )
         )
+    }
+    LaunchedEffect(taskSnapshot.due, taskSnapshot.recurrence, taskSnapshot.recurrenceInterval, taskSnapshot.reminderTime) {
+        editState.updateDue(taskSnapshot.due?.let { DueChoice.Other(it) } ?: DueChoice.None)
+        editState.updateRepeatRule(taskSnapshot.repeatRuleOrNull)
+        editState.updateNotification(NotificationOption.fromTask(taskSnapshot))
+        editState.clearErrors()
+        editState.exitEditMode()
     }
     val currentCategory =
         allCategories.firstOrNull { it.id == editState.selectedCategory.id }
@@ -326,7 +345,7 @@ fun TaskOptionsPanel(
 
         taskSnapshot.isArchived -> emptyList()
 
-        editState.recurrence != Recurrence.NONE -> listOf(
+        taskSnapshot.recurrence != Recurrence.NONE -> listOf(
             ActionItem(
                 label = stringResource(R.string.archive_task_yes_dialog_button),
                 icon = Icons.Default.Archive,
@@ -390,6 +409,7 @@ fun TaskOptionsPanel(
     /* ---------- title, quick actions, editable attributes, notes and history ---------- */
     PanelActionList(
         headerContent = {
+            val focusManager = LocalFocusManager.current
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -430,6 +450,8 @@ fun TaskOptionsPanel(
                     )
                 }
 
+                if (quickDateSaving) LinearProgressIndicator(Modifier.fillMaxWidth())
+                quickDateError?.let { ValidationRecurrenceErrorText(it) }
                 // These buttons apply immediately and close the sheet; the fields below open choices.
                 HorizontalDivider(color = Color.Gray)
                 Column(
@@ -578,7 +600,7 @@ fun TaskOptionsPanel(
                 /* --- DUE DATE ROW --- */
                 MetaRow(
                     colors = colors,
-                    modifier = Modifier.clickable(enabled = editState.editingField != EditingField.DUE) {
+                    modifier = Modifier.testTag("open_due").clickable(enabled = editState.editingField != EditingField.DUE) {
                         focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.DUE)
                     },
                     headlineContent = { TaskFieldHeading(stringResource(R.string.due)) },
@@ -596,9 +618,10 @@ fun TaskOptionsPanel(
                         )
                     ) {
                         DueChoice.allChoices().forEach { choice ->
-                            val isSelected = editState.currentDueChoice.isSameKindAs(choice)
+                            val isSelected = editState.currentDueChoice.matchesDateOption(choice)
                             LabelledOptionPill(
                                 label = choice.choiceLabel(),
+                                modifier = Modifier.testTag("due_option_${choice.kind}").semantics { selected = isSelected },
                                 selected = isSelected,
                                 error = editState.dueError != null && isSelected,
                                 onClick = {
@@ -633,52 +656,23 @@ fun TaskOptionsPanel(
 
                 }
 
-                /* --- RECURRENCE ROW --- */
+                /* --- REPEAT ROW --- */
                 MetaRow(
                     colors = colors,
-                    modifier = Modifier.clickable(enabled = editState.editingField != EditingField.RECURRENCE) {
-                        focusManager.clearFocus(); taskVm.focusText(null); editState.enterEditMode(EditingField.RECURRENCE)
+                    modifier = Modifier.testTag("open_repeat").clickable(
+                        role = Role.Button, onClickLabel = stringResource(R.string.repeat_edit_action)
+                    ) {
+                        focusManager.clearFocus()
+                        taskVm.focusText(null)
+                        editState.exitEditMode()
+                        taskVm.resetRepeatSave()
+                        onOpenRepeat(taskSnapshot.id)
                     },
                     headlineContent = { TaskFieldHeading(stringResource(R.string.repeat)) },
                     supportingContent = {
-                        LabelledOptionPill(
-                            label = if (editState.recurrence == Recurrence.NONE)
-                                stringResource(R.string.no_recurrence_label)
-                            else editState.recurrence.displayName(),
-                            selected = true
-                        )
+                        LabelledOptionPill(label = taskSnapshot.repeatRuleOrNull.displayName(), selected = true)
                     }
                 )
-
-                if (editState.editingField == EditingField.RECURRENCE) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
-                        modifier = Modifier.padding(
-                            horizontal = PanelConstants.HORIZONTAL_PADDING,
-                            vertical = PanelConstants.VERTICAL_PADDING
-                        )
-                    ) {
-                        Recurrence.entries.forEach { rec ->
-                            val isSelected = rec == editState.recurrence
-                            RecurrencePill(
-                                recurrence = rec,
-                                selected = isSelected,
-                                error = editState.recurrenceError != null && isSelected,   // ✅ use flag
-                                onClick = {
-                                    commitRecurrence(rec, editState, taskSnapshot, taskVm)
-                                }
-                            )
-                        }
-                    }
-                    EditCancelRow(
-                        onCancel = { editState.clearErrors(); editState.exitEditMode() },
-                        colors = colors,
-                        modifier = Modifier.padding(end = PanelConstants.HORIZONTAL_PADDING)
-                    )
-                    if (editState.recurrenceError != null) {
-                        ValidationRecurrenceErrorText(editState.recurrenceError!!)
-                    }
-                }
 
                 /* --- NOTIFICATION ROW --- */
                 MetaRow(

@@ -6,7 +6,6 @@
 
     <!-- Repetición -->
     <string name="repeat">Repetir</string>
-    <string name="no_recurrence_label">No</string>
     <string name="daily_recurrence">Diaria</string>
     <string name="weekly_recurrence">Semanal</string>
     <string name="recurrence_on_weekdays">Días laborables</string>

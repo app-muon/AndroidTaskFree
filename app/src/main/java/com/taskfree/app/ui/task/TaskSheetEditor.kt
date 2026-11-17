@@ -6,6 +6,7 @@ import com.taskfree.app.data.entities.TaskNote
 import com.taskfree.app.data.entities.TASK_NOTE_LIMIT
 import com.taskfree.app.data.entities.TASK_TITLE_LIMIT
 import com.taskfree.app.data.repository.TaskRepository
+import com.taskfree.app.domain.model.TaskEditFailureReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -46,7 +47,10 @@ data class TaskSheetState(
     val submitting: Boolean = false,
     val submissionFailed: Boolean = false,
     val actionFailed: Boolean = false,
-    val closing: Boolean = false
+    val closing: Boolean = false,
+    val sessionId: Long = 0,
+    val actionFailureReason: TaskEditFailureReason? = null,
+    val canRetryAction: Boolean = false
 ) {
     /** Unsaved text keeps the sheet open; a failed action only shows the error. */
     val hasTextError: Boolean get() = title.failed || edits.values.any { it.failed } || submissionFailed
@@ -88,7 +92,7 @@ internal class TaskSheetEditor(
         retryAction = null
         retryClose = null
         session++
-        mutableState.value = TaskSheetState(task.id, SavedText(TextFieldValue(task.text), task.text))
+        mutableState.value = TaskSheetState(task.id, SavedText(TextFieldValue(task.text), task.text), sessionId = session)
         observation = scope.launch {
             repo.observeNotes(task.id).collect { notes ->
                 change { it.copy(notes = notes) }
@@ -357,7 +361,7 @@ internal class TaskSheetEditor(
         if (resubmit) submission = null
         val action = retryAction
         retryAction = null
-        change { it.copy(actionFailed = false) }
+        change { it.copy(actionFailed = false, actionFailureReason = null, canRetryAction = false) }
         action?.invoke()
         retryClose?.let { return close(it) }
         val save = prepareFlush()
@@ -378,9 +382,17 @@ internal class TaskSheetEditor(
     }
 
     /** Ignored once the sheet has closed: the task screen has no error display of its own. */
-    fun actionFailed(retry: (() -> Unit)? = null) {
+    fun actionFailed(
+        reason: TaskEditFailureReason = TaskEditFailureReason.STORAGE,
+        retry: (() -> Unit)? = null
+    ) {
         if (state.value == null) return
-        retryAction = retry
-        change { it.copy(actionFailed = true) }
+        retryAction = retry.takeIf { reason.retryable }
+        change { it.copy(actionFailed = true, actionFailureReason = reason, canRetryAction = retryAction != null) }
+    }
+
+    fun clearActionFailure() {
+        retryAction = null
+        change { it.copy(actionFailed = false, actionFailureReason = null, canRetryAction = false) }
     }
 }

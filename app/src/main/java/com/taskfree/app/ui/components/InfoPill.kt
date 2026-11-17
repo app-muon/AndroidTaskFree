@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.colorResource
@@ -19,8 +20,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
-import com.taskfree.app.domain.model.Recurrence
-import com.taskfree.app.domain.model.labelResId
 
 @Composable
 fun CategoryPill(
@@ -60,7 +59,8 @@ fun LabelledOptionPill(
     selected: Boolean = false,
     error: Boolean = false,
     highlight: Boolean = false,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     InfoPill(
         title = label,
@@ -71,6 +71,7 @@ fun LabelledOptionPill(
         modifier = modifier,
         selected = selected,
         onClick = onClick,
+        enabled = enabled,
         highlight = highlight
     )
 }
@@ -81,7 +82,8 @@ fun IconOptionPill(
     contentDescription: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     val selectedFillColor = colorResource(R.color.pill_colour)
     val selectedIconColor = colorResource(R.color.pill_text)
@@ -93,7 +95,8 @@ fun IconOptionPill(
         shape = RoundedCornerShape(8.dp),
         modifier = modifier
             .padding(0.dp)
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+            .alpha(if (enabled) 1f else 0.5f)
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled) { onClick() } else Modifier),
         border = if (selected) null else BorderStroke(1.dp, selectedFillColor.copy(alpha = 0.3f))
     ) {
         Icon(
@@ -108,33 +111,6 @@ fun IconOptionPill(
 }
 
 @Composable
-fun RecurrencePill(
-    recurrence: Recurrence,
-    terse: Boolean = false,
-    big: Boolean = false,
-    selected: Boolean = false,
-    error: Boolean = false,
-    onClick: (() -> Unit)? = null
-) {
-
-    val recurrenceText = if (terse && recurrence == Recurrence.NONE) {
-        ""
-    } else {
-        stringResource(recurrence.labelResId())
-    }
-
-    InfoPill(
-        title = recurrenceText,
-        selectedFillColor = if (error) Color.Red.copy(alpha = 0.8f) else colorResource(R.color.pill_colour),
-        selectedTextColor = colorResource(R.color.pill_text),
-        border = !selected,
-        big = big,
-        selected = selected,
-        onClick = onClick
-    )
-}
-
-@Composable
 fun InfoPill(
     title: String,
     selectedFillColor: Color,
@@ -146,7 +122,8 @@ fun InfoPill(
     border: Boolean = false,
     selected: Boolean = true,
     highlight: Boolean = false,   // NEW
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     val pillStyle =
         if (big) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall
@@ -161,7 +138,8 @@ fun InfoPill(
         shape = RoundedCornerShape(pillRound),
         modifier = modifier
             .padding(0.dp)
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+            .alpha(if (enabled) 1f else 0.5f)
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled) { onClick() } else Modifier),
         border = when {
             highlight -> BorderStroke(2.dp, Color.Magenta) // bold glow border
             border -> BorderStroke(1.dp, selectedFillColor.copy(alpha = 0.3f))

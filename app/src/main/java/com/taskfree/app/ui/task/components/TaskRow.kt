@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material3.Card
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.taskfree.app.R
 import com.taskfree.app.data.entities.Category
 import com.taskfree.app.data.entities.Task
+import com.taskfree.app.data.entities.repeatRuleOrNull
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.ArchivePill
 import com.taskfree.app.ui.components.CategoryTag
@@ -51,8 +52,8 @@ import com.taskfree.app.ui.mapper.recurrenceLabel
 import com.taskfree.app.ui.theme.RowTransparency
 import com.taskfree.app.util.AppDateProvider
 import isNotificationPassed
-import sh.calvin.reorderable.ReorderableCollectionItemScope
 import kotlin.math.roundToInt
+import sh.calvin.reorderable.ReorderableCollectionItemScope
 
 /* ====== dims & helpers ====== */
 private object TaskRowDimens {
@@ -195,7 +196,7 @@ fun ReorderableCollectionItemScope.TaskRow(
 
     val textColor = if (task.status == TaskStatus.DONE) Color.Gray else surfaceColor
     val textDecoration = if (task.status == TaskStatus.DONE) TextDecoration.LineThrough else null
-    val dueLabel = recurrenceLabel(DueChoice.fromTask(task), task.recurrence)
+    val dueLabel = recurrenceLabel(DueChoice.fromTask(task), task.repeatRuleOrNull)
     val isNotificationPassed = task.isNotificationPassed()
     val overdueStripeColor = Color.Red.copy(alpha = 0.3f)
     val titleStyle: TextStyle = MaterialTheme.typography.bodyMedium

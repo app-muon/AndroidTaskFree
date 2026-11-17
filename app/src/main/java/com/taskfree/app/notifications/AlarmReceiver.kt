@@ -12,11 +12,12 @@ import com.taskfree.app.R
 import com.taskfree.app.data.RealDatabaseMigrator
 import com.taskfree.app.data.ReceiverDatabase
 import com.taskfree.app.domain.model.Recurrence
-import com.taskfree.app.domain.model.labelResId
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import com.taskfree.app.domain.model.RepeatRule
+import com.taskfree.app.util.format
 import java.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -62,13 +63,15 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         /* ─── 2 ▸ craft title + body ─── */
-        val title = "Reminder: ${row.text}"
+        val title = context.getString(R.string.notification_reminder, row.text)
 
         val body = buildList {
             if (row.recurrence != Recurrence.NONE) {
-                add("Repeats: ${context.getString(row.recurrence.labelResId())}")
+                val rule = RepeatRule.fromStoredOrNull(row.recurrence, row.recurrenceInterval)
+                if (rule == null) android.util.Log.e("AlarmReceiver", "Invalid repeat rule for task $taskId")
+                add(context.getString(R.string.notification_repeat, rule.format(context)))
             }
-            add("Category: ${row.catTitle}")
+            add(context.getString(R.string.notification_category, row.catTitle))
         }.joinToString("\n")
 
         /* ─── 3 ▸ notification ─── */

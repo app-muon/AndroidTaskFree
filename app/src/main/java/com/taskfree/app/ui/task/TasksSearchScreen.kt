@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,13 +20,17 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.taskfree.app.R
 import com.taskfree.app.data.repository.TaskRepository
-import com.taskfree.app.ui.admin.ToolsMenuDialog
+import com.taskfree.app.ui.NotificationNavigation
 import com.taskfree.app.ui.admin.BackupFileDialog
 import com.taskfree.app.ui.admin.BackupMigrationBanner
+import com.taskfree.app.ui.admin.ToolsMenuDialog
 import com.taskfree.app.ui.admin.ToolsViewModel
 import com.taskfree.app.ui.admin.ToolsVmFactory
 import com.taskfree.app.ui.category.CategoryViewModel
@@ -99,13 +100,27 @@ fun TaskSearchScreen(
 
     // Local state
     val dialogs by taskVm.dialogs.collectAsState()
-    var showGlobalMenu by remember { mutableStateOf(false) }
+    var showGlobalMenu by rememberSaveable { mutableStateOf(false) }
     var showBackup by rememberSaveable { mutableStateOf(false) }
     var showEncryptWizard by rememberSaveable { mutableStateOf(false) }
     var showPhraseDialog by rememberSaveable { mutableStateOf(false) }
     var selectedCatId by rememberSaveable { mutableStateOf(initialCategoryId) }
 
     val tipManager = LocalTipManager.current
+    val currentTip by tipManager.currentTip.collectAsState()
+    var dialogsRestored by remember { mutableStateOf(false) }
+    var taskModalOpen by remember { mutableStateOf(true) }
+    var toolsModalOpen by remember { mutableStateOf(true) }
+    var backupModalOpen by remember { mutableStateOf(true) }
+    NotificationNavigation(
+        ready = dialogsRestored && !taskUi.isInitialLoadPending && !categoryUi.isInitialLoadPending,
+        modalOpen = dialogs != TaskDialogs.None || taskModalOpen || showGlobalMenu || toolsModalOpen ||
+            showBackup || backupModalOpen || showEncryptWizard || showPhraseDialog || currentTip != null,
+        openTaskId = (dialogs as? TaskDialogs.Options)?.task?.task?.id,
+        onOpen = { id, canOpen -> taskVm.openTaskOptions(id) {
+            canOpen() && taskVm.dialogs.value == TaskDialogs.None
+        } }
+    )
     val resetTick by tipManager.resetTick.collectAsState()
     /* ------------- INSTRUCTIONS------------- */
     LaunchedEffect(taskUi.isInitialLoadPending, resetTick) {
@@ -302,6 +317,8 @@ fun TaskSearchScreen(
         allCategories = categoryUi.categories,
         taskVm = taskVm,
         currentFilterCatId = selectedCatId,
+        onRestored = { dialogsRestored = true },
+        onModalState = { taskModalOpen = it },
         onNavigateToCategory = { catId ->
             navController.navigate("search?categoryId=$catId")
         })
@@ -311,10 +328,12 @@ fun TaskSearchScreen(
         startEncryptFlow = { showEncryptWizard = true },
         showPhraseFlow = { showPhraseDialog = true },
         vm = adminVm, show = showGlobalMenu,
+        onModalState = { toolsModalOpen = it },
         onDismiss = { showGlobalMenu = false },
         onResetTips = { tipManager.resetTips() })
 
-    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true }, onDismiss = { showBackup = false })
+    BackupFileDialog(adminVm, show = showBackup, onShow = { showBackup = true },
+        onDismiss = { showBackup = false }, onModalState = { backupModalOpen = it })
 
     if (showEncryptWizard) {
         EncryptWizard(onClose = { showEncryptWizard = false })

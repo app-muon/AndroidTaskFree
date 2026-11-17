@@ -109,13 +109,19 @@ object BackupManager {
         : Exception()
 
     private fun validate(b: Backup) {
-        if (b.version !in setOf("1.0", "1.1"))
+        if (b.version !in setOf("1.0", "1.1", "1.2"))
             throw BackupValidationException(R.string.err_backup_version)
 
         try {
             validateBackupNotes(b.tasks, b.notes)
         } catch (e: IllegalArgumentException) {
             throw BackupValidationException(R.string.err_backup_notes).apply { initCause(e) }
+        }
+
+        try {
+            validateBackupRepeatRules(b.tasks)
+        } catch (e: IllegalArgumentException) {
+            throw BackupValidationException(R.string.err_backup_repeat).apply { initCause(e) }
         }
 
         val catIds = b.categories.map { it.id }

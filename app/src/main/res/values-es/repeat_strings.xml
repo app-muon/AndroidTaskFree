@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="repeat_none">Sin repetición</string>
+    <string name="repeat_days">Días</string>
+    <string name="repeat_weeks">Semanas</string>
+    <string name="repeat_months">Meses</string>
+    <string name="repeat_every">Cada</string>
+    <plurals name="repeat_unit_days"><item quantity="one">día</item><item quantity="many">días</item><item quantity="other">días</item></plurals>
+    <plurals name="repeat_unit_weeks"><item quantity="one">semana</item><item quantity="many">semanas</item><item quantity="other">semanas</item></plurals>
+    <plurals name="repeat_unit_months"><item quantity="one">mes</item><item quantity="many">meses</item><item quantity="other">meses</item></plurals>
+    <string name="repeat_interval_hint">Mantén pulsado − o + para cambiar más rápido.</string>
+    <string name="repeat_decrease_interval">Reducir el intervalo de repetición</string>
+    <string name="repeat_increase_interval">Aumentar el intervalo de repetición</string>
+    <string name="repeat_needs_date">Esta tarea necesita una fecha de vencimiento para repetirse.</string>
+    <string name="repeat_choose_compatible_date">Elige una fecha compatible con esta repetición.</string>
+    <string name="repeat_done">Listo</string>
+    <string name="repeat_preview">Próximo vencimiento si se completa hoy</string>
+    <string name="repeat_edit_current">Editar la repetición de la tarea actual</string>
+    <string name="repeat_editing_for">Editar la repetición de: %1$s</string>
+    <string name="repeat_history_for">Repetición de esta instancia anterior: %1$s</string>
+    <string name="repeat_save_failed">No se pudo guardar. Se conserva el borrador. Pulsa Listo para volver a intentarlo o Cancelar para cerrar.</string>
+    <string name="repeat_due_date">Fecha de vencimiento</string>
+    <string name="repeat_decrease_repeatedly">Reducir repetidamente</string>
+    <string name="repeat_increase_repeatedly">Aumentar repetidamente</string>
+    <string name="repeat_stale_draft">No se guardaron los cambios porque esta ya no es la tarea actual. Aquí se muestra el borrador, pero no se puede editar ni guardar. Ciérralo o abre la configuración de repetición guardada de la tarea actual.</string>
+    <string name="repeat_invalid_repair">La regla de repetición guardada no es válida. Este borrador de reparación empieza con Sin repetición. Elige una regla y pulsa Listo para guardarla. Cancelar deja la tarea sin cambios.</string>
+    <string name="task_edit_validation_failed">No se guardaron los cambios. Revisa el título y elige una fecha compatible con la regla de repetición.</string>
+    <string name="task_edit_missing">No se guardaron los cambios porque esta tarea ya no existe. Cierra este editor.</string>
+    <string name="task_edit_inactive_category">No se guardaron los cambios porque la categoría ya no está disponible. Elige una categoría activa o cierra este editor.</string>
+    <string name="task_edit_invalid_rule">No se guardaron los cambios porque la regla de repetición guardada no es válida. Abre Repetición para repararla explícitamente.</string>
+    <string name="task_saved_reminder_failed">Se guardó la tarea, pero no se pudo actualizar su recordatorio.</string>
+    <string name="notification_finish_editing">Termina o cancela el diálogo abierto para ver la tarea de la notificación.</string>
+    <string name="notification_open_failed">No se pudo abrir la tarea. La solicitud de la notificación sigue pendiente.</string>
+    <string name="repeat_task_missing">Esta tarea ya no está disponible.</string>
+    <string name="repeat_load_failed">No se pudo cargar la tarea. Vuelve a intentarlo o cierra este diálogo.</string>
+    <string name="repeat_invalid">Regla de repetición no válida</string>
+    <string name="repeat_edit_action">Editar repetición</string>
+    <string name="notification_reminder">Recordatorio: %1$s</string>
+    <string name="notification_category">Categoría: %1$s</string>
+    <string name="notification_repeat">Repetición: %1$s</string>
+    <plurals name="repeat_every_days"><item quantity="one">Cada %d día</item><item quantity="many">Cada %d días</item><item quantity="other">Cada %d días</item></plurals>
+    <plurals name="repeat_every_weeks"><item quantity="one">Cada %d semana</item><item quantity="many">Cada %d semanas</item><item quantity="other">Cada %d semanas</item></plurals>
+    <plurals name="repeat_every_months"><item quantity="one">Cada %d mes</item><item quantity="many">Cada %d meses</item><item quantity="other">Cada %d meses</item></plurals>
+    <string name="err_backup_repeat">Regla de repetición no válida en la copia de seguridad.</string>
+</resources>

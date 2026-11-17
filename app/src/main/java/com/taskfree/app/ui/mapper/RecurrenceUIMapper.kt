@@ -1,38 +1,18 @@
-// RecurrenceUIMapper.kt
 package com.taskfree.app.ui.mapper
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-import com.taskfree.app.R
+import androidx.compose.ui.platform.LocalResources
 import com.taskfree.app.domain.model.Recurrence
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.resultLabel
+import com.taskfree.app.util.format
 
-
-@StringRes
-fun Recurrence.labelRes(): Int = when (this) {
-    Recurrence.NONE -> R.string.no_string
-    Recurrence.DAILY -> R.string.daily_recurrence
-    Recurrence.WEEKLY -> R.string.weekly_recurrence
-    Recurrence.WEEKDAYS -> R.string.recurrence_on_weekdays
-    Recurrence.WEEKENDS -> R.string.recurrence_on_weekends
-    Recurrence.MONTHLY -> R.string.monthly_recurrence
-    Recurrence.QUARTERLY -> R.string.quarterly_recurrence
-    Recurrence.YEARLY -> R.string.yearly_recurrence
-}
-
-/**
- * UI helper – call **inside the Composable or View layer**.
- */
 @Composable
-fun Recurrence.displayName(): String = stringResource(labelRes())
+fun RepeatRule?.displayName(): String = format(LocalResources.current)
 
-/** Same idea for the “due + recurrence” line. */
 @Composable
-fun recurrenceLabel(dueChoice: DueChoice, recurrence: Recurrence): String {
+fun recurrenceLabel(dueChoice: DueChoice, rule: RepeatRule?): String {
     val base = dueChoice.resultLabel()
-    return if (recurrence != Recurrence.NONE) "$base, ${recurrence.displayName()}"
-    else base
+    return if (rule?.recurrence != Recurrence.NONE) "$base, ${rule.displayName()}" else base
 }
-

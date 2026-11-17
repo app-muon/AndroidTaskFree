@@ -70,14 +70,14 @@ internal fun CategoryOptionsPanel(
     val colors = providePanelColors()
 
     // Local state management
-    var editingField by remember { mutableStateOf(CategoryEditingField.NONE) }
-    var currentName by remember { mutableStateOf(category.title) }
+    var editingField by rememberSaveable(category.id) { mutableStateOf(CategoryEditingField.NONE) }
+    var currentName by rememberSaveable(category.id) { mutableStateOf(category.title) }
     // Track & show current colour
-    var currentColor by remember { mutableLongStateOf(category.color) }
+    var currentColor by rememberSaveable(category.id) { mutableLongStateOf(category.color) }
     val previewCategory = remember(category.id, currentName, currentColor) {
         category.copy(title = currentName, color = currentColor)
     }
-    var isColorEditing by remember { mutableStateOf(false) }
+    var isColorEditing by rememberSaveable(category.id) { mutableStateOf(false) }
 
     val editButtonSizeConst = 32.dp
     val editIconSizeConst = 20.dp

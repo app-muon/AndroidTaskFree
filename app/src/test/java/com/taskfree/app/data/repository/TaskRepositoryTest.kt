@@ -4,6 +4,7 @@ package com.taskfree.app.data.repository
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.Category
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.TaskInput
 import com.taskfree.app.domain.model.TaskStatus
@@ -52,17 +53,17 @@ class TaskRepositoryTest {
     private fun at9(date: LocalDate) = date.atTime(LocalTime.of(9, 0)).atZone(ZoneId.systemDefault()).toInstant()
 
     private suspend fun dailyTask(cat: Int, text: String = "Stretch") =
-        repo.createTask(TaskInput(text, today, Recurrence.DAILY, cat, at9(today)))
+        repo.createTask(TaskInput(text, today, RepeatRule(Recurrence.DAILY), cat, at9(today)))
 
     /* ---------- createTask ---------- */
 
     @Test
     fun `createTask trims, flattens newlines and caps the title`() = runTest {
         val cat = db.insertCategory()
-        val id = repo.createTask(TaskInput("  Buy\r\nmilk\nnow  ", null, Recurrence.NONE, cat))
+        val id = repo.createTask(TaskInput("  Buy\r\nmilk\nnow  ", null, RepeatRule(Recurrence.NONE), cat))
         assertEquals("Buy milk now", repo.taskById(id)!!.text)
 
-        val longId = repo.createTask(TaskInput("x".repeat(150), null, Recurrence.NONE, cat))
+        val longId = repo.createTask(TaskInput("x".repeat(150), null, RepeatRule(Recurrence.NONE), cat))
         assertEquals(100, repo.taskById(longId)!!.text.length)
     }
 
@@ -83,16 +84,16 @@ class TaskRepositoryTest {
         val deleted = db.insertCategory(isDeleted = true)
 
         assertFails<IllegalArgumentException> {
-            repo.createTask(TaskInput("   ", null, Recurrence.NONE, cat))
+            repo.createTask(TaskInput("   ", null, RepeatRule(Recurrence.NONE), cat))
         }
         assertFails<IllegalArgumentException> {
-            repo.createTask(TaskInput("Recurring", null, Recurrence.WEEKLY, cat))
+            repo.createTask(TaskInput("Recurring", today, RepeatRule(Recurrence.WEEKENDS), cat))
         }
         assertFails<IllegalArgumentException> {
-            repo.createTask(TaskInput("Into deleted", null, Recurrence.NONE, deleted))
+            repo.createTask(TaskInput("Into deleted", null, RepeatRule(Recurrence.NONE), deleted))
         }
         assertFails<IllegalArgumentException> {
-            repo.createTask(TaskInput("Into missing", null, Recurrence.NONE, 999))
+            repo.createTask(TaskInput("Into missing", null, RepeatRule(Recurrence.NONE), 999))
         }
         assertTrue(repo.snapshot().isEmpty())
     }
@@ -101,9 +102,9 @@ class TaskRepositoryTest {
     fun `createTask appends to both page orders`() = runTest {
         val a = db.insertCategory("a")
         val b = db.insertCategory("b")
-        val first = repo.createTask(TaskInput("1", null, Recurrence.NONE, a))
-        val second = repo.createTask(TaskInput("2", null, Recurrence.NONE, a))
-        val third = repo.createTask(TaskInput("3", null, Recurrence.NONE, b))
+        val first = repo.createTask(TaskInput("1", null, RepeatRule(Recurrence.NONE), a))
+        val second = repo.createTask(TaskInput("2", null, RepeatRule(Recurrence.NONE), a))
+        val third = repo.createTask(TaskInput("3", null, RepeatRule(Recurrence.NONE), b))
 
         assertEquals(listOf(0, 1, 0), listOf(first, second, third).map { repo.taskById(it)!!.singleCategoryPageOrder })
         assertEquals(listOf(0, 1, 2), listOf(first, second, third).map { repo.taskById(it)!!.allCategoryPageOrder })
@@ -185,7 +186,7 @@ class TaskRepositoryTest {
     @Test
     fun `non-recurring status changes set and clear the completed date`() = runTest {
         val cat = db.insertCategory()
-        val id = repo.createTask(TaskInput("Once", null, Recurrence.NONE, cat))
+        val id = repo.createTask(TaskInput("Once", null, RepeatRule(Recurrence.NONE), cat))
 
         assertEquals(UpdateResult(), repo.updateTaskStatus(id, TaskStatus.DONE))
         assertEquals(today, repo.taskById(id)!!.completedDate)
@@ -224,7 +225,7 @@ class TaskRepositoryTest {
     @Test
     fun `archiving a non-recurring occurrence only archives it`() = runTest {
         val cat = db.insertCategory()
-        val id = repo.createTask(TaskInput("Once", today, Recurrence.NONE, cat))
+        val id = repo.createTask(TaskInput("Once", today, RepeatRule(Recurrence.NONE), cat))
 
         assertNull(repo.archiveSingleOccurrence(repo.taskById(id)!!))
 
@@ -365,17 +366,25 @@ class TaskRepositoryTest {
     @Test
     fun `updateTaskDetails tracks base date only for recurring tasks`() = runTest {
         val cat = db.insertCategory()
-        val id = repo.createTask(TaskInput("Plan", today, Recurrence.NONE, cat))
+        val id = repo.createTask(TaskInput("Plan", today, RepeatRule(Recurrence.NONE), cat))
         val due = today.plusDays(5)
 
-        repo.updateTaskDetails(repo.taskById(id)!!, " Plan week ", due, Recurrence.WEEKLY, cat, null)
+        repo.updateTaskDetails(id) {
+
+            TaskInput(" Plan week ", due, RepeatRule(Recurrence.WEEKLY), cat, null)
+
+        }
         repo.taskById(id)!!.let {
             assertEquals("Plan week", it.text)
             assertEquals(due, it.baseDate)
             assertEquals(Recurrence.WEEKLY, it.recurrence)
         }
 
-        repo.updateTaskDetails(repo.taskById(id)!!, "Plan week", due, Recurrence.NONE, cat, null)
+        repo.updateTaskDetails(id) {
+
+            TaskInput("Plan week", due, RepeatRule(Recurrence.NONE), cat, null)
+
+        }
         assertNull(repo.taskById(id)!!.baseDate)
     }
 
@@ -383,10 +392,12 @@ class TaskRepositoryTest {
     fun `live tasks cannot move into a deleted category`() = runTest {
         val cat = db.insertCategory()
         val deleted = db.insertCategory(isDeleted = true)
-        val id = repo.createTask(TaskInput("Stay", null, Recurrence.NONE, cat))
+        val id = repo.createTask(TaskInput("Stay", null, RepeatRule(Recurrence.NONE), cat))
 
         assertFails<IllegalArgumentException> {
-            repo.updateTaskDetails(repo.taskById(id)!!, "Stay", null, Recurrence.NONE, deleted, null)
+            repo.updateTaskDetails(id) {
+                TaskInput("Stay", null, RepeatRule(Recurrence.NONE), deleted, null)
+            }
         }
         assertEquals(cat, repo.taskById(id)!!.categoryId)
     }
@@ -413,7 +424,9 @@ class TaskRepositoryTest {
         val stale = repo.taskById(id)!!
         val category = db.insertCategory("Other")
         val newDue = today.plusDays(5)
-        repo.updateTaskDetails(stale, "Edited", newDue, Recurrence.NONE, category, at9(newDue))
+        repo.updateTaskDetails(stale.id) {
+            TaskInput("Edited", newDue, RepeatRule(Recurrence.NONE), category, at9(newDue))
+        }
         repo.updateTaskStatus(id, TaskStatus.DONE)
         repo.archiveTask(stale)
         repo.deleteTaskPermanently(repo.taskById(parentId)!!)
@@ -459,7 +472,9 @@ class TaskRepositoryTest {
         val parent = dailyTask(firstCategory)
         val child = repo.updateTaskStatus(parent, TaskStatus.DONE).nextCreatedId!!
         repo.deleteTaskPermanently(repo.taskById(parent)!!)
-        repo.updateTaskDetails(repo.taskById(child)!!, "Saved edit", tomorrow, Recurrence.WEEKLY, firstCategory, at9(tomorrow))
+        repo.updateTaskDetails(child) {
+            TaskInput("Saved edit", tomorrow, RepeatRule(Recurrence.WEEKLY), firstCategory, at9(tomorrow))
+        }
         repo.updateTaskStatus(child, TaskStatus.IN_PROGRESS)
         dao.updateOrder(child, 8, 42)
         db.insertTask(task(firstCategory, "Archived", singleOrder = 3, allOrder = 18,

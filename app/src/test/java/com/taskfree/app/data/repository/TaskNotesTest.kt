@@ -1,5 +1,7 @@
 package com.taskfree.app.data.repository
 
+import com.taskfree.app.domain.model.RepeatRule
+
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.entities.TASK_NOTE_LIMIT
@@ -132,7 +134,7 @@ class TaskNotesTest {
 
     @Test fun `cloning zero one or multiple notes preserves content dates and displayed order`() = runTest {
         val category = db.insertCategory()
-        val input = TaskInput("Copy", null, Recurrence.NONE, category)
+        val input = TaskInput("Copy", null, RepeatRule(Recurrence.NONE), category)
         val earlier = clock.instant().minusSeconds(120)
         val later = clock.instant().minusSeconds(60)
         // Creation order deliberately differs from timestamp order, with a tie in the middle.
@@ -161,7 +163,7 @@ class TaskNotesTest {
 
     @Test fun `cloned notes remain independent through edits note deletion and either task deletion`() = runTest {
         val category = db.insertCategory()
-        val input = TaskInput("Copy", null, Recurrence.NONE, category)
+        val input = TaskInput("Copy", null, RepeatRule(Recurrence.NONE), category)
         for (deleteSource in listOf(true, false)) {
             val sourceId = repo.createTask(input.copy(title = "Source"))
             val sourceNotes = listOf("First", "Second", "Third").map { repo.addNote(sourceId, it)!! }
@@ -189,7 +191,7 @@ class TaskNotesTest {
     }
 
     @Test fun `cloning a deleted source creates nothing`() = runTest {
-        val input = TaskInput("Source", null, Recurrence.NONE, db.insertCategory())
+        val input = TaskInput("Source", null, RepeatRule(Recurrence.NONE), db.insertCategory())
         val id = repo.createTask(input)
         repo.addNote(id, "Removed with source")
         repo.deleteTaskPermanently(repo.taskById(id)!!)
@@ -200,7 +202,7 @@ class TaskNotesTest {
     }
 
     @Test fun `failed second note insertion rolls back the cloned task and all copied notes`() = runTest {
-        val input = TaskInput("Source", null, Recurrence.NONE, db.insertCategory())
+        val input = TaskInput("Source", null, RepeatRule(Recurrence.NONE), db.insertCategory())
         val id = repo.createTask(input)
         listOf("First", "Second", "Third").forEach { repo.addNote(id, it) }
         val tasksBefore = repo.snapshot()

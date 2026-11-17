@@ -2,15 +2,28 @@
 package com.taskfree.app.ui.task
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.taskfree.app.R
 import com.taskfree.app.data.entities.Task
 import com.taskfree.app.data.entities.TaskWithCategoryInfo
+import com.taskfree.app.data.entities.repeatRule
+import com.taskfree.app.data.entities.repeatRuleOrNull
 import com.taskfree.app.data.repository.TaskRepository
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.domain.model.ReminderResult
+import com.taskfree.app.domain.model.RepeatRule
 import com.taskfree.app.domain.model.TaskInput
+import com.taskfree.app.domain.model.TaskEditException
+import com.taskfree.app.domain.model.TaskEditFailureReason
+import com.taskfree.app.domain.model.RecurrenceValidationResult
+import com.taskfree.app.domain.model.taskEditFailureReason
+import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.domain.model.resolveReminderInstant
 import com.taskfree.app.notifications.NotificationScheduler
@@ -18,13 +31,15 @@ import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.NotificationOption
 import com.taskfree.app.ui.components.toInstant
 import com.taskfree.app.ui.task.components.ArchiveMode
-import com.taskfree.app.ui.task.components.TaskFilter
 import com.taskfree.app.ui.task.components.TaskDialogs
+import com.taskfree.app.ui.task.components.TaskFilter
 import com.taskfree.app.ui.task.components.computeReorderUpdates
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.DateProvider
-import kotlinx.coroutines.CoroutineDispatcher
+import java.time.Instant
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,8 +56,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.text.input.TextFieldValue
-import java.time.LocalDate
 
 class TaskViewModel(
     private val appContext: Context,
@@ -59,11 +72,16 @@ class TaskViewModel(
     val sheetState = sheetEditor.state
     private val _dialogs = MutableStateFlow<TaskDialogs>(TaskDialogs.None)
     val dialogs: StateFlow<TaskDialogs> = _dialogs
+    private var dialogStateInitialized = false
     val noteCounts = repo.observeNoteCounts().map { counts -> counts.associate { it.taskId to it.count } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     fun setDialog(dialog: TaskDialogs) {
-        if (sheetState.value != null && dialog !is TaskDialogs.Options) {
+        dialogStateInitialized = true
+        if (sheetState.value == null && dialog is TaskDialogs.Options) {
+            sheetEditor.open(dialog.task.task)
+            _dialogs.value = dialog
+        } else if (sheetState.value != null && dialog !is TaskDialogs.Options) {
             sheetEditor.close { _dialogs.value = dialog }
         } else if (dialog is TaskDialogs.Options && sheetState.value?.taskId != dialog.task.task.id) {
             sheetEditor.close {
@@ -197,7 +215,7 @@ class TaskViewModel(
     fun add(
         text: String,
         due: DueChoice,
-        rec: Recurrence,
+        rec: RepeatRule,
         categoryId: Int,
         notify: NotificationOption
     ) = launchIO {
@@ -212,7 +230,7 @@ class TaskViewModel(
         val id = repo.cloneTask(
             taskId,
             TaskInput(
-                titleTemplate.format(current.text), current.due, current.recurrence,
+                titleTemplate.format(current.text), current.due, current.repeatRule,
                 current.categoryId, notify.toInstant(current.due)
             )
         ) ?: return@launchIO
@@ -452,7 +470,7 @@ class TaskViewModel(
                     throw e
                 } catch (e: Exception) {
                     Log.e("TaskViewModel", "Task operation failed", e)
-                    sheetEditor.actionFailed { launchIO(taskId, needsTitle, needsNotes, block) }
+                    sheetEditor.actionFailed(e.taskEditFailureReason()) { launchIO(taskId, needsTitle, needsNotes, block) }
                 }
             }
         }
@@ -470,60 +488,205 @@ class TaskViewModel(
     data class TaskEdits(
         val title: FieldEdit<String> = FieldEdit.NoChange,
         val due: FieldEdit<LocalDate?> = FieldEdit.NoChange,
-        val recurrence: FieldEdit<Recurrence> = FieldEdit.NoChange,
+        val repeatRule: FieldEdit<RepeatRule> = FieldEdit.NoChange,
         val categoryId: FieldEdit<Int> = FieldEdit.NoChange,
         val notify: FieldEdit<NotificationOption> = FieldEdit.NoChange
     )
 
-    fun applyEdits(taskId: Int, edits: TaskEdits) = launchIO(taskId) {
-        val current = repo.taskById(taskId) ?: return@launchIO
-        val oldReminder = current.reminderTime
-        val newTitle = edits.title.resolve(current.text) { current.text }
-        val newDue = edits.due.resolve(current.due) { null }
-        val newRecurrence = edits.recurrence.resolve(current.recurrence) { Recurrence.NONE }
-        val newCategoryId = edits.categoryId.resolve(current.categoryId) { current.categoryId }
+    fun applyEdits(
+        taskId: Int,
+        edits: TaskEdits,
+        requireEditableRepeat: Boolean = false,
+        onResult: ((Result<Task>) -> Unit)? = null
+    ): Job = enqueueEdits(taskId, edits, requireEditableRepeat,
+        reportSheetFailure = !requireEditableRepeat, onResult = onResult)
 
-        val effectiveNotify = edits.notify.resolve(
-            current = NotificationOption.fromTask(current)
-        ) { NotificationOption.None }
-
-        // Always persist the user's intent (even if in the past)
-        val intendedReminder = effectiveNotify.toInstant(newDue)
-        repo.updateTaskDetails(
-            task = current,
-            newTitle = newTitle,
-            newDueDate = newDue,
-            newRecurrence = newRecurrence,
-            newCategoryId = newCategoryId,
-            newReminderTime = intendedReminder
-        )
-
-        // Decide what to do with OS alarms/toasts
-        val postEditTask = current.copy(
-            text = newTitle,
-            due = newDue,
-            baseDate = if (newRecurrence != Recurrence.NONE) newDue else null,
-            categoryId = newCategoryId,
-            recurrence = newRecurrence,
-            reminderTime = intendedReminder
-        )
-        when (val result = postEditTask.resolveReminderInstant(effectiveNotify, newDue)) {
-            is ReminderResult.Scheduled -> {
-                NotificationScheduler.reschedule(appContext, current.id, oldReminder, result.instant)
+    private fun enqueueEdits(
+        taskId: Int,
+        edits: TaskEdits,
+        requireEditableRepeat: Boolean,
+        reportSheetFailure: Boolean,
+        onResult: ((Result<Task>) -> Unit)?
+    ): Job {
+        val sessionId = sheetState.value?.takeIf { it.taskId == taskId }?.sessionId
+        val flush = if (sheetState.value?.taskId == taskId) sheetEditor.prepareFlush() else null
+        return mutations.submit {
+            var oldReminder: Instant? = null
+            val result = try {
+                flush?.invoke()
+                val saved = withContext(io) {
+                    repo.updateTaskDetails(taskId, requireEditableRepeat) { current ->
+                        oldReminder = current.reminderTime
+                        val due = edits.due.resolve(current.due) { null }
+                        // An explicit repair must not evaluate the corrupt stored rule first.
+                        val rule = when (val change = edits.repeatRule) {
+                            is FieldEdit.Set -> change.value
+                            FieldEdit.Clear -> RepeatRule(Recurrence.NONE)
+                            FieldEdit.NoChange -> current.repeatRuleOrNull
+                                ?: throw TaskEditException(TaskEditFailureReason.INVALID_RULE)
+                        }
+                        val reminder = when (val notify = edits.notify) {
+                            FieldEdit.NoChange -> current.reminderTime
+                            FieldEdit.Clear -> null
+                            is FieldEdit.Set -> notify.value.toInstant(due)
+                        }
+                        TaskInput(
+                            edits.title.resolve(current.text) { current.text }, due, rule,
+                            edits.categoryId.resolve(current.categoryId) { current.categoryId }, reminder
+                        )
+                    }
+                }
+                Result.success(saved)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("TaskViewModel", "Task edit failed for $taskId", e)
+                if (reportSheetFailure && isSheetSession(taskId, sessionId)) {
+                    sheetEditor.actionFailed(e.taskEditFailureReason()) {
+                        applyEdits(taskId, edits, requireEditableRepeat, onResult)
+                    }
+                }
+                Result.failure(e)
             }
-            ReminderResult.InPast -> {
-                // No OS schedule; let the user know it wasn’t scheduled
-                NotificationScheduler.showToast(appContext, NotificationScheduler.ToastKind.InPast)
-                // If there was an old alarm, ensure it’s not hanging around
-                if (oldReminder != null) NotificationScheduler.cancel(appContext, current.id, oldReminder)
+            result.getOrNull()?.let { saved ->
+                // A committed edit is immediately authoritative, even if its alarm fails.
+                val dialog = _dialogs.value
+                if (dialog is TaskDialogs.Options && dialog.task.task.id == taskId) {
+                    _dialogs.value = dialog.copy(task = dialog.task.copy(task = saved))
+                }
+                if (isSheetSession(taskId, sessionId)) sheetEditor.clearActionFailure()
             }
-            ReminderResult.Blocked -> {
-                // Ensure any existing alarm is canceled
-                if (oldReminder != null) NotificationScheduler.cancel(appContext, current.id, oldReminder)
+            // Completion is outside the persistence catch: it must never turn a commit into a retry.
+            onResult?.invoke(result)
+            result.getOrNull()?.let { saved ->
+                try {
+                    withContext(io) { reconcileReminder(saved, oldReminder) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("TaskViewModel", "Reminder update failed after saving task $taskId", e)
+                    Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(appContext, R.string.task_saved_reminder_failed, Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
     }
 
+    private fun reconcileReminder(task: Task, oldReminder: Instant?) {
+        when (val result = task.resolveReminderInstant(NotificationOption.fromTask(task), task.due)) {
+            is ReminderResult.Scheduled ->
+                NotificationScheduler.reschedule(appContext, task.id, oldReminder, result.instant)
+            ReminderResult.InPast -> {
+                NotificationScheduler.showToast(appContext, NotificationScheduler.ToastKind.InPast)
+                NotificationScheduler.cancel(appContext, task.id, oldReminder)
+            }
+            ReminderResult.Blocked -> NotificationScheduler.cancel(appContext, task.id, oldReminder)
+        }
+    }
+
+    data class RepeatSaveState(
+        val taskId: Int? = null,
+        val saving: Boolean = false,
+        val saved: Task? = null,
+        val failed: Boolean = false,
+        val failureReason: TaskEditFailureReason? = null
+    )
+    private val _repeatSave = MutableStateFlow(RepeatSaveState())
+    val repeatSave: StateFlow<RepeatSaveState> = _repeatSave
+
+    fun resetRepeatSave() {
+        if (!_repeatSave.value.saving) _repeatSave.value = RepeatSaveState()
+    }
+
+    fun saveRepeat(taskId: Int, rule: RepeatRule, due: LocalDate?) {
+        if (_repeatSave.value.saving) return
+        _repeatSave.value = RepeatSaveState(taskId, saving = true)
+        applyEdits(taskId, TaskEdits(repeatRule = FieldEdit.Set(rule), due = FieldEdit.Set(due)),
+            requireEditableRepeat = true) { result ->
+            _repeatSave.value = RepeatSaveState(taskId, saved = result.getOrNull(), failed = result.isFailure,
+                failureReason = result.exceptionOrNull()?.taskEditFailureReason())
+        }
+    }
+
+    data class QuickDateSaveState(
+        val taskId: Int,
+        val sessionId: Long,
+        val due: LocalDate,
+        val saving: Boolean = false,
+        val validation: RecurrenceValidationResult? = null,
+        val failureReason: TaskEditFailureReason? = null
+    )
+
+    private val _quickDateSaves = MutableStateFlow<Map<Int, QuickDateSaveState>>(emptyMap())
+    val quickDateSaves: StateFlow<Map<Int, QuickDateSaveState>> = _quickDateSaves
+
+    private fun isSheetSession(taskId: Int, sessionId: Long?): Boolean =
+        sheetState.value?.let { it.taskId == taskId && it.sessionId == sessionId } == true
+
+    fun saveQuickDate(task: Task, due: LocalDate) {
+        val sheet = sheetState.value?.takeIf { it.taskId == task.id && !it.closing } ?: return
+        if (_quickDateSaves.value[task.id]?.saving == true) return
+        val validation = validateRecurrenceDate(task.repeatRuleOrNull, due)
+        val operation = QuickDateSaveState(task.id, sheet.sessionId, due,
+            validation = validation.takeUnless { it == RecurrenceValidationResult.Ok })
+        if (operation.validation != null) {
+            _quickDateSaves.update { it + (task.id to operation) }
+        } else startQuickDate(operation)
+    }
+
+    private fun startQuickDate(operation: QuickDateSaveState) {
+        if (_quickDateSaves.value[operation.taskId]?.saving == true) return
+        _quickDateSaves.update { it + (operation.taskId to operation.copy(saving = true, failureReason = null)) }
+        enqueueEdits(operation.taskId, TaskEdits(due = FieldEdit.Set(operation.due)),
+            requireEditableRepeat = false, reportSheetFailure = false) { result ->
+            val reason = result.exceptionOrNull()?.taskEditFailureReason()
+            _quickDateSaves.update { it + (operation.taskId to operation.copy(failureReason = reason)) }
+            if (isSheetSession(operation.taskId, operation.sessionId)) {
+                if (result.isSuccess) {
+                    // This callback belongs to the ViewModel and survives rotation. A reopened
+                    // sheet (even for this task) has a different session and is never dismissed.
+                    sheetEditor.close { _dialogs.value = TaskDialogs.None }
+                } else {
+                    sheetEditor.actionFailed(reason ?: TaskEditFailureReason.STORAGE) {
+                        startQuickDate(operation)
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun openTaskOptions(taskId: Int, canOpen: () -> Boolean = { true }): Boolean? {
+        if (!canOpen()) return null
+        if ((_dialogs.value as? TaskDialogs.Options)?.task?.task?.id == taskId) return true
+        val task = withContext(io) { repo.taskWithCategory(taskId) }
+        if (!canOpen()) return null
+        if (task == null) return false
+        setDialog(TaskDialogs.Options(task))
+        return true
+    }
+
+    suspend fun restoreDialog(kind: String, taskId: Int, categoryId: Int, due: DueChoice) {
+        // A retained ViewModel may already have completed an operation during rotation.
+        // Its closed state takes precedence over the activity's older saved navigation ID.
+        if (dialogStateInitialized) return
+        dialogStateInitialized = true
+        val dialog = withContext(io) {
+            when (kind) {
+                "options" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.Options(it) }
+                "clone" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmClone(it) }
+                "delete" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmPermanentDelete(it) }
+                "archive_single" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmArchive(it, ArchiveMode.Single) }
+                "archive_series" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmArchive(it, ArchiveMode.Series) }
+                "add" -> repo.activeCategory(categoryId)?.let { TaskDialogs.Add(it, due) }
+                else -> null
+            }
+        }
+        if (_dialogs.value == TaskDialogs.None && dialog != null) setDialog(dialog)
+    }
+
+    suspend fun loadTask(taskId: Int): Task? = withContext(io) { repo.taskById(taskId) }
+    suspend fun editableRepeatTask(taskId: Int): Task? = withContext(io) { repo.editableRepeatTask(taskId) }
 
     fun forceReload() {
         // Nudge the filter so distinctUntilChanged() sees a change.

@@ -70,6 +70,10 @@ sealed class DueChoice {
 
 infix fun DueChoice.isSameKindAs(other: DueChoice): Boolean = this::class == other::class
 
+/** Classify a saved calendar date for chips without making the stored date relative. */
+fun DueChoice.matchesDateOption(option: DueChoice): Boolean =
+    (date?.let(DueChoice::from) ?: this).isSameKindAs(option)
+
 val DueChoice.kind: DueKind
     get() = when (this) {
         DueChoice.None -> DueKind.NONE

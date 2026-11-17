@@ -3,10 +3,10 @@ package com.taskfree.app.data
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.room.migration.Migration
 import com.taskfree.app.Prefs
 import com.taskfree.app.data.database.AppDatabase
 import com.taskfree.app.data.database.MIGRATION_10_11
@@ -18,10 +18,11 @@ import com.taskfree.app.data.database.MIGRATION_16_17
 import com.taskfree.app.data.database.MIGRATION_17_18
 import com.taskfree.app.data.database.MIGRATION_18_19
 import com.taskfree.app.data.database.MIGRATION_19_20
+import com.taskfree.app.data.database.MIGRATION_20_21
 import com.taskfree.app.data.database.MIGRATION_FIX_RECURRENCE
 import com.taskfree.app.enc.DatabaseKeyManager
-import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import java.util.concurrent.Semaphore
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 object AppDatabaseFactory {
     internal const val DB_NAME = "checklists.db"
@@ -37,7 +38,7 @@ object AppDatabaseFactory {
     private val migrations: Array<Migration> = arrayOf(
         MIGRATION_10_11, MIGRATION_11_12, MIGRATION_FIX_RECURRENCE,
         MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
-        MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
+        MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21
     )
 
     fun getDatabase(@Suppress("UNUSED_PARAMETER") context: Context): AppDatabase {

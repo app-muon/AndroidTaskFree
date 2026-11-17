@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,14 +63,20 @@ fun ToolsMenuDialog(
     showPhraseFlow: () -> Unit,
     onOpenBackup: () -> Unit,
     onDismiss: () -> Unit,
-    onResetTips: () -> Unit
+    onResetTips: () -> Unit,
+    onModalState: (Boolean) -> Unit = {}
 ) {
     val isOn = vm.uiState.collectAsState().value.showArchived
-    var pending by remember { mutableStateOf<PendingAction?>(null) }
+    var pending by rememberSaveable { mutableStateOf<PendingAction?>(null) }
     var repeatsPreview by remember { mutableStateOf<CompletedRepeatsPreview?>(null) }
+    var loadingRepeatsPreview by remember { mutableStateOf(false) }
     var showContact by rememberSaveable { mutableStateOf(false) }
     var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     var showTextSize by rememberSaveable { mutableStateOf(false) }
+    SideEffect {
+        onModalState(show || pending != null || repeatsPreview != null || loadingRepeatsPreview ||
+            showContact || showPrivacyPolicy || showTextSize)
+    }
     val colors = providePanelColors()
     val ctx = LocalContext.current
     val encrypted = Prefs.isEncrypted(ctx)
@@ -186,6 +193,7 @@ fun ToolsMenuDialog(
                     icon = Icons.Default.Archive,
                     iconTint = colors.darkRed,
                     onClick = {
+                        loadingRepeatsPreview = true
                         onDismiss()
                         scope.launch {
                             repeatsPreview = try {
@@ -196,6 +204,8 @@ fun ToolsMenuDialog(
                                 Log.e("ToolsMenuDialog", "Loading completed repeats failed", e)
                                 Toast.makeText(ctx, R.string.bulk_action_failed, Toast.LENGTH_SHORT).show()
                                 null
+                            } finally {
+                                loadingRepeatsPreview = false
                             }
                         }
                     }), ActionItem(
