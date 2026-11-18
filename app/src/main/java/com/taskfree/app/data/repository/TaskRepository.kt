@@ -58,6 +58,8 @@ class TaskRepository(
 
     fun observeNoteCounts() = database.taskNoteDao().observeCounts()
 
+    fun observeNotesForSearch() = database.taskNoteDao().observeForSearch()
+
     suspend fun addNote(taskId: Int, text: String): TaskNote? = database.withTransaction {
         val normalized = validateNoteText(text)
         if (database.taskDao().taskById(taskId) == null) return@withTransaction null

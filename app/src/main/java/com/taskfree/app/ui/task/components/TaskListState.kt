@@ -26,7 +26,7 @@ data class TaskListState(
     val sortMode: SortMode = SortMode.USER
 ) {
     val targetDate: LocalDate? = dueChoice.date
-    val searchQuery: String get() = searchText.trim()
+    val searchQuery: String = searchText.trim()
 
     companion object {
         val Saver: Saver<TaskListState, List<Any?>> = Saver(

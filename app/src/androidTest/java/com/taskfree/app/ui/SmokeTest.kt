@@ -17,7 +17,9 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -55,6 +57,8 @@ import com.taskfree.app.data.entities.Task
 import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.domain.model.Recurrence
 import com.taskfree.app.ui.components.TOOLS_MENU_TAG
+import com.taskfree.app.ui.task.PANEL_PINNED_ACTIONS_TAG
+import com.taskfree.app.ui.task.PANEL_SCROLLING_ACTIONS_TAG
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import com.taskfree.app.ui.task.components.DATE_FILTER_TAG
@@ -286,11 +290,15 @@ class SmokeTest {
         dismissTipIfShown()
 
         compose.onNode(taskRow("Water plants")).performClick()
-        val setDone = hasText(str(R.string.done_status)) and hasAnyAncestor(isDialog())
         waitFor(isDialog())
-        compose.onNode(hasScrollToNodeAction() and hasAnyAncestor(isDialog()))
-            .performScrollToNode(setDone)
-        compose.onNode(hasText(str(R.string.to_do_status)) and hasAnyAncestor(isDialog()))
+        val pinned = compose.onNodeWithTag(PANEL_PINNED_ACTIONS_TAG).isDisplayed()
+        val actionGroup = hasAnyAncestor(hasTestTag(if (pinned) PANEL_PINNED_ACTIONS_TAG else PANEL_SCROLLING_ACTIONS_TAG))
+        val setDone = hasText(str(R.string.done_status)) and actionGroup
+        if (!pinned) {
+            compose.onNode(setDone).performScrollTo()
+        }
+        compose.onNode(setDone).assertIsDisplayed()
+        compose.onNode(hasText(str(R.string.to_do_status)) and actionGroup)
             .assertIsNotEnabled()
         if (InstrumentationRegistry.getArguments().getString("captureScreenshots") == "true") {
             val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()

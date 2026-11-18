@@ -19,6 +19,7 @@ import com.taskfree.app.ui.components.ConfirmDialog
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.DueChoiceSaver
 import com.taskfree.app.ui.task.TaskOptionsPanel
+import com.taskfree.app.ui.task.NoteSearchTarget
 import com.taskfree.app.ui.task.TaskViewModel
 
 @Composable
@@ -35,6 +36,9 @@ internal fun TaskDialogHost(
     // Save only navigation identity; task contents are always reloaded from Room.
     var savedKind by rememberSaveable { mutableStateOf("") }
     var savedTaskId by rememberSaveable { mutableIntStateOf(0) }
+    var savedNoteTarget by rememberSaveable(stateSaver = NoteSearchTarget.Saver) {
+        mutableStateOf<NoteSearchTarget?>(null)
+    }
     var savedCategoryId by rememberSaveable { mutableIntStateOf(0) }
     var savedDue by rememberSaveable(stateSaver = DueChoiceSaver) { mutableStateOf<DueChoice>(DueChoice.None) }
     var restored by remember { mutableStateOf(false) }
@@ -42,7 +46,8 @@ internal fun TaskDialogHost(
     var repeatTaskId by rememberSaveable { mutableStateOf<Int?>(null) }
     LaunchedEffect(Unit) {
         if (dialogs == TaskDialogs.None) {
-            taskVm.restoreDialog(savedKind, savedTaskId, savedCategoryId, savedDue)
+            taskVm.restoreDialog(savedKind, savedTaskId, savedCategoryId, savedDue,
+                savedNoteTarget)
         }
         restored = true
     }
@@ -54,6 +59,7 @@ internal fun TaskDialogHost(
                 is TaskDialogs.Options -> {
                     savedKind = "options"
                     savedTaskId = dialogs.task.task.id
+                    savedNoteTarget = dialogs.noteTarget
                 }
                 is TaskDialogs.Add -> {
                     savedKind = "add"
@@ -129,6 +135,7 @@ internal fun TaskDialogHost(
                 },
 
                 currentFilterCatId = currentFilterCatId,
+                noteTarget = dialogs.noteTarget,
                 onOpenRepeat = { repeatTaskId = it }
             )
         }

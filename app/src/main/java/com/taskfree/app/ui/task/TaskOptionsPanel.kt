@@ -84,7 +84,6 @@ import com.taskfree.app.ui.components.InfoPill
 import com.taskfree.app.ui.components.LabelledOptionPill
 import com.taskfree.app.ui.components.MetaRow
 import com.taskfree.app.ui.components.NotificationOption
-import com.taskfree.app.ui.components.PanelActionList
 import com.taskfree.app.ui.components.PanelConstants
 import com.taskfree.app.ui.components.TaskDatesRow
 import com.taskfree.app.ui.components.TaskFieldHeading
@@ -123,7 +122,8 @@ fun TaskOptionsPanel(
     onDeletePermanently: (Task) -> Unit,
     onDismiss: () -> Unit,
     currentFilterCatId: Int?,
-    onOpenRepeat: (Int) -> Unit
+    onOpenRepeat: (Int) -> Unit,
+    noteTarget: NoteSearchTarget? = null
 ) {
     val taskWithCategory = task ?: return
     val taskSnapshot = taskWithCategory.task
@@ -406,17 +406,18 @@ fun TaskOptionsPanel(
     val categoryExists = allCategories.any { it.id == currentCategory.id }
     val gotoCategoryEnabled = categoryExists && currentFilterCatId != currentCategory.id
 
-    /* ---------- title, quick actions, editable attributes, notes and history ---------- */
-    PanelActionList(
+    /* ---------- title, editable attributes, notes, history and bottom actions ---------- */
+    val reveal = rememberTaskNoteReveal(noteTarget)
+    LaunchedEffect(sheet.active) { if (sheet.active != null) reveal.cancel() }
+    TaskSheetContainer(
+        reveal = reveal,
         headerContent = {
             val focusManager = LocalFocusManager.current
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = PanelConstants.SECTION_VERTICAL_PADDING)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = { focusManager.clearFocus(); taskVm.focusText(null) })
-                    }
+                    .clearTaskTextFocusOnTap(taskVm)
             ) {
                 /* --- TITLE ROW --- */
                 MetaRow(
@@ -449,91 +450,6 @@ fun TaskOptionsPanel(
                         colors = colors
                     )
                 }
-
-                if (quickDateSaving) LinearProgressIndicator(Modifier.fillMaxWidth())
-                quickDateError?.let { ValidationRecurrenceErrorText(it) }
-                // These buttons apply immediately and close the sheet; the fields below open choices.
-                HorizontalDivider(color = Color.Gray)
-                Column(
-                    Modifier.fillMaxWidth().padding(
-                        horizontal = PanelConstants.HORIZONTAL_PADDING,
-                        vertical = PanelConstants.SECTION_VERTICAL_PADDING
-                    )
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.DateRange, contentDescription = null, tint = colors.surfaceText)
-                        Box(Modifier.weight(1f)) { quickDateAction.labelContent?.invoke() }
-                    }
-                    TaskFieldHeading(
-                        stringResource(R.string.set_status),
-                        Modifier.padding(top = 16.dp, bottom = PanelConstants.CHIP_SPACING)
-                    )
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        // Keep labels readable on narrow screens and at larger text sizes.
-                        val labelStyle = MaterialTheme.typography.bodyLarge
-                        val textMeasurer = rememberTextMeasurer()
-                        val labelWidth = with(LocalDensity.current) {
-                            statusActions.maxOf {
-                                textMeasurer.measure(it.labelText!!, style = labelStyle).size.width
-                            }.toDp()
-                        }
-                        val minButtonWidth = maxOf(140.dp, labelWidth + 52.dp)
-                        val columns = if (maxWidth >= minButtonWidth * 2 + PanelConstants.CHIP_SPACING) 2 else 1
-                        Column(verticalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING)) {
-                            statusActions.chunked(columns).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING)
-                                ) {
-                                    row.forEach { action ->
-                                        val isCurrent = !action.enabled
-                                        val statusColor = action.backgroundColour!!
-                                        OutlinedButton(
-                                            onClick = { taskVm.closeSheet { action.onClick() } },
-                                            enabled = action.enabled,
-                                            modifier = Modifier.weight(1f).heightIn(min = 56.dp).fillMaxHeight()
-                                                .semantics { selected = isCurrent },
-                                            shape = RoundedCornerShape(PanelConstants.CATEGORY_PILL_CORNER_RADIUS),
-                                            border = BorderStroke(
-                                                if (isCurrent) 2.dp else 1.dp,
-                                                if (isCurrent) statusColor else statusColor.copy(alpha = 0.5f)
-                                            ),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                containerColor = statusColor.copy(alpha = 0.1f),
-                                                contentColor = colors.surfaceText,
-                                                disabledContainerColor = statusColor.copy(alpha = 0.22f),
-                                                disabledContentColor = colors.surfaceText
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
-                                        ) {
-                                            Row(
-                                                Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                                                    if (action.icon != null) {
-                                                        Icon(action.icon, contentDescription = null)
-                                                    } else {
-                                                        Box(Modifier.size(10.dp).background(statusColor, CircleShape))
-                                                    }
-                                                }
-                                                Text(action.labelText!!, style = labelStyle)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                HorizontalDivider(
-                    modifier = Modifier.padding(bottom = PanelConstants.SECTION_VERTICAL_PADDING),
-                    color = Color.Gray
-                )
 
                 /* --- CATEGORY ROW --- */
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -733,16 +649,106 @@ fun TaskOptionsPanel(
                     }
                 }
 
-                TaskNotesSection(sheet, taskVm, onTextFocus = { editState.exitEditMode() })
-
-                /* --- CREATION AND COMPLETION DATES (read-only) --- */
-
-                TaskDatesRow(taskSnapshot)
-                HorizontalDivider(color = Color.Gray)
             }
 
         },
-        actions = listOf(otherActionsRow),
+        bodyContent = {
+            Column(Modifier.fillMaxWidth().clearTaskTextFocusOnTap(taskVm)) {
+                TaskNotesSection(sheet, taskVm, onTextFocus = { reveal.cancel(); editState.exitEditMode() },
+                    noteTarget = noteTarget, reveal = reveal)
+                TaskDatesRow(taskSnapshot)
+                HorizontalDivider(color = Color.Gray)
+            }
+        },
+        additionalContent = { otherActionsRow.labelContent?.invoke() },
+        controlsContent = {
+            Column(Modifier.fillMaxWidth().clearTaskTextFocusOnTap(taskVm)) {
+                if (quickDateSaving) LinearProgressIndicator(Modifier.fillMaxWidth())
+                quickDateError?.let { ValidationRecurrenceErrorText(it) }
+                // These buttons apply immediately and close the sheet.
+                HorizontalDivider(color = Color.Gray)
+                Column(
+                    Modifier.fillMaxWidth().padding(
+                        horizontal = PanelConstants.HORIZONTAL_PADDING,
+                        vertical = PanelConstants.SECTION_VERTICAL_PADDING
+                    )
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null, tint = colors.surfaceText)
+                        Box(Modifier.weight(1f)) { quickDateAction.labelContent?.invoke() }
+                    }
+                    TaskFieldHeading(
+                        stringResource(R.string.set_status),
+                        Modifier.padding(top = 16.dp, bottom = PanelConstants.CHIP_SPACING)
+                    )
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        // Keep labels readable on narrow screens and at larger text sizes.
+                        val labelStyle = MaterialTheme.typography.bodyLarge
+                        val textMeasurer = rememberTextMeasurer()
+                        val labelWidth = with(LocalDensity.current) {
+                            statusActions.maxOf {
+                                textMeasurer.measure(it.labelText!!, style = labelStyle).size.width
+                            }.toDp()
+                        }
+                        val minButtonWidth = maxOf(140.dp, labelWidth + 52.dp)
+                        val columns = if (maxWidth >= minButtonWidth * 2 + PanelConstants.CHIP_SPACING) 2 else 1
+                        Column(verticalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING)) {
+                            statusActions.chunked(columns).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                                    horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING)
+                                ) {
+                                    row.forEach { action ->
+                                        val isCurrent = !action.enabled
+                                        val statusColor = action.backgroundColour!!
+                                        OutlinedButton(
+                                            onClick = { taskVm.closeSheet { action.onClick() } },
+                                            enabled = action.enabled,
+                                            modifier = Modifier.weight(1f).heightIn(min = 56.dp).fillMaxHeight()
+                                                .semantics { selected = isCurrent },
+                                            shape = RoundedCornerShape(PanelConstants.CATEGORY_PILL_CORNER_RADIUS),
+                                            border = BorderStroke(
+                                                if (isCurrent) 2.dp else 1.dp,
+                                                if (isCurrent) statusColor else statusColor.copy(alpha = 0.5f)
+                                            ),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = statusColor.copy(alpha = 0.1f),
+                                                contentColor = colors.surfaceText,
+                                                disabledContainerColor = statusColor.copy(alpha = 0.22f),
+                                                disabledContentColor = colors.surfaceText
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
+                                        ) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(PanelConstants.CHIP_SPACING),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                                                    if (action.icon != null) {
+                                                        Icon(action.icon, contentDescription = null)
+                                                    } else {
+                                                        Box(Modifier.size(10.dp).background(statusColor, CircleShape))
+                                                    }
+                                                }
+                                                Text(action.labelText!!, style = labelStyle)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(bottom = PanelConstants.SECTION_VERTICAL_PADDING),
+                    color = Color.Gray
+                )
+            }
+        },
         onDismiss = { dismiss() }
     )
 }
@@ -770,3 +776,11 @@ private fun TitleWithEditIcon(title: String, color: Color, onEdit: () -> Unit) {
 }
 
 private const val EDIT_ICON_ID = "edit"
+
+@Composable
+private fun Modifier.clearTaskTextFocusOnTap(vm: TaskViewModel): Modifier {
+    val focusManager = LocalFocusManager.current
+    return pointerInput(vm, focusManager) {
+        detectTapGestures(onTap = { focusManager.clearFocus(); vm.focusText(null) })
+    }
+}

@@ -60,6 +60,13 @@ class TaskFilterUtilsTest {
     }
 
     @Test
+    fun `stale note results cannot hide current title matches`() {
+        val state = TaskListState(searchText = "milk")
+        assertEquals(listOf(1, 3), TaskFilterUtils.filterTasks(rows, state, allStatuses,
+            searchTaskIds = emptySet()).ids())
+    }
+
+    @Test
     fun `None date filter keeps only undated tasks`() {
         val input = listOf(
             row(task(id = 1, categoryId = 1, text = "undated")),
@@ -74,6 +81,15 @@ class TaskFilterUtilsTest {
     fun `all filters combine`() {
         val state = TaskListState(selectedCategoryId = 1, searchText = "milk")
         assertEquals(listOf(1), TaskFilterUtils.filterTasks(rows, state, listOf(TaskStatus.TODO)).ids())
+    }
+
+    @Test
+    fun `note matches still respect category status and undated filters`() {
+        val input = rows + row(task(id = 5, categoryId = 1, status = TaskStatus.DONE,
+            due = LocalDate.of(2026, 10, 1)))
+        val state = TaskListState(selectedCategoryId = 1, searchText = "note text", dueChoice = DueChoice.None)
+        assertEquals(listOf(2), TaskFilterUtils.filterTasks(input, state, listOf(TaskStatus.DONE),
+            searchTaskIds = setOf(1, 2, 3, 4, 5)).ids())
     }
 
     @Test

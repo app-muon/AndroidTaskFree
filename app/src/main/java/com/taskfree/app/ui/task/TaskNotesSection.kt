@@ -41,6 +41,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -68,8 +70,22 @@ import com.taskfree.app.ui.theme.providePanelColors
 import java.time.ZoneId
 
 @Composable
-fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -> Unit) {
-    var showAll by rememberSaveable(state.taskId) { mutableStateOf(false) }
+internal fun TaskNotesSection(
+    state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -> Unit,
+    noteTarget: NoteSearchTarget? = null,
+    reveal: TaskNoteReveal = rememberTaskNoteReveal(noteTarget)
+) {
+    var showAll by rememberSaveable(state.taskId, noteTarget) { mutableStateOf(false) }
+    var revealPrepared by rememberSaveable(state.taskId, noteTarget) { mutableStateOf(false) }
+    LaunchedEffect(state.notes, noteTarget) {
+        if (noteTarget != null && !revealPrepared && reveal.pending) {
+            val index = state.notes.indexOfFirst { it.id == noteTarget.noteId }
+            if (index >= 0) {
+                if (index >= 5) showAll = true
+                revealPrepared = true
+            }
+        }
+    }
     var deleting by rememberSaveable(state.taskId) { mutableStateOf<Int?>(null) }
     val locale = LocalConfiguration.current.locales[0]
     val zone = ZoneId.systemDefault()
@@ -140,7 +156,8 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
         val visible = if (showAll) state.notes else state.notes.take(5)
         visible.forEach { note ->
             key(note.id) {
-                var expanded by rememberSaveable { mutableStateOf(false) }
+                val revealThisNote = note.id == noteTarget?.noteId
+                var expanded by rememberSaveable(noteTarget) { mutableStateOf(false) }
                 var overflows by remember(note.text) { mutableStateOf(false) }
                 val field = TaskTextField.Note(note.id)
                 val editing = state.active == field
@@ -156,11 +173,28 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
                         Column(Modifier.weight(1f).padding(top = firstLineOffset)) {
                             AutoLinkedText(
                                 raw = draft?.value?.text?.trim()?.takeIf { it.isNotBlank() } ?: note.text,
+                                modifier = if (revealThisNote) Modifier.onGloballyPositioned { reveal.coordinates = it }
+                                    else Modifier,
                                 color = colors.surfaceText,
                                 maxLines = if (expanded) Int.MAX_VALUE else 3,
-                                onTextLayout = { if (!expanded) overflows = it.hasVisualOverflow }
+                                onTextLayout = {
+                                    overflows = it.hasVisualOverflow || it.lineCount > 3
+                                    if (revealThisNote && reveal.pending) {
+                                        val offset = noteTarget.offset.coerceIn(0, it.layoutInput.text.length)
+                                        val end = (offset + noteTarget.length).coerceAtMost(it.layoutInput.text.length)
+                                        val lastVisibleEnd = it.getLineEnd(it.lineCount - 1, visibleEnd = true)
+                                        if (!reveal.handled && !expanded && end > lastVisibleEnd && it.hasVisualOverflow) {
+                                            expanded = true
+                                        } else {
+                                            val line = it.getLineForOffset(offset)
+                                            val lastLine = it.getLineForOffset((end - 1).coerceAtLeast(offset))
+                                            reveal.localBounds = Rect(0f, it.getLineTop(line),
+                                                it.size.width.toFloat(), it.getLineBottom(lastLine))
+                                        }
+                                    }
+                                }
                             )
-                            if (expanded || overflows) TextButton(onClick = { expanded = !expanded },
+                            if (overflows) TextButton(onClick = { reveal.cancel(); expanded = !expanded },
                                 modifier = Modifier.height(noteActionHeight),
                                 colors = buttonColors, contentPadding = PaddingValues(horizontal = 8.dp)) {
                                 Text(stringResource(if (expanded) R.string.note_collapse else R.string.note_expand))
@@ -182,7 +216,7 @@ fun TaskNotesSection(state: TaskSheetState, vm: TaskViewModel, onTextFocus: () -
                 }
             }
         }
-        if (state.notes.size > 5) TextButton(onClick = { showAll = !showAll }, colors = buttonColors) {
+        if (state.notes.size > 5) TextButton(onClick = { reveal.cancel(); showAll = !showAll }, colors = buttonColors) {
             Text(if (showAll) stringResource(R.string.notes_show_fewer)
                 else stringResource(R.string.notes_show_all, state.notes.size))
         }

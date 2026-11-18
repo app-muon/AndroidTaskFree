@@ -150,6 +150,62 @@ class TaskViewModelTest {
         editText(field, value, sheetState.value!!.inputToken(field)!!)
 
     @Test
+    fun `note search observes additions edits and deletions without a task change`() = vmTest {
+        val id = db.insertTask(task(cat, text = "Insurance"))
+        val rows = listOf(repo.taskWithCategory(id)!!)
+        val results = vm.searchResults
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { results.collect {} }
+        vm.updateSearch(rows, "AB123")
+        assertTrue(results.first { it.query == "AB123" }.taskIds.isEmpty())
+
+        val old = repo.addNote(id, "Policy AB123")!!
+        assertEquals(old.id, results.first { id in it.taskIds }.noteTargets.getValue(id).noteId)
+        repo.editNote(old.id, "Policy XY987")
+        assertTrue(results.first { it.taskIds.isEmpty() }.noteTargets.isEmpty())
+        repo.editNote(old.id, "Policy AB123 again")
+        results.first { id in it.taskIds }
+
+        val newest = repo.addNote(id, "Updated AB123 policy")!!
+        results.first { it.noteTargets[id]?.noteId == newest.id }
+        repo.deleteNote(newest.id)
+        results.first { it.noteTargets[id]?.noteId == old.id }
+        repo.deleteNote(old.id)
+        assertTrue(results.first { it.taskIds.isEmpty() }.noteTargets.isEmpty())
+    }
+
+    @Test
+    fun `restoring a note search result retains its target without opening an editor`() = vmTest {
+        val id = db.insertTask(task(cat, text = "Insurance"))
+        val note = repo.addNote(id, "Policy AB123")!!
+        vm.restoreDialog("options", id, cat, DueChoice.None, NoteSearchTarget(note.id, 7))
+        vm.sheetState.first { it?.notes?.isNotEmpty() == true }
+        val dialog = vm.dialogs.value as TaskDialogs.Options
+        assertEquals(NoteSearchTarget(note.id, 7), dialog.noteTarget)
+        assertNull(vm.sheetState.value!!.active)
+    }
+
+    @Test
+    fun `note search retains results across rotation and longer subscription gaps`() = vmTest {
+        val id = db.insertTask(task(cat, text = "Insurance"))
+        repo.addNote(id, "Policy AB123")
+        vm.updateSearch(listOf(repo.taskWithCategory(id)!!), "AB123")
+        var collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.searchResults.collect {} }
+        val ready = vm.searchResults.first { id in it.taskIds }
+        collector.cancel()
+        runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(ready, vm.searchResults.value)
+        collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.searchResults.collect {} }
+        assertEquals(ready, vm.searchResults.value)
+        collector.cancel()
+        runCurrent()
+        advanceTimeBy(5_001)
+        runCurrent()
+        assertEquals(ready, vm.searchResults.value)
+    }
+
+    @Test
     fun `completion starts without notes while cloning copies them and both await title flush`() = vmTest {
         val id = addDaily(realToday.plusDays(3))
         val note = repo.addNote(id, "Source note")!!

@@ -17,6 +17,9 @@ interface TaskNoteDao {
     @Query("SELECT taskId, COUNT(*) AS count FROM TaskNote GROUP BY taskId")
     fun observeCounts(): Flow<List<TaskNoteCount>>
 
+    @Query("SELECT * FROM TaskNote ORDER BY createdAt DESC, id DESC")
+    fun observeForSearch(): Flow<List<TaskNote>>
+
     @Query("SELECT * FROM TaskNote ORDER BY id")
     suspend fun getAllNow(): List<TaskNote>
 

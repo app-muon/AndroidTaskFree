@@ -14,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -63,6 +65,8 @@ fun TaskSearchScreen(
     initialDueChoice: DueChoice = DueChoice.from(AppDateProvider.current.today())
 ) {
     val context = LocalContext.current.applicationContext as android.app.Application
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
     val adminVm: ToolsViewModel = viewModel(factory = ToolsVmFactory(context))
     val taskVm: TaskViewModel = viewModel(
@@ -283,7 +287,11 @@ fun TaskSearchScreen(
             orderProperty = if (selectedCatId == null) OrderProperty.ALL_CATEGORY_PAGE_ORDERING else OrderProperty.SINGLE_CATEGORY_PAGE_ORDERING,
             config = config,
             onDueChange = { due = it },
-            onClickTask = { taskVm.setDialog(TaskDialogs.Options(it)) },
+            onClickTask = { task, noteTarget ->
+                focusManager.clearFocus()
+                keyboard?.hide()
+                taskVm.setDialog(TaskDialogs.Options(task, noteTarget))
+            },
             onCategoryChange = { id -> selectedCatId = id },
             modifier = Modifier.weight(1f),
         )

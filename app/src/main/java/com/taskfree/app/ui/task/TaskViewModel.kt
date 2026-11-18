@@ -44,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.channelFlow
@@ -75,6 +76,16 @@ class TaskViewModel(
     private var dialogStateInitialized = false
     val noteCounts = repo.observeNoteCounts().map { counts -> counts.associate { it.taskId to it.count } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private val searchInput = MutableStateFlow(TaskSearchInput())
+    val searchResults = observeTaskSearch(searchInput, repo.observeNotesForSearch()) {
+        Log.e("TaskViewModel", "Unable to read notes for search", it)
+    }.flowOn(io).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskSearchResult())
+
+    /** Query normalization happens once in TaskListState, before entering the search pipeline. */
+    fun updateSearch(tasks: List<TaskWithCategoryInfo>, query: String) {
+        searchInput.value = TaskSearchInput(tasks, query)
+    }
 
     fun setDialog(dialog: TaskDialogs) {
         dialogStateInitialized = true
@@ -666,14 +677,19 @@ class TaskViewModel(
         return true
     }
 
-    suspend fun restoreDialog(kind: String, taskId: Int, categoryId: Int, due: DueChoice) {
+    suspend fun restoreDialog(
+        kind: String, taskId: Int, categoryId: Int, due: DueChoice,
+        noteTarget: NoteSearchTarget? = null
+    ) {
         // A retained ViewModel may already have completed an operation during rotation.
         // Its closed state takes precedence over the activity's older saved navigation ID.
         if (dialogStateInitialized) return
         dialogStateInitialized = true
         val dialog = withContext(io) {
             when (kind) {
-                "options" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.Options(it) }
+                "options" -> repo.taskWithCategory(taskId)?.let {
+                    TaskDialogs.Options(it, noteTarget)
+                }
                 "clone" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmClone(it) }
                 "delete" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmPermanentDelete(it) }
                 "archive_single" -> repo.taskWithCategory(taskId)?.let { TaskDialogs.ConfirmArchive(it, ArchiveMode.Single) }

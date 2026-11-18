@@ -6,22 +6,23 @@ import com.taskfree.app.domain.model.TaskStatus
 import com.taskfree.app.ui.components.DueChoice
 import com.taskfree.app.ui.components.SortMode
 import com.taskfree.app.ui.components.sortedAlphabetically
+import com.taskfree.app.ui.task.matchesTaskSearch
 import java.time.LocalDate
 
 object TaskFilterUtils {
 
     fun filterTasks(
-        tasks: List<TaskWithCategoryInfo>, state: TaskListState, visibleStatuses: List<TaskStatus>
+        tasks: List<TaskWithCategoryInfo>, state: TaskListState, visibleStatuses: List<TaskStatus>,
+        searchTaskIds: Set<Int>? = null
     ): List<TaskWithCategoryInfo> {
         return tasks.asSequence()
             .filter { state.selectedCategoryId == null || it.task.categoryId == state.selectedCategoryId }
             // "None" loads every task (no cut-off date), so keep just the undated ones here
             .filter { state.dueChoice !is DueChoice.None || it.task.due == null }
             .filter { it.task.status in visibleStatuses }.filter { task ->
-                val matchesSearch = state.searchQuery.isBlank() || task.task.text.contains(
-                    state.searchQuery,
-                    ignoreCase = true
-                )
+                val matchesSearch = state.searchQuery.isBlank() ||
+                    matchesTaskSearch(task.task.text, state.searchQuery) ||
+                    searchTaskIds?.contains(task.task.id) == true
                 matchesSearch
             }.toList()
     }

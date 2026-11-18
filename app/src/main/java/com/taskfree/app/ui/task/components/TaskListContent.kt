@@ -21,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +47,7 @@ import com.taskfree.app.ui.components.SortMode
 import com.taskfree.app.ui.components.resultLabel
 import com.taskfree.app.ui.components.thinVerticalScrollbar
 import com.taskfree.app.ui.task.TaskViewModel
+import com.taskfree.app.ui.task.NoteSearchTarget
 import com.taskfree.app.ui.task.TaskVmFactory
 import com.taskfree.app.util.db
 import kotlinx.coroutines.Job
@@ -64,7 +64,7 @@ fun TaskListContent(
     onDueChange: (DueChoice) -> Unit,
     modifier: Modifier = Modifier,
     onCategoryChange: (Int?) -> Unit,
-    onClickTask: (TaskWithCategoryInfo) -> Unit,
+    onClickTask: (TaskWithCategoryInfo, NoteSearchTarget?) -> Unit,
 ) {
     val context = LocalContext.current.applicationContext as android.app.Application
     val categoriesVm: CategoryViewModel = viewModel(factory = CategoryVmFactory(context))
@@ -94,17 +94,22 @@ fun TaskListContent(
 
     val uiTasks = remember { mutableStateListOf<TaskWithCategoryInfo>() }
 
-    // Derived filtering and sorting
-    val baseFiltered by remember(allTasks, listState, visibleStatuses) {
-        derivedStateOf {
-            TaskFilterUtils.filterTasks(allTasks, listState, visibleStatuses)
-        }
+    val query = listState.searchQuery
+    val searchResult by taskVm.searchResults.collectAsState()
+    LaunchedEffect(allTasks, query) {
+        taskVm.updateSearch(allTasks, query)
+    }
+    // Keep the last completed search visible during typing and database updates.
+    val currentSearch = searchResult.takeIf { query.isNotEmpty() && it.query.isNotEmpty() }
+
+    // Cache list values so sorting cannot retain an older filtering state's search result.
+    val baseFiltered = remember(allTasks, listState, visibleStatuses, currentSearch) {
+        TaskFilterUtils.filterTasks(allTasks, listState, visibleStatuses,
+            searchTaskIds = currentSearch?.taskIds)
     }
 
-    val sortedFiltered by remember(baseFiltered, listState.sortMode, orderProperty) {
-        derivedStateOf {
-            TaskFilterUtils.sortTasks(baseFiltered, listState.sortMode, orderProperty)
-        }
+    val sortedFiltered = remember(baseFiltered, listState.sortMode, orderProperty) {
+        TaskFilterUtils.sortTasks(baseFiltered, listState.sortMode, orderProperty)
     }
 
     // Show the filtered, sorted list; drags reorder uiTasks locally until the DB emits again
@@ -286,11 +291,13 @@ fun TaskListContent(
                     )
             ) {
                 items(uiTasks, key = { it.task.id }) { twci ->
+                    // While typing, a row can come from the previous query; don't open its note.
+                    val noteTarget = currentSearch?.takeIf { it.query == query }?.noteTargets?.get(twci.task.id)
                     ReorderableItem(reorderState, key = twci.task.id) { isDragging ->
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onClickTask(twci) }
+                                .clickable { onClickTask(twci, noteTarget) }
                                 .padding(horizontal = 8.dp, vertical = 2.dp)) {
                             TaskRow(
                                 task = twci.task,
@@ -298,7 +305,7 @@ fun TaskListContent(
                                 isDragging = isDragging,
                                 showCategory = true,
                                 category = twci.category,
-                                onClick = { onClickTask(twci) },
+                                onClick = { onClickTask(twci, noteTarget) },
                                 showHandle = draggingEnabled
                             )
                         }
