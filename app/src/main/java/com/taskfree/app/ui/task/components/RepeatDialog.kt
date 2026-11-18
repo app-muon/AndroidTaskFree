@@ -80,13 +80,13 @@ import com.taskfree.app.domain.model.validateRecurrenceDate
 import com.taskfree.app.ui.components.dialogMaxHeight
 import com.taskfree.app.ui.components.dialogResponsiveWidth
 import com.taskfree.app.ui.components.showDatePicker
-import com.taskfree.app.ui.components.specificDateLabel
 import com.taskfree.app.ui.mapper.displayName
 import com.taskfree.app.ui.mapper.messageResId
 import com.taskfree.app.ui.task.TaskViewModel
 import com.taskfree.app.ui.theme.providePanelColors
 import com.taskfree.app.util.AppDateProvider
 import com.taskfree.app.util.labelResId
+import com.taskfree.app.util.weekdayShortLabel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -165,11 +165,8 @@ fun RepeatDialog(
     val colors = providePanelColors()
     val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
         .withLocale(LocalConfiguration.current.locales[0])
-    fun dateLabel(date: LocalDate): String {
-        val calendar = date.format(formatter)
-        val relative = specificDateLabel(date, context)
-        return if (relative == date.toString()) calendar else "$relative · $calendar"
-    }
+    // One format for every date, so the label doesn't change shape as the date moves.
+    fun dateLabel(date: LocalDate) = "${weekdayShortLabel(date)} · ${date.format(formatter)}"
 
     Dialog(
         onDismissRequest = { if (!saving) onDismiss() },
